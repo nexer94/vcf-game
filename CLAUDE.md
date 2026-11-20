@@ -13,7 +13,11 @@ Výjimka: drobné úpravy `docs/PROGRESS.md` a tohoto souboru děláš sám.
 
 ## Zdroj pravdy
 - **Jediný zdroj faktů o VCF je `docs/spec/`.** Každé tvrzení ve specu má odkaz na techdocs.broadcom.com
-  (nebo knowledge.broadcom.com).
+  (nebo knowledge.broadcom.com). Pro porty a protokoly (sekce „Síťový provoz“) je povolený i oficiální
+  web Broadcom **Ports and Protocols**, na který TechDocs odkazuje – vždy s odkazem na konkrétní stránku/produkt.
+- **VCF Upgrade Planner** (https://vmware.github.io/vcf-upgrade-planner/) slouží jako **rozcestník**: výběr situací
+  pro kampaně, struktura a pořadí kroků. Fakta z něj se nepřebírají – ověřují se na techdocs/knowledge stránce,
+  na kterou planner odkazuje.
 - Když něco ve specu chybí → pošli `doc-researcher`. **Nikdy nedoplňuj fakta z paměti** – ani ty, ani subagenti.
 - Když se spec a kód rozcházejí, platí spec (pokud fact-checker nezjistí, že je spec zastaralý).
 
@@ -32,6 +36,29 @@ Výjimka: drobné úpravy `docs/PROGRESS.md` a tohoto souboru děláš sám.
    **Bez jeho OK není oblast hotová.**
 
 Nezávislé úkoly (např. research dvou různých oblastí) spouštěj paralelně.
+
+## Herní režimy
+Oba režimy sdílejí **stejný model a engine** (stejná pravidla VCF ze specu); liší se jen vrstvou nad nimi.
+
+### 1. Sandbox – volná simulace
+- Hráč může dělat cokoliv, co dovoluje architektura a dokumentace (navrhnout fleet, nasadit, rozšiřovat, rozbíjet…).
+- Žádné mise ani peníze; neomezené zdroje. Validace a chybové stavy přesně podle specu.
+- Slouží i jako „laboratoř“ pro testování modelu.
+
+### 2. Kariéra – hra
+- Postup po **kampaních → misích → úkolech**; mise se odemykají postupně.
+- Hráč je admin: řeší problémy, které reálně potkají admina VCF (chybějící DNS, plný IP pool, výpadek hosta,
+  nekompatibilní verze, přetížená linka, expirovaná licence…) – vždy jen chybové stavy ze specu.
+- **Body** za splněné úkoly (správné pořadí, prerekvizity, vyhnutí se pastem), srážky za chyby a nápovědy.
+- **Ekonomika**: rozpočet, nákup serverů / disků / NIC / switchů, návrh HA (počty hostů, failure tolerance…).
+  Požadavky na HA a kapacitu jsou ze specu; **ceny a rozpočty jsou herní mechanika** (fiktivní měna),
+  v UI vždy označené jako herní, ne jako fakt z dokumentace.
+- Kampaně (pořadí, rozcestník: VCF Upgrade Planner): 1. nové prostředí (bring-up) · 2. migrace – konvergence
+  vSphere do VCF · 3. upgrade VCF 5.2/9.0 → 9.1 · 4. den 2 – nová workload doména / instance · dál provoz a incidenty.
+
+### Architektura kódu pro režimy
+`game/src/model` + `game/src/engine` (společné) → `game/src/modes/sandbox`, `game/src/modes/career`
+(mise, skóre, ekonomika) → `render` / `ui`. Ekonomika ani skóre nesmí měnit pravidla VCF v modelu.
 
 ## Oblasti (pořadí práce)
 Struktura kopíruje sekce TechDocs VCF 9.x:
