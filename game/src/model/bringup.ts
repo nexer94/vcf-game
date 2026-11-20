@@ -304,19 +304,41 @@ export function compareVersions(a: string, b: string): number {
 }
 
 /**
- * FQDN syntax rules for VCF components:
- * - lowercase, not `.local` (20 §3.5, §5.1 [S14][S19]); uppercase in several fleet FQDNs makes the
- *   deployment fail (20 §5.3 #2 [S31]),
- * - top-level domain ASCII letters only (20 §3.5 [S20]).
+ * Classification of an FQDN field for the `.local` and lowercase rules (20 §3.5, §5.1 [S14][S19][S55]).
+ *
+ * - `containerized-service`: Fleet components, Instance components, Identity broker, VCF services runtime,
+ *   VCF Automation, VCF services runtime for VCF Automation.
+ *   * `.local` forbidden: "Containerized services, such as VCF management services, VCF Automation,
+ *     VCF Identity Broker, and VMware vSphere Supervisor, do not support .local domains." [S19][S55];
+ *     wizard note "Do not use a .local FQDN." on the four management services fields [S14].
+ *   * capital letters forbidden: "Do not use capital letters in the FQDN." on exactly these six fields
+ *     [S14][S19]; deployment fails otherwise (known issue, 20 §5.3 #2 [S31]).
+ * - `traditional-appliance`: vCenter, ESX hosts, NSX Manager (nodes + VIP), SDDC Manager, VCF Operations
+ *   nodes (+ its load balancer). "continue to operate with .local domains" [S19][S55]; the capital-letter
+ *   note is not given for them [S19] -> neither rule is checked.
+ * - `unclassified`: Cloud Proxy, License Server, VCF Installer appliance. Not listed as containerized nor
+ *   traditional [S19][S55], no wizard note [S14] (20 §8 q15) -> neither rule is checked (do not guess).
  */
-export function validateFqdnSyntax(fqdn: string, field: string): ValidationIssue[] {
+export type FqdnFieldClass = 'containerized-service' | 'traditional-appliance' | 'unclassified';
+
+/**
+ * FQDN syntax rules for VCF components (20 §3.5 [S14][S19][S20][S55]):
+ * - must be fully qualified; top-level domain ASCII letters only [S20] (all fields),
+ * - lowercase and not `.local` – only for `containerized-service` fields (see FqdnFieldClass).
+ * Default class is `unclassified` (no .local / lowercase check).
+ */
+export function validateFqdnSyntax(fqdn: string, field: string, fieldClass: FqdnFieldClass = 'unclassified'): ValidationIssue[] {
   const out: ValidationIssue[] = [];
   if (!fqdn.includes('.'))
     out.push(issue('FQDN_NOT_FULLY_QUALIFIED', 'error', `${field}: "${fqdn}" is not a fully qualified domain name.`, '20 §3.5 [S20]', field));
-  if (fqdn !== fqdn.toLowerCase())
-    out.push(issue('FQDN_NOT_LOWERCASE', 'error', `${field}: FQDN must be lowercase.`, '20 §3.5, §5.1, §5.3 #2 [S14][S19][S31]', field));
-  if (fqdn.toLowerCase().endsWith('.local'))
-    out.push(issue('FQDN_LOCAL_DOMAIN', 'error', `${field}: FQDN must not use the .local domain.`, '20 §3.5, §5.1 [S14][S19]', field));
+  if (fieldClass === 'containerized-service') {
+    // Quote of the wizard note [S14][S19]; a deployment with capitals fails (known issue 20 §5.3 #2 [S31]).
+    if (fqdn !== fqdn.toLowerCase())
+      out.push(issue('FQDN_NOT_LOWERCASE', 'error', `${field}: Do not use capital letters in the FQDN.`, '20 §3.5, §5.1, §5.3 #2 [S14][S19][S31]', field));
+    // Exact validation message is not documented (20 §5.1); the text quotes the wizard note [S14].
+    if (fqdn.toLowerCase().endsWith('.local'))
+      out.push(issue('FQDN_LOCAL_DOMAIN', 'error', `${field}: Do not use a .local FQDN. Containerized services do not support .local domains.`, '20 §3.5, §5.1 [S14][S19][S55]', field));
+  }
   const tld = fqdn.split('.').pop() ?? '';
   if (fqdn.includes('.') && !/^[A-Za-z]+$/.test(tld))
     out.push(issue('FQDN_TLD_INVALID', 'error', `${field}: top-level domain may contain only ASCII letters.`, '20 §3.5 [S20]', field));
@@ -354,6 +376,11 @@ export interface InstallerOvfInput {
   readonly rootPassword: string;
   /** Local user password (for admin@local / vcf). */
   readonly localUserPassword: string;
+  /**
+   * ESX host the appliance is deployed to (relevant for `management-host`; used for the NFS v3 mount
+   * prerequisite, 20 §3.2 [S7]). Optional: when omitted the mount prerequisite is not checked.
+   */
+  readonly esxHostId?: string;
   /** Becomes the SDDC Manager FQDN on a management host and cannot be changed later. */
   readonly hostnameFqdn: string;
   readonly ntpServers: readonly string[];
@@ -385,20 +412,38 @@ export function initialInstallerState(version: string = MODELLED_VCF_VERSION): I
 }
 
 export interface PasswordPolicyOptions {
-  /** Usernames the password must not contain (20 §3.6 [S6]). */
+  /** Usernames the password must not contain, neither whole nor in part (20 §3.6 [S6]). */
   readonly usernames: readonly string[];
   /**
    * Dictionary words the password must not contain (20 §3.6 [S6]).
-   * TODO(spec 20 §3.6): the dictionary itself and the exact meaning of "part of a word/username" are not
-   * documented – the model checks containment of the supplied words / full usernames only.
+   * TODO(spec 20 §3.6): the dictionary itself is not documented – the model checks containment of the
+   * supplied words only ("part of a dictionary word" cannot be evaluated without the dictionary).
    */
   readonly dictionaryWords?: readonly string[];
 }
 
 /**
+ * MODELLING DECISION (not documented): "must not contain the user name or parts of it" (20 §3.6 [S6]) –
+ * the docs do not define what a "part" is. The model treats any case-insensitive substring of the user
+ * name with length >= 4 as a part (shorter user names, e.g. "vcf", are checked as a whole).
+ * Threshold 4 avoids rejecting passwords for common 2–3 letter fragments.
+ */
+export const PASSWORD_USERNAME_PART_MIN_LENGTH = 4;
+
+/** True when `password` contains `username` or any of its parts (see PASSWORD_USERNAME_PART_MIN_LENGTH). */
+export function passwordContainsUsernamePart(password: string, username: string): boolean {
+  const p = password.toLowerCase();
+  const u = username.toLowerCase();
+  if (u.length === 0) return false;
+  const n = Math.min(PASSWORD_USERNAME_PART_MIN_LENGTH, u.length);
+  for (let i = 0; i + n <= u.length; i++) if (p.includes(u.slice(i, i + n))) return true;
+  return false;
+}
+
+/**
  * VCF Installer root / local user password policy (20 §3.6, §5.2 [S6]):
  * ≥ 15 chars, ≥ 1 upper, ≥ 1 lower, ≥ 1 digit, ≥ 1 special from `@ ! # $ % ? ^`, no dictionary word,
- * no username. "Passwords that don't meet these rules cause the deployment to fail" -> error.
+ * no username (or part of it). "Passwords that don't meet these rules cause the deployment to fail" -> error.
  */
 export function validateInstallerPassword(password: string, field: string, opts: PasswordPolicyOptions): ValidationIssue[] {
   const ref = '20 §3.6, §5.2 [S6]';
@@ -412,9 +457,9 @@ export function validateInstallerPassword(password: string, field: string, opts:
   if (!/[0-9]/.test(password)) fail('PASSWORD_NO_DIGIT', 'must contain at least one digit.');
   if (!INSTALLER_PASSWORD_SPECIAL_CHARS.some((c) => password.includes(c)))
     fail('PASSWORD_NO_SPECIAL', `must contain at least one special character (${INSTALLER_PASSWORD_SPECIAL_CHARS.join(' ')}).`);
+  if (opts.usernames.some((u) => passwordContainsUsernamePart(password, u)))
+    fail('PASSWORD_CONTAINS_USERNAME', 'must not contain the user name or parts of it.');
   const lower = password.toLowerCase();
-  if (opts.usernames.some((u) => u.length > 0 && lower.includes(u.toLowerCase())))
-    fail('PASSWORD_CONTAINS_USERNAME', 'must not contain the user name.');
   if ((opts.dictionaryWords ?? []).some((w) => w.length > 0 && lower.includes(w.toLowerCase())))
     fail('PASSWORD_CONTAINS_DICTIONARY_WORD', 'must not contain a dictionary word.');
   return out;
@@ -448,7 +493,8 @@ export function validateDeployInstallerOva(
     out.push(issue('INSTALLER_STATIC_IP_INVALID', 'error', 'VCF Installer requires a valid static IPv4 address.', ref, 'ipv4Address'));
   if (ovf.ipVersion === 'ipv4-ipv6' && (ovf.ipv6Address === undefined || ovf.ipv6Prefix === undefined || ovf.ipv6Gateway === undefined))
     out.push(issue('INSTALLER_IPV6_MISSING', 'error', 'IPv4+IPv6: IPv6 address, prefix and gateway are required.', '20 §4.1.5 step 9 [S6]', 'ipv6Address'));
-  out.push(...validateFqdnSyntax(ovf.hostnameFqdn, 'Host Name'));
+  // Installer appliance FQDN: .local / lowercase rules not validated (20 §8 q15) -> 'unclassified'.
+  out.push(...validateFqdnSyntax(ovf.hostnameFqdn, 'Host Name', 'unclassified'));
   out.push(...validateDnsRecords(dns, ovf.hostnameFqdn, 'Host Name', ovf.ipv4Address));
   if (ovf.placement === 'management-host' && ovf.datastore !== 'local-disk')
     out.push(issue('INSTALLER_DATASTORE_NOT_LOCAL', 'error', 'On a management host the VCF Installer must be deployed to the local disk.', '20 §4.1.5 step 6 [S6]', 'datastore'));
@@ -528,6 +574,8 @@ export interface EsxHost {
   readonly sshEnabled: boolean;
   /** CN of the self-signed certificate (20 §3.2 [S11]). */
   readonly certificateCn: string;
+  /** NFS datastore mounted manually ("Mount NFS Datastore to an ESX Host", 20 §3.2 [S7]). */
+  readonly nfsDatastoreMounted?: boolean;
 }
 
 export function newBareMetalHost(
@@ -719,14 +767,15 @@ export function validateEsxHostsForBringup(
         out.push(issue('ESX_STATIC_IP_INVALID', 'error', `Host ${h.id}: a static IPv4 address is required.`, '20 §3.2 [S9]', h.id));
       if (n.customDnsSuffixes.length > 0)
         out.push(issue('ESX_CUSTOM_DNS_SUFFIXES', 'error', `Host ${h.id}: "Custom DNS Suffixes" must be empty.`, '20 §3.2, §4.1.2 [S9]', h.id));
-      out.push(...validateFqdnSyntax(n.hostnameFqdn, `Host ${h.id} hostname`));
+      out.push(...validateFqdnSyntax(n.hostnameFqdn, `Host ${h.id} hostname`, 'traditional-appliance'));
       out.push(...validateDnsRecords(ctx.dns, n.hostnameFqdn, `Host ${h.id}`, n.ipv4Address));
       if (h.certificateCn !== n.hostnameFqdn)
         out.push(issue('ESX_CERT_CN_MISMATCH', 'error', `Host ${h.id}: certificate CN "${h.certificateCn}" does not match FQDN ${n.hostnameFqdn}; regenerate the self-signed certificate after setting the hostname.`, '20 §3.2, §4.1.4, §5.2 [S11]', h.id));
     }
     if (!h.ntp.enabled || h.ntp.servers.length === 0 || !h.ntp.serviceRunning)
       out.push(issue('ESX_NTP_NOT_RUNNING', 'error', `Host ${h.id}: NTP must be configured and the NTP service running.`, '20 §3.2, §4.1.3 [S10]', h.id));
-    // Known issue: NFS on hosts with a single pNIC (20 §5.3 #3 [S31]) – quoted message.
+    // Known issue: NFS on hosts with a single pNIC (20 §5.3 #3 [S31]) – message is the verbatim [S31] quote
+    // "Failed to validate NFS configuration. NFS datastore mount failed on host <host>" (<host> substituted).
     if (ctx.storage === 'nfs-v3' && h.pnicCount < 2)
       out.push(issue('NFS_SINGLE_PNIC_UNSUPPORTED', 'error', `Failed to validate NFS configuration. NFS datastore mount failed on host ${n?.hostnameFqdn ?? h.id}`, '20 §5.3 #3 [S31]', h.id));
   }
@@ -1065,20 +1114,38 @@ export interface FqdnRequirement {
   readonly field: string;
   readonly value: string | undefined;
   readonly required: boolean;
+  /** Which .local / lowercase rules apply (20 §3.5). */
+  readonly fqdnClass: FqdnFieldClass;
 }
 
+/**
+ * VCF Automation is deployed by this bring-up only for a new fleet (fleet-level component of the first
+ * instance, 00 §2.1 / 20 §2.3 [S3]; additional-instance sizing has no VCF Automation, 20 §6.2 [S23]),
+ * and not when "existing / deploy later" or custom networking is selected (20 §4.2 steps 4, 6 [S14]).
+ */
 export function isVcfAutomationDeployedNow(spec: BringupSpec): boolean {
-  return !spec.existing.existingVcfAutomationOrDeployLater && !spec.networkConfig.deployOpsAndAutomationToCustomNetwork;
+  return (
+    spec.target === 'new-fleet' &&
+    !spec.existing.existingVcfAutomationOrDeployLater &&
+    !spec.networkConfig.deployOpsAndAutomationToCustomNetwork
+  );
+}
+
+/** Sizing table for the target: first instance (new fleet) vs additional instance (00 §6, 20 §6.2 [S19][S23]). */
+export function instanceSizingFor(spec: BringupSpec): InstanceSizing {
+  const table = spec.target === 'new-fleet' ? FIRST_INSTANCE_SIZING : ADDITIONAL_INSTANCE_SIZING;
+  return table[sizingProfileOf(spec.model, spec.size)];
 }
 
 /**
  * Which component FQDN fields apply to the spec (20 §4.2 steps 12–17, §6.4 [S14][S19]).
  * - Custom networking skips VCF Operations, cloud proxy, license server and VCF Automation (20 §4.2 step 6).
  * - Data node FQDN only for HA Medium/Large (20 §2.1 [S14][S19]).
- * - Replica only HA. TODO(spec 20 §8 q10): [S14] does not mark replica as HA-only; in Simple the field
- *   is treated as not required (and not rejected).
- * - Identity broker mandatory only for the primary instance (20 §2.5 [S15]).
+ * - Replica node FQDN only for HA: [S19] "Replica node" Simple "-", HA "1 FQDN" (20 §8 q10, closed).
+ *   In Simple the field is not required; a supplied value is still syntax/DNS-checked, not rejected.
+ * - Identity broker mandatory only for the primary instance (20 §2.5 [S15]); optional for a new instance.
  * - TODO: fleet components FQDN for a new instance – not documented; required only for a new fleet.
+ * - fqdnClass per 20 §3.5 (see FqdnFieldClass).
  */
 export function fqdnRequirements(spec: BringupSpec): FqdnRequirement[] {
   const c = spec.components;
@@ -1086,25 +1153,34 @@ export function fqdnRequirements(spec: BringupSpec): FqdnRequirement[] {
   const deferred = spec.networkConfig.deployOpsAndAutomationToCustomNetwork;
   const newOps = !spec.existing.existingVcfOperations && !deferred;
   const automation = isVcfAutomationDeployedNow(spec);
-  const req = (field: string, value: string | undefined, required: boolean): FqdnRequirement => ({ field, value, required });
+  const req = (field: string, value: string | undefined, required: boolean, fqdnClass: FqdnFieldClass): FqdnRequirement => ({
+    field,
+    value,
+    required,
+    fqdnClass,
+  });
+  const T: FqdnFieldClass = 'traditional-appliance';
+  const C: FqdnFieldClass = 'containerized-service';
+  const U: FqdnFieldClass = 'unclassified';
   const list: FqdnRequirement[] = [
-    req('vCenter FQDN', spec.vcenter.fqdn, !spec.existing.existingVcenter),
-    req('SDDC Manager FQDN', spec.sddcManager.fqdn, true),
-    req('NSX Manager VIP FQDN', spec.nsx.vipFqdn, true),
-    req('VCF Operations primary node FQDN', c.vcfOperationsPrimaryFqdn, newOps),
-    req('VCF Operations replica node FQDN', c.vcfOperationsReplicaFqdn, newOps && ha),
-    req('VCF Operations data node FQDN', c.vcfOperationsDataFqdn, newOps && ha && spec.size !== 'small'),
-    req('Load balancer FQDN', c.loadBalancerFqdn, false),
-    req('Cloud Proxy FQDN', c.cloudProxyFqdn, !deferred),
-    req('License Server FQDN', c.licenseServerFqdn, !deferred && !spec.existing.existingVcfOperations),
-    req('Fleet components FQDN', c.fleetComponentsFqdn, spec.target === 'new-fleet'),
-    req('Instance components FQDN', c.instanceComponentsFqdn, true),
-    req('Identity broker FQDN', c.identityBrokerFqdn, spec.target === 'new-fleet'),
-    req('VCF services runtime FQDN', c.servicesRuntimeFqdn, true),
-    req('VCF Automation FQDN', c.vcfAutomationFqdn, automation),
-    req('VCF services runtime FQDN for VCF Automation', c.vcfAutomationServicesRuntimeFqdn, automation),
+    req('vCenter FQDN', spec.vcenter.fqdn, !spec.existing.existingVcenter, T),
+    req('SDDC Manager FQDN', spec.sddcManager.fqdn, true, T),
+    req('NSX Manager VIP FQDN', spec.nsx.vipFqdn, true, T),
+    req('VCF Operations primary node FQDN', c.vcfOperationsPrimaryFqdn, newOps, T),
+    req('VCF Operations replica node FQDN', c.vcfOperationsReplicaFqdn, newOps && ha, T),
+    req('VCF Operations data node FQDN', c.vcfOperationsDataFqdn, newOps && ha && spec.size !== 'small', T),
+    // Load balancer for VCF Operations: not named in [S19][S55] either way -> no .local/lowercase check.
+    req('Load balancer FQDN', c.loadBalancerFqdn, false, U),
+    req('Cloud Proxy FQDN', c.cloudProxyFqdn, !deferred, U), // 20 §8 q15
+    req('License Server FQDN', c.licenseServerFqdn, !deferred && !spec.existing.existingVcfOperations, U), // 20 §8 q15
+    req('Fleet components FQDN', c.fleetComponentsFqdn, spec.target === 'new-fleet', C),
+    req('Instance components FQDN', c.instanceComponentsFqdn, true, C),
+    req('Identity broker FQDN', c.identityBrokerFqdn, spec.target === 'new-fleet', C),
+    req('VCF services runtime FQDN', c.servicesRuntimeFqdn, true, C),
+    req('VCF Automation FQDN', c.vcfAutomationFqdn, automation, C),
+    req('VCF services runtime FQDN for VCF Automation', c.vcfAutomationServicesRuntimeFqdn, automation, C),
   ];
-  spec.nsx.nodeFqdns.forEach((f, i) => list.push(req(`NSX Manager node ${i + 1} FQDN`, f, true)));
+  spec.nsx.nodeFqdns.forEach((f, i) => list.push(req(`NSX Manager node ${i + 1} FQDN`, f, true, T)));
   return list;
 }
 
@@ -1124,8 +1200,11 @@ export function validateExistingComponents(spec: BringupSpec): ValidationIssue[]
     out.push(issue('EXISTING_OPS_REQUIRES_EXISTING_VCENTER', 'error', 'VCF Operations must be in the management domain of the first VCF Instance; with an existing VCF Operations the existing vCenter option is always selected (convergence).', '20 §2.5 [S14][S28]', 'existingVcenter'));
   if (e.vcenterRegisteredWithNsx && !e.existingVcenter)
     out.push(issue('NSX_REGISTRATION_REQUIRES_EXISTING_VCENTER', 'error', '"vCenter is registered with NSX Manager" applies only to an existing vCenter (convergence).', '20 §4.2 step 4 [S14]', 'vcenterRegisteredWithNsx'));
+  // GAME-SCOPE LIMITATION, not a VCF validation error: convergence (20 §4.6) is not modelled yet.
+  // scope 'game-scope' lets the UI disable the option instead of showing a VCF error; severity error
+  // keeps the model from proceeding with an unmodelled workflow.
   if (e.existingVcenter)
-    out.push(issue('CONVERGENCE_NOT_MODELLED', 'error', 'Using an existing vCenter is the convergence workflow, which this model does not cover yet.', '20 §4.6 [S28] (model scope)', 'existingVcenter'));
+    out.push(issue('CONVERGENCE_NOT_MODELLED', 'error', 'Game limitation: the convergence workflow (existing vCenter) is not available in this version of the game.', '20 §4.6 [S28] (game scope)', 'existingVcenter', 'game-scope'));
   return out;
 }
 
@@ -1257,7 +1336,7 @@ function poolsOf(spec: BringupSpec): { pools: PoolInfo[]; issues: ValidationIssu
 
 /**
  * Step 11 IP pools (20 §3.5, §4.2 step 11, §5.1, §6.4 [S14][S19]).
- * - services runtime: ≥ 12 IPs (error), recommended 30 (warning – modelling decision for "recommended"),
+ * - services runtime: ≥ 12 IPs (error), recommended 30 (severity 'recommendation', not an installer warning),
  * - VCF Automation: 5 IPs,
  * - internal cluster CIDR: one of the documented values,
  * - inclusion ranges (vMotion / vSAN|NFS / TEP): ≥ number of hosts (TEP: per active uplink),
@@ -1273,8 +1352,10 @@ export function validateIpPools(spec: BringupSpec, env: BringupEnvironment): Val
   if (svc) {
     if (svc.addrs.length < SERVICES_RUNTIME_MIN_IPS)
       out.push(issue('SERVICES_RUNTIME_IPS_TOO_FEW', 'error', `VCF services runtime requires at least ${SERVICES_RUNTIME_MIN_IPS} IP addresses.`, '20 §3.5, §6.4 [S19]', 'networks.managementServicesIpPool'));
+    // Documentation only recommends 30 IPs; no installer warning is documented -> 'recommendation'
+    // severity (non-blocking, not part of the Acknowledge flow of 20 §5.1).
     else if (svc.addrs.length < SERVICES_RUNTIME_RECOMMENDED_IPS)
-      out.push(issue('SERVICES_RUNTIME_IPS_BELOW_RECOMMENDED', 'warning', `Reserving ${SERVICES_RUNTIME_RECOMMENDED_IPS} IP addresses for the VCF services runtime is recommended (Day-N services consume IPs from this block).`, '20 §3.5, §6.4 [S19]', 'networks.managementServicesIpPool'));
+      out.push(issue('SERVICES_RUNTIME_IPS_BELOW_RECOMMENDED', 'recommendation', `Recommendation from the documentation (not an installer warning): reserve ${SERVICES_RUNTIME_RECOMMENDED_IPS} IP addresses for the VCF services runtime (Day-N services consume IPs from this block).`, '20 §3.5, §6.4 [S19]', 'networks.managementServicesIpPool'));
   }
   if (isVcfAutomationDeployedNow(spec)) {
     const va = pools.find((p) => p.name === 'VCF Automation IP Range');
@@ -1350,7 +1431,7 @@ export function validateComponentFqdns(spec: BringupSpec, env: BringupEnvironmen
       if (r.required) out.push(issue('FQDN_REQUIRED', 'error', `${r.field} is required.`, '20 §4.2 step 12, §6.4 [S14][S19]', r.field));
       continue;
     }
-    out.push(...validateFqdnSyntax(r.value, r.field));
+    out.push(...validateFqdnSyntax(r.value, r.field, r.fqdnClass));
     out.push(...validateDnsRecords(env.dns, r.value, r.field));
     const ip = env.dns.forward[r.value.toLowerCase()];
     if (ip === undefined) continue;
@@ -1369,7 +1450,7 @@ export function validateComponentFqdns(spec: BringupSpec, env: BringupEnvironmen
 /** Step 16 (20 §4.2 step 16, §6.4 [S14][S19]): NSX nodes 1 (Simple) / 3 (HA) + VIP. */
 export function validateNsxManager(spec: BringupSpec): ValidationIssue[] {
   const out: ValidationIssue[] = [];
-  const expected = FIRST_INSTANCE_SIZING[sizingProfileOf(spec.model, spec.size)].nsx.nodes;
+  const expected = instanceSizingFor(spec).nsx.nodes;
   if (spec.nsx.nodeFqdns.length !== expected)
     out.push(issue('NSX_NODE_COUNT', 'error', `${spec.model} deployment requires ${expected} NSX Manager node FQDN(s).`, '20 §2.1, §6.4 [S4][S19]', 'nsx.nodeFqdns'));
   if (spec.networkConfig.vpcGatewayConnectivity === 'distributed') {
@@ -1413,6 +1494,21 @@ export function validateSddcManager(spec: BringupSpec, installer: InstallerState
   return [];
 }
 
+/**
+ * Installer on a management host with NFS v3 principal storage: "Mount NFS Datastore to an ESX Host"
+ * must be done on that host first (20 §3.2 [S7][S14]). Checked only when the model knows which host
+ * runs the appliance (`InstallerOvfInput.esxHostId`).
+ */
+export function validateInstallerHostNfsMount(spec: BringupSpec, env: BringupEnvironment): ValidationIssue[] {
+  const ovf = env.installer.ovf;
+  if (spec.storage.type !== 'nfs-v3' || ovf?.placement !== 'management-host' || ovf.esxHostId === undefined) return [];
+  const host = env.hosts.find((h) => h.id === ovf.esxHostId);
+  if (!host || host.nfsDatastoreMounted === true) return [];
+  return [
+    issue('INSTALLER_HOST_NFS_NOT_MOUNTED', 'error', `Host ${host.id} runs the VCF Installer and the management domain uses NFS v3: mount the NFS datastore on that host first (Mount NFS Datastore to an ESX Host).`, '20 §3.2 [S7][S14]', host.id),
+  ];
+}
+
 /** Installer must reach hosts, DNS and NTP (20 §3.3 [S5][S6]). */
 export function validateReachability(spec: BringupSpec, env: BringupEnvironment): ValidationIssue[] {
   const unreachable = new Set(env.unreachableFromInstaller ?? []);
@@ -1437,6 +1533,7 @@ export function validateBringupSpec(spec: BringupSpec, env: BringupEnvironment):
     ...validateDeploymentModel(spec),
     ...validateNetworkConfiguration(spec, env.installer),
     ...validateStorage(spec),
+    ...validateInstallerHostNfsMount(spec, env),
     ...validateGeneralConfiguration(spec, env),
     ...validateHostEntries(spec, env),
     ...validateIpPools(spec, env),
@@ -1561,30 +1658,46 @@ function comp(kind: DeployedComponent['kind'], nodes: number, size?: string, fqd
 }
 
 /**
- * Components deployed by VCF Installer into the management domain of the first instance
- * (20 §2.1 [S4], sizing 20 §6.2 [S23]). VCF Automation is omitted when "existing / deploy later"
- * is selected; VCF Operations, cloud proxy, license server and VCF Automation are omitted when they
- * are deferred to custom networking (20 §4.2 step 6, §4.5).
+ * Components deployed by VCF Installer into the management domain (20 §2.1 [S4], sizing 20 §6.2 [S23]).
+ *
+ * New fleet (first instance): SDDC Manager, VCF Operations, cloud proxy, license server, VCF Automation,
+ * VCF services runtime + fleet-level and instance-level services. VCF Automation is omitted when
+ * "existing / deploy later" is selected; VCF Operations, cloud proxy, license server and VCF Automation
+ * are omitted when deferred to custom networking (20 §4.2 step 6, §4.5).
+ *
+ * New instance: ADDITIONAL_INSTANCE_SIZING (no VCF Operations / license server / VCF Automation – they
+ * are fleet components of the first instance, 00 §2.1, 20 §2.3 [S3]); no fleet-level services
+ * (fleet-lifecycle, salt-raas: "jen první VCF Instance", 00 §2.3 [S2][S5]).
+ * Identity broker is optional for additional instances (00 §2.3, 20 §2.5 [S15]) -> added only when the
+ * Identity broker FQDN is supplied. Software depot is optional / Day-N for additional instances
+ * (00 §2.3 [S2]); the wizard has no input for it -> not added.
+ * TODO(orchestrator): whether the installer deploys a software depot into a new instance is not documented.
  */
 export function managementDomainComponentsFor(spec: BringupSpec): DeployedComponent[] {
-  const s = FIRST_INSTANCE_SIZING[sizingProfileOf(spec.model, spec.size)];
+  const s = instanceSizingFor(spec);
   const c = spec.components;
+  const newFleet = spec.target === 'new-fleet';
   const deferred = spec.networkConfig.deployOpsAndAutomationToCustomNetwork;
   const out: DeployedComponent[] = [comp('sddc-manager', s.sddcManager.nodes, s.sddcManager.size, [spec.sddcManager.fqdn])];
   if (!deferred) {
-    if (s.vcfOperations)
+    if (newFleet && s.vcfOperations)
       out.push(
         comp('vcf-operations', s.vcfOperations.nodes, s.vcfOperations.size, [c.vcfOperationsPrimaryFqdn ?? '', c.vcfOperationsReplicaFqdn ?? '', c.vcfOperationsDataFqdn ?? ''].slice(0, s.vcfOperations.nodes)),
       );
     out.push(comp('cloud-proxy', s.cloudProxy.nodes, s.cloudProxy.size, [c.cloudProxyFqdn ?? '']));
-    if (s.licenseServer) out.push(comp('license-server', s.licenseServer.nodes, s.licenseServer.size, [c.licenseServerFqdn ?? '']));
+    if (newFleet && s.licenseServer) out.push(comp('license-server', s.licenseServer.nodes, s.licenseServer.size, [c.licenseServerFqdn ?? '']));
   }
   if (isVcfAutomationDeployedNow(spec) && s.vcfAutomation)
     out.push(comp('vcf-automation', s.vcfAutomation.nodes, s.vcfAutomation.size, [c.vcfAutomationFqdn ?? '']));
   const ms = s.managementServices;
   out.push(comp('vcf-services-runtime', ms.controlPlaneNodes + ms.workerNodes, undefined, [c.servicesRuntimeFqdn ?? '']));
-  for (const k of ['fleet-lifecycle', 'sddc-lifecycle', 'software-depot', 'identity-broker', 'salt-raas', 'salt-master', 'telemetry'] as const)
-    out.push(comp(k, 1));
+  if (newFleet) {
+    for (const k of ['fleet-lifecycle', 'sddc-lifecycle', 'software-depot', 'identity-broker', 'salt-raas', 'salt-master', 'telemetry'] as const)
+      out.push(comp(k, 1));
+  } else {
+    for (const k of ['sddc-lifecycle', 'salt-master', 'telemetry'] as const) out.push(comp(k, 1));
+    if (c.identityBrokerFqdn !== undefined && c.identityBrokerFqdn.trim() !== '') out.push(comp('identity-broker', 1, undefined, [c.identityBrokerFqdn]));
+  }
   return out;
 }
 
@@ -1598,7 +1711,7 @@ export function buildFleetFromBringup(
   ids: { readonly fleetId: string; readonly fleetName: string; readonly instanceId: string; readonly domainId: string; readonly clusterId: string },
   clusterModel: ClusterModel,
 ): Fleet {
-  const s = FIRST_INSTANCE_SIZING[sizingProfileOf(spec.model, spec.size)];
+  const s = instanceSizingFor(spec);
   const cluster: Cluster = {
     id: ids.clusterId,
     name: `${spec.general.managementDomainName}-cl01`,

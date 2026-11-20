@@ -3,6 +3,14 @@ import { EventBus, type GameEvent, type Listener, type Unsubscribe } from './eve
 import type { GameSnapshot } from './snapshot';
 
 /**
+ * A simulation subsystem driven by the engine clock (e.g. a Sandbox session with timed tasks).
+ * `advance` is called only when game time actually moved (never while paused).
+ */
+export interface GameSystem {
+  advance(gameDeltaMs: number, gameTimeMs: number): void;
+}
+
+/**
  * Interface the render/UI layers depend on. Render only reads snapshots and
  * subscribes to events; it sends player intent via commands (e.g. setSpeed).
  */
@@ -16,6 +24,7 @@ export interface GameEngineView {
 export class GameEngine implements GameEngineView {
   private readonly clock: GameClock;
   private readonly bus = new EventBus<GameEvent>();
+  private readonly systems = new Set<GameSystem>();
   private tickCount = 0;
 
   constructor(initialSpeed: GameSpeed = 0) {
@@ -24,8 +33,17 @@ export class GameEngine implements GameEngineView {
 
   /** Advance the simulation by a real-time delta (ms). */
   tick(realDeltaMs: number): void {
-    this.clock.advance(realDeltaMs);
+    const gameDelta = this.clock.advance(realDeltaMs);
     this.tickCount += 1;
+    if (gameDelta > 0) for (const s of [...this.systems]) s.advance(gameDelta, this.clock.timeMs);
+  }
+
+  /** Attach a subsystem that progresses with game time; pausing the clock stops it. */
+  attach(system: GameSystem): Unsubscribe {
+    this.systems.add(system);
+    return () => {
+      this.systems.delete(system);
+    };
   }
 
   snapshot(): GameSnapshot {

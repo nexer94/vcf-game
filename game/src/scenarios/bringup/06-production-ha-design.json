@@ -282,7 +282,7 @@
       "id": "t-validate",
       "order": 9,
       "title": "Čistá validace",
-      "description": "Produkční návrh má projít validací bez errors i warnings.",
+      "description": "Produkční návrh má projít validací bez errors a warnings a zároveň splnit doporučení z dokumentace (např. 30 IP pro services runtime – to je doporučení, ne warning installeru).",
       "actions": [
         { "kind": "deployment-event", "event": "submit-for-review" },
         { "kind": "deployment-event", "event": "start-validation" }

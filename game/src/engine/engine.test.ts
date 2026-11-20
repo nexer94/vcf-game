@@ -26,4 +26,21 @@ describe('GameEngine', () => {
       { type: 'speedChanged', atMs: 1000, speed: 0 },
     ]);
   });
+
+  it('drives attached systems with game time only while running', () => {
+    const e = new GameEngine(4);
+    const calls: [number, number][] = [];
+    const off = e.attach({ advance: (d, now) => calls.push([d, now]) });
+    e.tick(100);
+    e.setSpeed(0);
+    e.tick(100);
+    e.setSpeed(1);
+    e.tick(50);
+    off();
+    e.tick(50);
+    expect(calls).toEqual([
+      [400, 400],
+      [50, 450],
+    ]);
+  });
 });

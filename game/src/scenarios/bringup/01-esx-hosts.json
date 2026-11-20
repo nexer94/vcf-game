@@ -1,15 +1,16 @@
 {
   "schemaVersion": 1,
-  "id": "c1-m2-esx-hosts",
+  "id": "c1-m1-esx-hosts",
   "campaign": { "id": "c1-bringup", "order": 1, "title": "Nové prostředí – bring-up první instance" },
-  "order": 2,
-  "title": "Příprava ESX hostů pro management doménu",
-  "difficulty": "routine",
+  "order": 1,
+  "title": "První kroky: příprava ESX hostů pro management doménu",
+  "difficulty": "tutorial",
   "vcfVersion": "9.1.1",
-  "requires": ["c1-m1-vcf-installer"],
-  "summary": "Připrav čtyři ESX hosty: instalace z ISO, síť v DCUI, NTP, regenerace certifikátu a DNS záznamy.",
-  "briefing": "Do racku dorazily čtyři servery pro management doménu. Tři už mají ESX z ISO, čtvrtý je holý. Kolega na esx03 začal konfigurovat síť, ale nedokončil to. VCF Installer při validaci kontroluje každý host: statickou IP, FQDN, DNS záznamy, NTP a hlavně certifikát – jeho CN musí odpovídat FQDN. Připrav hosty tak, aby prošly kontrolou, a nezapomeň na pořadí kroků z dokumentace.",
+  "requires": [],
+  "summary": "Začni fázi Preparation podle dokumentace: projdi pořadí kroků a připrav čtyři ESX hosty – instalace z ISO, síť v DCUI, DNS záznamy, NTP a regenerace certifikátu.",
+  "briefing": "Firma staví nový privátní cloud na VCF 9.1.1. Dokumentace řadí fázi Preparation takto: projít prerekvizity, nainstalovat (image) ESX hosty, nasadit VCF Installer a stáhnout binárky. Prerekvizity máš sepsané ve workbooku, teď jsou na řadě hosty. Do racku dorazily čtyři servery pro management doménu. Tři už mají ESX z ISO, čtvrtý je holý. Kolega na esx03 začal konfigurovat síť, ale nedokončil to. VCF Installer později při validaci kontroluje každý host: statickou IP, FQDN, DNS záznamy, NTP a hlavně certifikát – jeho CN musí odpovídat FQDN. Připrav hosty tak, aby kontrolou prošly, a dodrž pořadí kroků z dokumentace.",
   "objectives": [
+    "Znát pořadí kroků fáze Preparation.",
     "Nainstalovat ESX na esx04.",
     "Na všech hostech nastavit management síť v DCUI (bez Custom DNS Suffixes).",
     "Zajistit forward i reverse DNS záznamy všech hostů.",
@@ -17,27 +18,7 @@
     "Po nastavení hostname regenerovat self-signed certifikát a znovu vypnout SSH."
   ],
   "initial": {
-    "installer": {
-      "mode": "installer",
-      "version": "9.1.1",
-      "platformsDeployed": 0,
-      "ovf": {
-        "vmName": "vcf-installer",
-        "placement": "outside-management",
-        "datastore": "other",
-        "rootPassword": "Kv8#Tmz!Q4rPx2wa",
-        "localUserPassword": "Bz9^Kt4@Lm2!Qw8x",
-        "hostnameFqdn": "vcfinst01.dc1.vcfhra.cz",
-        "ntpServers": ["ntp.dc1.vcfhra.cz"],
-        "ipVersion": "ipv4",
-        "ipv4Address": "10.10.0.10",
-        "subnetMask": "255.255.255.0",
-        "defaultGateway": "10.10.0.1",
-        "dnsDomainName": "dc1.vcfhra.cz",
-        "domainSearchPath": "dc1.vcfhra.cz",
-        "dnsServers": ["10.10.0.4", "10.10.0.7"]
-      }
-    },
+    "installer": { "mode": "not-deployed", "version": "9.1.1", "platformsDeployed": 0 },
     "depot": { "connection": { "kind": "none" }, "binaries": {} },
     "hosts": [
       {
@@ -100,7 +81,6 @@
     "dns": {
       "forward": {
         "ntp.dc1.vcfhra.cz": "10.10.0.5",
-        "vcfinst01.dc1.vcfhra.cz": "10.10.0.10",
         "esx01.dc1.vcfhra.cz": "10.10.0.101",
         "esx02.dc1.vcfhra.cz": "10.10.0.102",
         "esx03.dc1.vcfhra.cz": "10.10.0.103",
@@ -108,14 +88,13 @@
       },
       "reverse": {
         "10.10.0.5": "ntp.dc1.vcfhra.cz",
-        "10.10.0.10": "vcfinst01.dc1.vcfhra.cz",
         "10.10.0.101": "esx01.dc1.vcfhra.cz",
         "10.10.0.102": "esx02.dc1.vcfhra.cz",
         "10.10.0.103": "esx03.dc1.vcfhra.cz"
       }
     },
     "workbook": {
-      "note": "Hodnoty jsou ilustrativní herní data (ne fakta z dokumentace). Verze ESX se řídí VCF Release Notes; konkrétní build spec neuvádí.",
+      "note": "Hodnoty jsou ilustrativní herní data (ne fakta z dokumentace). Zdroj formátu: Planning and Preparation Workbook. Verze ESX se řídí VCF Release Notes; konkrétní build spec neuvádí.",
       "entries": [
         { "key": "esx.vlan", "label": "ESX Management Network VLAN ID", "value": 1610 },
         { "key": "esx.subnet", "label": "Maska / brána", "value": "255.255.255.0 / 10.10.0.1" },
@@ -128,8 +107,31 @@
   },
   "tasks": [
     {
-      "id": "t-install",
+      "id": "t-prep-order",
       "order": 1,
+      "title": "Jak jde fáze Preparation po sobě?",
+      "description": "Než sáhneš na servery, ověř si pořadí kroků přípravy z dokumentace.",
+      "actions": [{ "kind": "quiz" }],
+      "completion": {
+        "kind": "quiz",
+        "question": "V jakém pořadí dokumentace řadí kroky fáze Preparation před nasazením první VCF Instance?",
+        "options": [
+          "Review prerequisites → Image ESX hosts → Deploy VCF Installer appliance → Download binaries",
+          "Deploy VCF Installer appliance → Download binaries → Image ESX hosts → Review prerequisites",
+          "Image ESX hosts → Download binaries → Review prerequisites → Deploy VCF Installer appliance"
+        ],
+        "correct": [0],
+        "explanation": "Stránka Preparing to Deploy uvádí: projít prerekvizity (installer nebo Planning and Preparation Workbook), nainstalovat ESX hosty, nasadit VCF Installer appliance a stáhnout do něj binárky."
+      },
+      "points": 5,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.1", "sources": ["S5"] },
+        { "spec": "20-deployment", "section": "§3.1", "sources": ["S5"] }
+      ]
+    },
+    {
+      "id": "t-install",
+      "order": 2,
       "title": "Nainstaluj ESX na esx04",
       "description": "Připoj ESX ISO, nabootuj z něj, projdi instalaci (disk, klávesnice, root heslo, F11) a nastav boot z disku s ESX.",
       "actions": [{ "kind": "model", "action": "install-esx" }],
@@ -142,7 +144,7 @@
     },
     {
       "id": "t-network",
-      "order": 2,
+      "order": 3,
       "title": "Nastav management síť v DCUI",
       "description": "F2 > Configure Management Network: VLAN, statická IPv4, DNS servery a hostname (FQDN). Custom DNS Suffixes musí zůstat prázdné. vmk0 zůstává na vSphere Standard Switchi.",
       "actions": [{ "kind": "model", "action": "configure-host-network" }],
@@ -159,7 +161,7 @@
     },
     {
       "id": "t-dns",
-      "order": 3,
+      "order": 4,
       "title": "Zkontroluj DNS záznamy hostů",
       "description": "Každé FQDN musí mít forward (A) i reverse (PTR) záznam. Chybějící záznam doplň na DNS serveru firmy.",
       "actions": [{ "kind": "environment", "action": "dns-add-forward" }, { "kind": "environment", "action": "dns-add-reverse" }],
@@ -172,7 +174,7 @@
     },
     {
       "id": "t-ntp",
-      "order": 4,
+      "order": 5,
       "title": "Zapni NTP",
       "description": "VMware Host Client > Host > Configure > Time Configuration > Network Time Protocol > Edit: Enable + NTP server. Ověř, že služba běží. Host Client potřebuje funkční management síť.",
       "actions": [{ "kind": "model", "action": "configure-host-ntp" }],
@@ -186,7 +188,7 @@
     },
     {
       "id": "t-cert",
-      "order": 5,
+      "order": 6,
       "title": "Regeneruj self-signed certifikát",
       "description": "Až po nastavení hostname: zapni SSH, spusť /sbin/generate-certificates, rebootuj host a SSH znovu vypni. Původní certifikát má CN localhost.localdomain a installer kontroluje, že CN odpovídá FQDN.",
       "actions": [
@@ -206,7 +208,7 @@
     },
     {
       "id": "t-hw-quiz",
-      "order": 6,
+      "order": 7,
       "title": "Jaké hosty smí být v prvním clusteru?",
       "description": "Ověř si pravidla pro hardware management domény.",
       "actions": [{ "kind": "quiz" }],
@@ -227,7 +229,7 @@
     },
     {
       "id": "t-verify",
-      "order": 7,
+      "order": 8,
       "title": "Ověř připravenost hostů",
       "description": "Spusť kontrolu hostů tak, jak je installer kontroluje při validaci (FQDN, DNS, statická IP, NTP, certifikát, vmk0).",
       "actions": [{ "kind": "run-check", "check": "validateEsxHostsForBringup" }],
@@ -289,6 +291,14 @@
   ],
   "hints": [
     {
+      "id": "h-prep-order",
+      "taskId": "t-prep-order",
+      "text": "Hledej stránku Preparing to Deploy – kroky přípravy jsou tam očíslované.",
+      "specRef": { "spec": "20-deployment", "section": "§4.1", "sources": ["S5"] },
+      "doc": { "title": "Preparing to Deploy (9.1)", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment.html" },
+      "cost": 1
+    },
+    {
       "id": "h-network",
       "taskId": "t-network",
       "text": "V DCUI zkontroluj i položku Custom DNS Suffixes – nesmí obsahovat žádný sufix.",
@@ -325,7 +335,7 @@
     "orderBonus": { "points": 15, "sequence": ["t-install", "t-network", "t-ntp", "t-cert", "t-verify"] },
     "cleanRunBonus": 10,
     "penalties": { "perValidationError": 2, "perValidationRun": 2, "freeValidationRuns": 1, "perIllegalAction": 2 },
-    "maxPoints": 165,
+    "maxPoints": 170,
     "passPoints": 100
   },
   "expectedInitialIssues": [
@@ -384,9 +394,9 @@
     ]
   },
   "specRefs": [
-    { "spec": "20-deployment", "section": "§3.2", "sources": ["S7", "S8", "S9", "S10", "S11"] },
     { "spec": "20-deployment", "section": "§4.1", "sources": ["S5"] },
+    { "spec": "20-deployment", "section": "§3.2", "sources": ["S7", "S8", "S9", "S10", "S11"] },
     { "spec": "20-deployment", "section": "§5.2", "sources": ["S11"] }
   ],
-  "sourceNote": "Fáze Preparation, krok 2 „Image ESX hosts“ + konfigurace hostů (20 §4.1.1–4.1.4)."
+  "sourceNote": "Fáze Preparation, kroky 1–2 „Review prerequisites“ a „Image ESX hosts“ + konfigurace hostů (20 §4.1, §4.1.1–4.1.4) – pořadí dle [S5]."
 }

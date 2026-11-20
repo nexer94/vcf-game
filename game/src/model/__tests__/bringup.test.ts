@@ -5,7 +5,9 @@ import {
   type DeploymentEvent,
   type DeploymentState,
   type DeploymentStatus,
+  ADDITIONAL_INSTANCE_SIZING,
   DEPLOYMENT_TRANSITIONS,
+  PASSWORD_USERNAME_PART_MIN_LENGTH,
   FIRST_INSTANCE_SIZING,
   VCF_BINARIES,
   buildFleetFromBringup,
@@ -19,7 +21,11 @@ import {
   initialInstallerState,
   installEsx,
   installerAfterDeployment,
+  instanceSizingFor,
+  isVcfAutomationDeployedNow,
+  managementDomainComponentsFor,
   newBareMetalHost,
+  passwordContainsUsernamePart,
   regenerateHostCertificate,
   setBinaryStatus,
   setHostSsh,
@@ -30,12 +36,15 @@ import {
   validateConfigureOfflineDepot,
   validateConfigureOnlineDepot,
   validateDeployInstallerOva,
+  validateEsxHostsForBringup,
+  validateFqdnSyntax,
   validateInstallerCanDeploy,
+  validateInstallerHostNfsMount,
   validateInstallerPassword,
   workflowTypeOf,
 } from '../bringup';
-import { validateFleet } from '../architecture';
-import { errorsOf, warningsOf } from '../validation';
+import { validateFleet, validateInstance } from '../architecture';
+import { errorsOf, gameScopeOf, issue, recommendationsOf, warningsOf } from '../validation';
 import {
   FQDNS,
   HOSTS,
@@ -102,7 +111,7 @@ describe('bring-up happy path', () => {
     expect(workflowTypeOf(spec)).toBe('VCF');
   });
 
-  it('warnings only -> awaiting acknowledgement -> acknowledge -> deploy', () => {
+  it('documented recommendation (services runtime < 30 IPs) is neither error nor warning -> ready to deploy', () => {
     const s = validSpec();
     const spec: BringupSpec = {
       ...s,
@@ -110,7 +119,16 @@ describe('bring-up happy path', () => {
     };
     const issues = validateBringupSpec(spec, validEnv());
     expect(errorsOf(issues)).toEqual([]);
-    expect(warningsOf(issues).map((i) => i.code)).toEqual(['SERVICES_RUNTIME_IPS_BELOW_RECOMMENDED']);
+    expect(warningsOf(issues)).toEqual([]);
+    expect(recommendationsOf(issues).map((i) => i.code)).toEqual(['SERVICES_RUNTIME_IPS_BELOW_RECOMMENDED']);
+    const st = run(initialDeploymentState(), { type: 'submit-for-review' }, { type: 'start-validation' }, { type: 'validation-finished', issues });
+    expect(st.status).toBe('ready-to-deploy');
+  });
+
+  it('warnings only -> awaiting acknowledgement -> acknowledge -> deploy', () => {
+    // The bring-up model currently emits no documented installer warning; the state machine is
+    // exercised with a synthetic warning (20 §5.1 semantics).
+    const issues = [issue('ESX_NTP_NOT_RUNNING', 'warning', 'synthetic warning', '20 §5.1')];
     let st = run(initialDeploymentState(), { type: 'submit-for-review' }, { type: 'start-validation' }, { type: 'validation-finished', issues });
     expect(st.status).toBe('awaiting-acknowledgement');
     expect(transitionDeployment(st, { type: 'deploy' }).ok).toBe(false);
@@ -192,7 +210,7 @@ const replaceHost = (e: BringupEnvironment, i: number, h: BringupEnvironment['ho
   hosts: e.hosts.map((x, j) => (j === i ? h : x)),
 });
 
-const cases: [string, Mut, ('error' | 'warning')?][] = [
+const cases: [string, Mut, ('error' | 'warning' | 'recommendation')?][] = [
   ['INSTALLER_IN_SDDC_MANAGER_MODE', (s, e) => [s, { ...e, installer: { ...e.installer, mode: 'sddc-manager' } }]],
   ['INSTALLER_NOT_DEPLOYED', (s, e) => [s, { ...e, installer: initialInstallerState() }]],
   ['INSTALLER_SINGLE_PLATFORM', (s, e) => [s, { ...e, installer: { ...deployedInstaller({ placement: 'management-host', datastore: 'local-disk' }), platformsDeployed: 1 } }]],
@@ -240,7 +258,7 @@ const cases: [string, Mut, ('error' | 'warning')?][] = [
   ['DNS_IP_MISMATCH', (s, e) => [s, withDns(e, [[HOSTS[0]![0], '10.0.0.199']], [HOSTS[0]![0]])]],
   ['IP_POOL_INVALID', (s, e) => [{ ...s, networks: { ...s.networks, managementServicesIpPool: { kind: 'range', start: '10.0.1.40', end: '10.0.1.10' } } }, e]],
   ['SERVICES_RUNTIME_IPS_TOO_FEW', (s, e) => [{ ...s, networks: { ...s.networks, managementServicesIpPool: { kind: 'range', start: '10.0.1.10', end: '10.0.1.20' } } }, e]],
-  ['SERVICES_RUNTIME_IPS_BELOW_RECOMMENDED', (s, e) => [{ ...s, networks: { ...s.networks, managementServicesIpPool: { kind: 'range', start: '10.0.1.10', end: '10.0.1.21' } } }, e], 'warning'],
+  ['SERVICES_RUNTIME_IPS_BELOW_RECOMMENDED', (s, e) => [{ ...s, networks: { ...s.networks, managementServicesIpPool: { kind: 'range', start: '10.0.1.10', end: '10.0.1.21' } } }, e], 'recommendation'],
   ['VCF_AUTOMATION_IPS_TOO_FEW', (s, e) => [{ ...s, networks: { ...s.networks, vcfAutomationIpPool: { kind: 'addresses', addresses: ['10.0.1.50', '10.0.1.51', '10.0.1.52', '10.0.1.53'] } } }, e]],
   ['INTERNAL_CIDR_INVALID', (s, e) => [{ ...s, components: { ...s.components, internalClusterCidrIpv4: '10.244.0.0/16' } }, e]],
   ['HOST_NETWORK_MISSING', (s, e) => {
@@ -259,7 +277,8 @@ const cases: [string, Mut, ('error' | 'warning')?][] = [
     return [{ ...s, components: c }, e];
   }],
   ['FQDN_NOT_LOWERCASE', (s, e) => [{ ...s, components: { ...s.components, fleetComponentsFqdn: 'Fleet01.sfo.rainpole.io' } }, e]],
-  ['FQDN_LOCAL_DOMAIN', (s, e) => [{ ...s, vcenter: { fqdn: 'vc01.corp.local' } }, withDns(e, [['vc01.corp.local', '10.0.0.60']])]],
+  ['FQDN_LOCAL_DOMAIN', (s, e) => [{ ...s, components: { ...s.components, identityBrokerFqdn: 'idb01.corp.local' } }, withDns(e, [['idb01.corp.local', '10.0.0.60']], [FQDNS.idb[0]])]],
+  ['INSTALLER_HOST_NFS_NOT_MOUNTED', (s, e) => [nfsSpec(s), { ...e, installer: deployedInstaller({ placement: 'management-host', datastore: 'local-disk', esxHostId: 'h1', hostnameFqdn: FQDNS.sddc[0], ipv4Address: FQDNS.sddc[1] }) }]],
   ['FQDN_TLD_INVALID', (s, e) => [{ ...s, vcenter: { fqdn: 'vc01.corp.io1' } }, withDns(e, [['vc01.corp.io1', '10.0.0.61']])]],
   ['FQDN_NOT_FULLY_QUALIFIED', (s, e) => [{ ...s, vcenter: { fqdn: 'vc01' } }, withDns(e, [['vc01', '10.0.0.62']])]],
   ['FQDN_IP_NOT_UNIQUE', (s, e) => [s, withDns(e, [[FQDNS.vcenter[0], FQDNS.sddc[1]], [FQDNS.sddc[0], FQDNS.sddc[1]]], [FQDNS.vcenter[0]])]],
@@ -275,6 +294,10 @@ const cases: [string, Mut, ('error' | 'warning')?][] = [
   ['INSTALLER_CANNOT_REACH', (s, e) => [s, { ...e, unreachableFromInstaller: [NTP] }]],
   ['BINARY_NOT_DOWNLOADED', (s, e) => [s, { ...e, depot: { ...e.depot, binaries: { ...e.depot.binaries, 'VMware NSX': 'downloading' } } }]],
 ];
+
+function nfsSpec(s: BringupSpec): BringupSpec {
+  return { ...s, storage: { type: 'nfs-v3', nfsServerExists: true }, storageDetails: { datastoreName: 'ds', nfsSharePath: '/x', nfsServerIpv4: '10.0.3.5' } };
+}
 
 describe('validateBringupSpec: each validation fires', () => {
   for (const [code, mut, severity = 'error'] of cases) {
@@ -450,5 +473,204 @@ describe('depot and binaries', () => {
     expect(validateBinariesForDeployment(initialDepotState())).toHaveLength(16);
     expect(validateBinariesForDeployment(readyDepot())).toEqual([]);
     expect(validateBinariesForDeployment(initialDepotState(), ['VMware vCenter'])).toHaveLength(15);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fact-check fixes: .local / lowercase per field class (20 §3.5, §5.1, §8 q15),
+// replica HA-only (q10), new-instance components, game-scope flag, NFS mount, password parts.
+// ---------------------------------------------------------------------------
+
+describe('FQDN .local and lowercase rules per field (20 §3.5 [S14][S19][S55])', () => {
+  const local = (fqdn: string): string => fqdn.replace(/\.[^.]+\.[^.]+$/, '.corp.local');
+
+  type FieldKey = keyof typeof FQDNS;
+  const apply = (s: BringupSpec, key: FieldKey, fqdn: string): BringupSpec => {
+    const c = s.components;
+    switch (key) {
+      case 'vcenter': return { ...s, vcenter: { fqdn } };
+      case 'sddc': return { ...s, sddcManager: { fqdn } };
+      case 'nsxVip': return { ...s, nsx: { ...s.nsx, vipFqdn: fqdn } };
+      case 'nsx1': return { ...s, nsx: { ...s.nsx, nodeFqdns: [fqdn, ...s.nsx.nodeFqdns.slice(1)] } };
+      case 'opsPrimary': return { ...s, components: { ...c, vcfOperationsPrimaryFqdn: fqdn } };
+      case 'opsReplica': return { ...s, components: { ...c, vcfOperationsReplicaFqdn: fqdn } };
+      case 'cloudProxy': return { ...s, components: { ...c, cloudProxyFqdn: fqdn } };
+      case 'license': return { ...s, components: { ...c, licenseServerFqdn: fqdn } };
+      case 'fleet': return { ...s, components: { ...c, fleetComponentsFqdn: fqdn } };
+      case 'instance': return { ...s, components: { ...c, instanceComponentsFqdn: fqdn } };
+      case 'idb': return { ...s, components: { ...c, identityBrokerFqdn: fqdn } };
+      case 'runtime': return { ...s, components: { ...c, servicesRuntimeFqdn: fqdn } };
+      case 'automation': return { ...s, components: { ...c, vcfAutomationFqdn: fqdn } };
+      case 'automationRuntime': return { ...s, components: { ...c, vcfAutomationServicesRuntimeFqdn: fqdn } };
+      default: throw new Error(`unsupported ${key}`);
+    }
+  };
+  const withFqdn = (key: FieldKey, fqdn: string): string[] => {
+    const [orig, ip] = FQDNS[key];
+    const e = validEnv();
+    const entries = [...Object.entries(e.dns.forward).filter(([f]) => f !== orig), [fqdn.toLowerCase(), ip] as const];
+    return codes(apply(validSpec(), key, fqdn), { ...e, dns: makeDns(entries) });
+  };
+
+  const containerized: FieldKey[] = ['fleet', 'instance', 'idb', 'runtime', 'automation', 'automationRuntime'];
+  const traditional: FieldKey[] = ['vcenter', 'sddc', 'nsxVip', 'nsx1', 'opsPrimary', 'opsReplica'];
+  const unclassified: FieldKey[] = ['cloudProxy', 'license'];
+
+  it.each(containerized)('%s: .local -> FQDN_LOCAL_DOMAIN, capitals -> FQDN_NOT_LOWERCASE', (key) => {
+    expect(withFqdn(key, local(FQDNS[key][0]))).toEqual(['FQDN_LOCAL_DOMAIN']);
+    expect(withFqdn(key, FQDNS[key][0].toUpperCase())).toEqual(['FQDN_NOT_LOWERCASE']);
+  });
+
+  it.each(traditional)('%s (traditional appliance): .local and capitals allowed', (key) => {
+    expect(withFqdn(key, local(FQDNS[key][0]))).toEqual([]);
+    expect(withFqdn(key, FQDNS[key][0].replace(/^./, (ch) => ch.toUpperCase()))).toEqual([]);
+  });
+
+  it.each(unclassified)('%s (20 §8 q15): .local and capitals not validated', (key) => {
+    expect(withFqdn(key, local(FQDNS[key][0]))).toEqual([]);
+    expect(withFqdn(key, FQDNS[key][0].toUpperCase())).toEqual([]);
+  });
+
+  it('ESX host with .local FQDN is allowed', () => {
+    const h = preparedHost(0);
+    const n = { ...h.network!, hostnameFqdn: 'esx01.corp.local' };
+    const host = { ...h, network: n, certificateCn: 'esx01.corp.local' };
+    const dns = makeDns([['esx01.corp.local', n.ipv4Address]]);
+    const issues = validateEsxHostsForBringup([host, preparedHost(1), preparedHost(2), preparedHost(3)], { dns: { forward: { ...baseDns().forward, ...dns.forward }, reverse: { ...baseDns().reverse, ...dns.reverse } }, model: 'high-availability', storage: 'vsan-esa' });
+    expect(issues.map((i) => i.code)).toEqual([]);
+  });
+
+  it('VCF Installer appliance FQDN: .local / capitals not validated (20 §8 q15)', () => {
+    const dns = makeDns([['VCFInstaller.corp.local', '10.0.0.250']]);
+    const issues = validateDeployInstallerOva(initialInstallerState(), installerOvf({ hostnameFqdn: 'VCFInstaller.corp.local', ipv4Address: '10.0.0.250' }), {
+      forward: { 'vcfinstaller.corp.local': '10.0.0.250' },
+      reverse: dns.reverse,
+    });
+    expect(issues).toEqual([]);
+  });
+
+  it('validateFqdnSyntax defaults to no .local / lowercase check', () => {
+    expect(validateFqdnSyntax('VC01.corp.local', 'x')).toEqual([]);
+    expect(validateFqdnSyntax('VC01.corp.local', 'x', 'traditional-appliance')).toEqual([]);
+    expect(validateFqdnSyntax('VC01.corp.local', 'x', 'containerized-service').map((i) => i.code)).toEqual(['FQDN_NOT_LOWERCASE', 'FQDN_LOCAL_DOMAIN']);
+  });
+
+  it('fqdnRequirements classifies exactly the six containerized fields', () => {
+    const cls = fqdnRequirements(validSpec()).filter((r) => r.fqdnClass === 'containerized-service').map((r) => r.field);
+    expect(cls.sort()).toEqual(
+      [
+        'Fleet components FQDN',
+        'Identity broker FQDN',
+        'Instance components FQDN',
+        'VCF Automation FQDN',
+        'VCF services runtime FQDN',
+        'VCF services runtime FQDN for VCF Automation',
+      ].sort(),
+    );
+  });
+});
+
+describe('replica node FQDN only for HA (20 §8 q10)', () => {
+  const field = 'VCF Operations replica node FQDN';
+  const req = (spec: BringupSpec) => fqdnRequirements(spec).find((r) => r.field === field)!.required;
+  it('required in HA, not in Simple', () => {
+    expect(req(validSpec())).toBe(true);
+    expect(req({ ...validSpec(), model: 'simple' })).toBe(false);
+  });
+  it('missing replica in HA -> FQDN_REQUIRED', () => {
+    const s = validSpec();
+    const { vcfOperationsReplicaFqdn: _r, ...c } = s.components;
+    void _r;
+    const issues = validateBringupSpec({ ...s, components: c }, validEnv());
+    expect(issues.filter((i) => i.code === 'FQDN_REQUIRED').map((i) => i.subject)).toEqual([field]);
+  });
+});
+
+describe('CONVERGENCE_NOT_MODELLED is a game-scope limitation', () => {
+  it('carries scope game-scope; other issues do not', () => {
+    const s = validSpec();
+    const issues = validateBringupSpec({ ...s, existing: { ...s.existing, existingVcenter: true } }, validEnv());
+    expect(gameScopeOf(issues).map((i) => i.code)).toEqual(['CONVERGENCE_NOT_MODELLED']);
+    expect(issues.filter((i) => i.code !== 'CONVERGENCE_NOT_MODELLED').every((i) => i.scope === undefined)).toBe(true);
+  });
+});
+
+describe('new VCF Instance (target new-instance)', () => {
+  const newInstanceSpec = (): BringupSpec => {
+    const s = validSpec();
+    return { ...s, target: 'new-instance', existing: { ...s.existing, existingVcfOperations: true } };
+  };
+
+  it('does not require VCF Automation / fleet components / VCF Operations FQDNs; identity broker optional', () => {
+    const req = fqdnRequirements(newInstanceSpec()).filter((r) => r.required).map((r) => r.field);
+    for (const f of ['VCF Automation FQDN', 'VCF services runtime FQDN for VCF Automation', 'Fleet components FQDN', 'Identity broker FQDN', 'VCF Operations primary node FQDN', 'License Server FQDN'])
+      expect(req).not.toContain(f);
+    expect(isVcfAutomationDeployedNow(newInstanceSpec())).toBe(false);
+  });
+
+  it('components: additional-instance sizing, no fleet-level services, no VCF Operations / Automation / license server', () => {
+    const s = newInstanceSpec();
+    const kinds = managementDomainComponentsFor(s).map((c) => c.kind);
+    for (const k of ['vcf-operations', 'vcf-automation', 'license-server', 'fleet-lifecycle', 'salt-raas', 'software-depot'] as const) expect(kinds).not.toContain(k);
+    for (const k of ['sddc-manager', 'cloud-proxy', 'vcf-services-runtime', 'sddc-lifecycle', 'salt-master', 'telemetry', 'identity-broker'] as const) expect(kinds).toContain(k);
+    const runtime = managementDomainComponentsFor(s).find((c) => c.kind === 'vcf-services-runtime')!;
+    const ms = ADDITIONAL_INSTANCE_SIZING['ha-small'].managementServices;
+    expect(runtime.nodes).toBe(ms.controlPlaneNodes + ms.workerNodes);
+    expect(instanceSizingFor(s)).toBe(ADDITIONAL_INSTANCE_SIZING['ha-small']);
+  });
+
+  it('identity broker is added only when its FQDN is supplied', () => {
+    const s = newInstanceSpec();
+    const { identityBrokerFqdn: _i, ...c } = s.components;
+    void _i;
+    expect(managementDomainComponentsFor({ ...s, components: c }).map((x) => x.kind)).not.toContain('identity-broker');
+  });
+
+  it('built instance is not first and passes validateInstance', () => {
+    const fleet = buildFleetFromBringup(newInstanceSpec(), { fleetId: 'f', fleetName: 'f', instanceId: 'i2', domainId: 'd2', clusterId: 'c2' }, 'single-rack');
+    const inst = fleet.instances[0]!;
+    expect(inst.isFirstInstance).toBe(false);
+    expect(validateInstance(inst)).toEqual([]);
+  });
+});
+
+describe('NFS v3 with the installer on a management host (20 §3.2 [S7][S14])', () => {
+  const env = (mounted: boolean | undefined, esxHostId: string | undefined): BringupEnvironment => {
+    const e = validEnv();
+    return {
+      ...e,
+      hosts: e.hosts.map((h) => (h.id === 'h1' && mounted !== undefined ? { ...h, nfsDatastoreMounted: mounted } : h)),
+      installer: deployedInstaller({
+        placement: 'management-host',
+        datastore: 'local-disk',
+        hostnameFqdn: FQDNS.sddc[0],
+        ipv4Address: FQDNS.sddc[1],
+        ...(esxHostId !== undefined ? { esxHostId } : {}),
+      }),
+    };
+  };
+  it('not mounted -> INSTALLER_HOST_NFS_NOT_MOUNTED; mounted -> ok; unknown host -> not checked', () => {
+    expect(validateInstallerHostNfsMount(nfsSpec(validSpec()), env(undefined, 'h1')).map((i) => i.code)).toEqual(['INSTALLER_HOST_NFS_NOT_MOUNTED']);
+    expect(validateInstallerHostNfsMount(nfsSpec(validSpec()), env(true, 'h1'))).toEqual([]);
+    expect(validateInstallerHostNfsMount(nfsSpec(validSpec()), env(undefined, undefined))).toEqual([]);
+    expect(validateInstallerHostNfsMount(validSpec(), env(undefined, 'h1'))).toEqual([]);
+  });
+});
+
+describe('installer password: user name parts (modelling decision, 20 §3.6 [S6])', () => {
+  it.each([
+    ['Xq7#Admin!2026zzz', ['admin@local'], true],
+    ['Xq7#Locals!2026zz', ['admin@local'], true],
+    ['Xq7#Adm!Loc!2026z', ['admin@local'], false], // 3-char fragments are below the threshold
+    ['Xq7#Rainpole!2026z', ['admin@local', 'vcf', 'root'], false],
+    ['Xq7#VCF!2026zzzzz', ['vcf'], true], // short user name checked as a whole
+    ['Xq7#Ro0t!2026zzzz', ['root'], false],
+  ])('%s with %j -> %s', (pw, users, expected) => {
+    expect(passwordContainsUsernamePart(pw, users[0]!) || users.some((u) => passwordContainsUsernamePart(pw, u))).toBe(expected);
+    const codesFound = validateInstallerPassword(pw, 'p', { usernames: users }).map((i) => i.code);
+    expect(codesFound.includes('PASSWORD_CONTAINS_USERNAME')).toBe(expected);
+  });
+  it('threshold constant is 4', () => {
+    expect(PASSWORD_USERNAME_PART_MIN_LENGTH).toBe(4);
   });
 });

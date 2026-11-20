@@ -1,31 +1,67 @@
 {
   "schemaVersion": 1,
-  "id": "c1-m1-vcf-installer",
+  "id": "c1-m2-vcf-installer",
   "campaign": { "id": "c1-bringup", "order": 1, "title": "Nové prostředí – bring-up první instance" },
-  "order": 1,
-  "title": "První kroky: nasazení VCF Installeru",
+  "order": 2,
+  "title": "Nasazení VCF Installeru",
   "difficulty": "tutorial",
   "vcfVersion": "9.1.1",
-  "requires": [],
-  "summary": "Nasaď appliance VCF Installer mimo budoucí management doménu a přihlas se do jeho UI.",
-  "briefing": "Firma staví nový privátní cloud na VCF 9.1.1. Než začne bring-up, potřebuješ VCF Installer – virtuální appliance, přes kterou se celá první instance nasadí. Síťaři ti poslali vyplněné hodnoty z Planning and Preparation Workbooku a formulář OVF šablony už je předvyplněný. Pozor: ne všechno, co ti poslali, projde validací. Appliance nasazuješ na existující infrastrukturu mimo budoucí management doménu, takže zůstane v režimu installeru.",
+  "requires": ["c1-m1-esx-hosts"],
+  "summary": "Nasaď appliance VCF Installer mimo budoucí management doménu, proveď kontroly po nasazení a přihlas se do jeho UI.",
+  "briefing": "ESX hosty jsou připravené. Další krok fáze Preparation je VCF Installer – virtuální appliance, přes kterou se celá první instance nasadí. Síťaři ti poslali vyplněné hodnoty z Planning and Preparation Workbooku a formulář OVF šablony už je předvyplněný. Pozor: ne všechno, co ti poslali, projde validací, a ne všechno je v DNS hotové. Appliance nasazuješ na existující infrastrukturu mimo budoucí management doménu, takže zůstane v režimu installeru. Po nasazení dokumentace doporučuje ověřit, že appliance vidí na hosty, DNS a NTP.",
   "objectives": [
     "Zjistit, jaké zdroje appliance VCF Installer potřebuje a kam ji umístit.",
-    "Nasadit OVA VCF Installeru se správnými hesly, FQDN a DNS servery.",
+    "Nasadit OVA VCF Installeru se správnými hesly, FQDN (s platným DNS záznamem) a DNS servery.",
+    "Po nasazení ověřit forward i reverse DNS lookup hostů a NTP serveru.",
     "Přihlásit se do UI installeru jako admin@local."
   ],
   "initial": {
     "installer": { "mode": "not-deployed", "version": "9.1.1", "platformsDeployed": 0 },
     "depot": { "connection": { "kind": "none" }, "binaries": {} },
-    "hosts": [],
+    "hosts": [
+      {
+        "id": "esx01", "hwVendor": "Vendor A (herní)", "hwProfileId": "hw-profile-a", "pnicCount": 2, "stateless": false,
+        "esxVersion": "dle-RN-VCF-9.1.1", "vmk0OnStandardSwitch": true,
+        "network": { "vlanId": 1610, "ipv4Address": "10.10.0.101", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx01.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+        "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+        "sshEnabled": false, "certificateCn": "esx01.dc1.vcfhra.cz"
+      },
+      {
+        "id": "esx02", "hwVendor": "Vendor A (herní)", "hwProfileId": "hw-profile-a", "pnicCount": 2, "stateless": false,
+        "esxVersion": "dle-RN-VCF-9.1.1", "vmk0OnStandardSwitch": true,
+        "network": { "vlanId": 1610, "ipv4Address": "10.10.0.102", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx02.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+        "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+        "sshEnabled": false, "certificateCn": "esx02.dc1.vcfhra.cz"
+      },
+      {
+        "id": "esx03", "hwVendor": "Vendor A (herní)", "hwProfileId": "hw-profile-a", "pnicCount": 2, "stateless": false,
+        "esxVersion": "dle-RN-VCF-9.1.1", "vmk0OnStandardSwitch": true,
+        "network": { "vlanId": 1610, "ipv4Address": "10.10.0.103", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx03.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+        "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+        "sshEnabled": false, "certificateCn": "esx03.dc1.vcfhra.cz"
+      },
+      {
+        "id": "esx04", "hwVendor": "Vendor A (herní)", "hwProfileId": "hw-profile-a", "pnicCount": 2, "stateless": false,
+        "esxVersion": "dle-RN-VCF-9.1.1", "vmk0OnStandardSwitch": true,
+        "network": { "vlanId": 1610, "ipv4Address": "10.10.0.104", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx04.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+        "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+        "sshEnabled": false, "certificateCn": "esx04.dc1.vcfhra.cz"
+      }
+    ],
     "dns": {
       "forward": {
         "vcfinst01.dc1.vcfhra.cz": "10.10.0.10",
-        "ntp.dc1.vcfhra.cz": "10.10.0.5"
+        "ntp.dc1.vcfhra.cz": "10.10.0.5",
+        "esx01.dc1.vcfhra.cz": "10.10.0.101",
+        "esx02.dc1.vcfhra.cz": "10.10.0.102",
+        "esx03.dc1.vcfhra.cz": "10.10.0.103",
+        "esx04.dc1.vcfhra.cz": "10.10.0.104"
       },
       "reverse": {
-        "10.10.0.10": "vcfinst01.dc1.vcfhra.cz",
-        "10.10.0.5": "ntp.dc1.vcfhra.cz"
+        "10.10.0.101": "esx01.dc1.vcfhra.cz",
+        "10.10.0.102": "esx02.dc1.vcfhra.cz",
+        "10.10.0.103": "esx03.dc1.vcfhra.cz",
+        "10.10.0.104": "esx04.dc1.vcfhra.cz"
       }
     },
     "rules": { "dictionaryWords": ["password", "welcome", "secret"] },
@@ -36,7 +72,7 @@
         "datastore": "other",
         "rootPassword": "",
         "localUserPassword": "",
-        "hostnameFqdn": "VCFINST01.dc1.vcfhra.cz",
+        "hostnameFqdn": "vcfinst01.dc1.vcfhra.cz",
         "ntpServers": ["ntp.dc1.vcfhra.cz"],
         "ipVersion": "ipv4",
         "ipv4Address": "10.10.0.10",
@@ -50,11 +86,13 @@
     "workbook": {
       "note": "Hodnoty jsou ilustrativní herní data (ne fakta z dokumentace). Zdroj formátu: Planning and Preparation Workbook.",
       "entries": [
-        { "key": "installer.fqdn", "label": "VCF Installer – Host Name (od síťařů)", "value": "VCFINST01.dc1.vcfhra.cz" },
+        { "key": "installer.fqdn", "label": "VCF Installer – Host Name", "value": "vcfinst01.dc1.vcfhra.cz" },
         { "key": "installer.ip", "label": "VCF Installer – IPv4 / maska / brána", "value": "10.10.0.10 / 255.255.255.0 / 10.10.0.1" },
+        { "key": "installer.dns", "label": "DNS záznamy installeru (podle síťařů)", "value": "A záznam založen, PTR „bude doplněn“" },
         { "key": "dns.servers", "label": "DNS servery firmy", "value": ["10.10.0.4", "10.10.0.7", "10.10.0.8"] },
         { "key": "dns.domain", "label": "DNS doména", "value": "dc1.vcfhra.cz" },
-        { "key": "ntp.servers", "label": "NTP server", "value": "ntp.dc1.vcfhra.cz" },
+        { "key": "ntp.servers", "label": "NTP server", "value": "ntp.dc1.vcfhra.cz = 10.10.0.5" },
+        { "key": "esx.hosts", "label": "Připravené ESX hosty", "value": ["esx01.dc1.vcfhra.cz", "esx02.dc1.vcfhra.cz", "esx03.dc1.vcfhra.cz", "esx04.dc1.vcfhra.cz"] },
         { "key": "installer.placement", "label": "Kam appliance nasadit", "value": "existující vSphere cluster mimo budoucí management doménu" }
       ]
     }
@@ -110,18 +148,62 @@
       "id": "t-deploy",
       "order": 3,
       "title": "Nasaď OVA VCF Installeru",
-      "description": "VMware Host Client > Deploy OVF Template. Vyplň hesla (root a local user), Host Name (FQDN), NTP a síť. Opravuj hodnoty, které neodpovídají pravidlům.",
-      "actions": [{ "kind": "model", "action": "deploy-installer-ova" }],
+      "description": "VMware Host Client > Deploy OVF Template. Vyplň hesla (root a local user), Host Name (FQDN), NTP a síť. Statická IP, DNS záznamy a FQDN appliance musí být platné a resolvovatelné. Opravuj hodnoty, které neodpovídají pravidlům.",
+      "actions": [
+        { "kind": "model", "action": "deploy-installer-ova" },
+        { "kind": "environment", "action": "dns-add-reverse" }
+      ],
       "completion": { "kind": "installer-mode", "mode": "installer" },
       "points": 40,
       "specRefs": [
         { "spec": "20-deployment", "section": "§4.1.5", "sources": ["S6"] },
+        { "spec": "20-deployment", "section": "§3.3", "sources": ["S6"] },
         { "spec": "20-deployment", "section": "§3.6", "sources": ["S6"] }
       ]
     },
     {
-      "id": "t-login",
+      "id": "t-post-quiz",
       "order": 4,
+      "title": "Co ověřit hned po nasazení?",
+      "description": "Dokumentace k nasazení appliance uvádí kontroly, které se dělají před prvním přihlášením do UI.",
+      "actions": [{ "kind": "quiz" }],
+      "completion": {
+        "kind": "quiz",
+        "question": "Které kontroly dokumentace uvádí po nasazení appliance VCF Installer? (více odpovědí)",
+        "options": [
+          "Přihlásit se přes SSH jako uživatel vcf (local user password).",
+          "Ping na ESX hosty.",
+          "Forward i reverse DNS lookup každého ESX hostu a každého NTP serveru.",
+          "Spustit validaci bring-upu v Deployment Wizardu ještě před přihlášením do UI."
+        ],
+        "correct": [0, 1, 2],
+        "explanation": "Po nasazení: SSH jako vcf, ping na ESX hosty, forward i reverse DNS lookup každého hostu a NTP serveru; pak prohlížeč na https://installer_appliance_FQDN a přihlášení admin@local. Validace bring-upu je až krok průvodce (Review validation)."
+      },
+      "points": 5,
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.1.5", "sources": ["S6"] }]
+    },
+    {
+      "id": "t-post-dns",
+      "order": 5,
+      "title": "Ověř DNS lookup hostů a NTP serveru",
+      "description": "Z appliance ověř forward i reverse DNS lookup všech čtyř ESX hostů a NTP serveru. Chybějící záznam doplň na DNS serveru firmy. (SSH a ping hra zatím nemodeluje – počítá se DNS lookup.)",
+      "actions": [
+        { "kind": "environment", "action": "dns-add-forward" },
+        { "kind": "environment", "action": "dns-add-reverse" }
+      ],
+      "completion": {
+        "kind": "dns-forward-reverse",
+        "fqdns": ["esx01.dc1.vcfhra.cz", "esx02.dc1.vcfhra.cz", "esx03.dc1.vcfhra.cz", "esx04.dc1.vcfhra.cz", "ntp.dc1.vcfhra.cz"]
+      },
+      "points": 15,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.1.5", "sources": ["S6"] },
+        { "spec": "20-deployment", "section": "§3.3", "sources": ["S5", "S6"] }
+      ]
+    },
+    {
+      "id": "t-login",
+      "order": 6,
       "title": "Přihlas se do UI installeru",
       "description": "Otevři https://installer_appliance_FQDN, přijmi self-signed certifikát a přihlas se jako admin@local.",
       "actions": [{ "kind": "wizard-step", "step": "login" }],
@@ -174,15 +256,18 @@
       ]
     },
     {
-      "id": "tr-fqdn-uppercase",
-      "title": "FQDN velkými písmeny",
-      "description": "Host Name z workbooku je velkými písmeny. FQDN komponent VCF musí být malými písmeny.",
-      "codes": ["FQDN_NOT_LOWERCASE"],
+      "id": "tr-installer-ptr",
+      "title": "Host Name installeru bez PTR záznamu",
+      "description": "vcfinst01 má na DNS serveru jen A záznam, reverse (PTR) chybí. DNS záznamy a FQDN appliance musí být platné a resolvovatelné.",
+      "codes": ["DNS_RECORD_MISSING"],
       "armed": "initial-state",
       "detectedBy": ["validateDeployInstallerOva"],
       "avoidBonus": 5,
       "relatedTasks": ["t-deploy"],
-      "specRefs": [{ "spec": "20-deployment", "section": "§3.5", "sources": ["S14", "S19"] }]
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§3.3", "sources": ["S6"] },
+        { "spec": "20-deployment", "section": "§3.5", "sources": ["S20"] }
+      ]
     }
   ],
   "hints": [
@@ -211,20 +296,28 @@
       "cost": 3
     },
     {
-      "id": "h-fqdn",
-      "trapId": "tr-fqdn-uppercase",
-      "text": "FQDN musí být malými písmeny a nesmí končit na .local; musí mít forward (A) i reverse (PTR) záznam.",
-      "specRef": { "spec": "20-deployment", "section": "§3.5", "sources": ["S20"] },
-      "doc": { "title": "VCF Components FQDNs and IP addresses", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/vcf-components-fqdns-and-ip-addresses.html" },
+      "id": "h-installer-dns",
+      "trapId": "tr-installer-ptr",
+      "text": "Statická IP, DNS záznamy a FQDN appliance musí být platné a resolvovatelné – Host Name potřebuje forward (A) i reverse (PTR) záznam na IP appliance.",
+      "specRef": { "spec": "20-deployment", "section": "§3.3", "sources": ["S6"] },
+      "doc": { "title": "Deploy the VCF Installer Appliance (9.1)", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/deploy-the-vmware-cloud-foundation-installer-appliance.html" },
       "cost": 3
+    },
+    {
+      "id": "h-post-dns",
+      "taskId": "t-post-dns",
+      "text": "Po nasazení se dělá forward i reverse lookup každého hostu a každého NTP serveru – zkontroluj i reverse záznam NTP serveru.",
+      "specRef": { "spec": "20-deployment", "section": "§4.1.5", "sources": ["S6"] },
+      "doc": { "title": "Deploy the VCF Installer Appliance (9.1)", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/deploy-the-vmware-cloud-foundation-installer-appliance.html" },
+      "cost": 2
     }
   ],
   "scoring": {
-    "orderBonus": { "points": 10, "sequence": ["t-deploy", "t-login"] },
+    "orderBonus": { "points": 10, "sequence": ["t-deploy", "t-post-dns", "t-login"] },
     "cleanRunBonus": 10,
     "penalties": { "perValidationError": 2, "perValidationRun": 0, "freeValidationRuns": 0, "perIllegalAction": 1 },
-    "maxPoints": 120,
-    "passPoints": 70
+    "maxPoints": 140,
+    "passPoints": 80
   },
   "expectedInitialIssues": [
     {
@@ -236,13 +329,19 @@
         "PASSWORD_NO_DIGIT",
         "PASSWORD_NO_SPECIAL",
         "INSTALLER_TOO_MANY_DNS_SERVERS",
-        "FQDN_NOT_LOWERCASE"
+        "DNS_RECORD_MISSING"
       ],
+      "exact": true
+    },
+    {
+      "check": "validateEsxHostsForBringup",
+      "context": { "model": "simple", "storage": "vsan-esa" },
+      "codes": [],
       "exact": true
     }
   ],
   "referenceSolution": {
-    "description": "Hesla podle politiky, Host Name malými písmeny, jen dva DNS servery; umístění mimo management doménu.",
+    "description": "Hesla podle politiky, jen dva DNS servery, doplněné PTR záznamy installeru a NTP serveru; umístění mimo management doménu.",
     "installerOvf": {
       "vmName": "vcf-installer",
       "placement": "outside-management",
@@ -259,13 +358,18 @@
       "domainSearchPath": "dc1.vcfhra.cz",
       "dnsServers": ["10.10.0.4", "10.10.0.7"]
     },
+    "dnsPatch": { "reverse": { "10.10.0.10": "vcfinst01.dc1.vcfhra.cz", "10.10.0.5": "ntp.dc1.vcfhra.cz" } },
     "designChoices": { "installerPlacement": "outside-management" },
-    "checks": [{ "check": "validateDeployInstallerOva", "allowWarnings": false }]
+    "checks": [
+      { "check": "validateDeployInstallerOva", "allowWarnings": false },
+      { "check": "validateInstallerCanDeploy", "allowWarnings": false }
+    ]
   },
   "specRefs": [
+    { "spec": "20-deployment", "section": "§4.1", "sources": ["S5"] },
     { "spec": "20-deployment", "section": "§4.1.5", "sources": ["S6"] },
     { "spec": "20-deployment", "section": "§3.3", "sources": ["S6"] },
     { "spec": "00-architektura", "section": "§2.6", "sources": ["S4"] }
   ],
-  "sourceNote": "Fáze Preparation, krok 3 „Deploy VCF Installer appliance“ (20 §4.1)."
+  "sourceNote": "Fáze Preparation, krok 3 „Deploy VCF Installer appliance“ (20 §4.1, §4.1.5) včetně kontrol po nasazení – pořadí dle [S5]."
 }

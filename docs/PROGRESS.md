@@ -40,8 +40,11 @@
   `deriveBringupParams` (→ min. hostů), `summarizeDesign`; 18 nových kódů
   - rozpor 00 §6 vs 05 §2.3 (Multi-Rack L2 v mgmt doméně podle fleet modelu) – zatím warning → ověřit
   - mapování management network / VDS modelu na kroky wizardu je inference → ověřit fact-checkerem
-- [ ] `engine-dev` – Sandbox režim: návrh → příprava → bring-up přes model, stav sandboxu
-- [ ] `ui-dev` – obsah fáze Návrh (data z modelu) a wizard bring-upu (kroky 9.1.1 ze specu 20)
+- [x] `engine-dev` – `modes/sandbox`: `SandboxSession` (dispatch/snapshot/subscribe/attachTo), brány fází jen přes
+  model, předvyplnění wizardu z návrhu (zamčená pole), úlohy s průběhem (`engine/tasks.ts`, ilustrativní trvání)
+  - otevřené: selhání nasazení/retry nemodelováno (spec 20 §8 q6), rozdělení provozu mezi VDS ilustrativní
+- [x] `ui-dev` – fáze Návrh: 8 kroků z modelu, odchylky RCMD, důsledky, souhrn + izometrický náhled; úvod upraven
+- [ ] `ui-dev` – napojení na `SandboxSession`, fáze Příprava (hosty, DNS, installer, depot) a Deploy (wizard 9.1.1) *(běží)*
 - [ ] `fact-checker` – Sandbox: návrh + bring-up proti specu
 
 ### Ostatní
@@ -59,13 +62,14 @@
   - [x] `doc-researcher` – spec 20 §3.5/§5.1: `.local` zakázané jen pro Fleet/Instance components, Identity broker,
     VCF services runtime, VCF Automation (+ jeho services runtime); povolené pro vCenter, ESX, NSX, SDDC Manager,
     VCF Operations; nejasné Cloud Proxy / License Server / installer (q15) → nevalidovat; replica FQDN jen HA (q10)
-  - [ ] `domain-modeler` (po modelu návrhu) – `FQDN_LOCAL_DOMAIN` jen pro management services pole;
+  - [x] `domain-modeler` – `FQDN_LOCAL_DOMAIN` jen pro management services pole;
     drobné: `SERVICES_RUNTIME_IPS_BELOW_RECOMMENDED` není doložený warning, `CONVERGENCE_NOT_MODELLED` není VCF
     chyba (zakázat v UI), `new-instance` vkládá fleet-level služby, NFS + installer na mgmt hostu (ruční mount),
     plné znění hlášky NFS, heslo „part of“ slova/jména
-  - [ ] `scenario-designer` – mise 5: nahradit past `.local` u vCenteru; mise 1: nápověda `h-fqdn`; mise 4: text
-    o warningu 12–29 IP; zvážit pořadí misí 1/2 (dokumentace: Image ESX hosts → Deploy VCF Installer)
-  - [ ] `ui-dev` – úvod Sandboxu: zmírnit „každá chybová hláška vychází z dokumentace“ (hlášky jsou popisné)
+  - [x] `scenario-designer` – pořadí misí podle [S5] (1 ESX hosty → 2 VCF Installer → 3 depot …); mise 2: past
+    chybějící PTR installeru + kontroly po nasazení; mise 5: `.local` past na VCF services runtime FQDN + kvíz;
+    texty o 30 IP jako doporučení. Mezera: „SSH jako vcf“ a „ping na hosty“ jen v kvízu
+  - [x] `ui-dev` – úvod Sandboxu: zmírnit „každá chybová hláška vychází z dokumentace“ (hlášky jsou popisné)
   - [ ] `fact-checker` – znovu po opravách
 - [ ] `engine-dev` – vrstva režimů `game/src/modes/` (viz CLAUDE.md „Herní režimy“):
   - [ ] Sandbox – volné akce nad modelem, bez misí a peněz
@@ -81,6 +85,10 @@
 4. [ ] Den 2 – nová workload doména (`40-workload-domains`), nová instance ve fleetu
 
 ## Otevřené otázky
+- FQDN třídy: load balancer VCF Operations, Cloud Proxy, License Server, installer = „unclassified“ (spec je
+  nezařazuje) → `.local`/velká písmena se nekontrolují; software depot v nové instanci – spec neříká (model vynechává)
+- Nové úrovně v modelu: severity `recommendation` (doporučení z docs, ne hláška systému), `scope: 'game-scope'`
+  (omezení hry, ne chyba VCF) – UI je musí zobrazovat odlišně
 - Min. hosty: stretched NFS/FC (vMSC, KB 417356 „doubled“?), další clustery mgmt/WLD (sloučené buňky) – nemodelováno;
   `Cluster` v architecture.ts nemá storage → doplnit v oblasti 40/50
 - Sizing: vzorec z Planning and Preparation Workbooku (xlsx, tab „Management Domain Sizing“) – agent ho

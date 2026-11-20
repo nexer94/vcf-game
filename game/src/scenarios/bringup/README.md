@@ -11,29 +11,40 @@ Body, srážky a rozpočet jsou **herní mechanika** (fiktivní), ne fakta z dok
 
 | # | Soubor | Mise | Obtížnost | Max. bodů / k projití | Odemyká se po |
 |---|---|---|---|---|---|
-| 1 | `01-vcf-installer.json` | První kroky: nasazení VCF Installeru | Tutoriál | 120 / 70 | – |
-| 2 | `02-esx-hosts.json` | Příprava ESX hostů pro management doménu | Běžný provoz | 165 / 100 | 1 |
-| 3 | `03-depot-binaries.json` | Depot a binárky | Běžný provoz | 160 / 100 | 1 |
-| 4 | `04-bringup-simple.json` | Bring-up první instance (Simple) | Běžný provoz | 230 / 140 | 2, 3 |
-| 5 | `05-troubleshooting-validation.json` | Validace selhala: JSON spec po kolegovi | Troubleshooting | 245 / 150 | 4 |
-| 6 | `06-production-ha-design.json` | Návrh pro produkci: HA fleet | Návrh pro produkci | 270 / 175 | 5 |
+| 1 | `01-esx-hosts.json` (`c1-m1-esx-hosts`) | První kroky: příprava ESX hostů pro management doménu | Tutoriál | 170 / 100 | – |
+| 2 | `02-vcf-installer.json` (`c1-m2-vcf-installer`) | Nasazení VCF Installeru | Tutoriál | 140 / 80 | 1 |
+| 3 | `03-depot-binaries.json` (`c1-m3-depot-binaries`) | Depot a binárky | Běžný provoz | 160 / 100 | 2 |
+| 4 | `04-bringup-simple.json` (`c1-m4-bringup-simple`) | Bring-up první instance (Simple) | Běžný provoz | 230 / 140 | 1, 3 |
+| 5 | `05-troubleshooting-validation.json` (`c1-m5-troubleshooting-validation`) | Validace selhala: JSON spec po kolegovi | Troubleshooting | 250 / 150 | 4 |
+| 6 | `06-production-ha-design.json` (`c1-m6-production-ha-design`) | Návrh pro produkci: HA fleet | Návrh pro produkci | 270 / 175 | 5 |
+
+Pořadí misí 1–3 kopíruje fázi Preparation v pořadí dokumentace [S5] (20 §4.1): Review prerequisites →
+Image ESX hosts → Deploy VCF Installer appliance → Download binaries. Prerekvizity (krok 1) pokrývá workbook
+a kvíz v misi 1.
 
 ## Mapování na spec
 
-### 1 – VCF Installer (tutoriál)
-- Úkoly: zdroje appliance (20 §3.3, §6.1 [S6][S35]), umístění installeru (20 §4.1.5 [S6], 00 §2.6 [S4]),
-  nasazení OVA (20 §4.1.5, §3.6 [S6]), login `admin@local` (20 §4.1.5, §4.2 krok 1 [S6][S14]).
-- Pasti (kódy modelu): politika hesel `PASSWORD_*` (20 §3.6, §5.2 [S6]), max. 2 DNS servery
-  `INSTALLER_TOO_MANY_DNS_SERVERS` (20 §4.1.5 krok 9, §6.1 [S6]), FQDN velkými písmeny `FQDN_NOT_LOWERCASE`
-  (20 §3.5 [S14][S19]).
-
-### 2 – Příprava ESX hostů (běžný provoz)
-- Úkoly v pořadí dokumentace: instalace z ISO (20 §4.1.1 [S8]), síť v DCUI (§4.1.2 [S9]), DNS A + PTR
-  (§3.5 [S20]), NTP (§4.1.3 [S10]), regenerace certifikátu po nastavení hostname + vypnutí SSH (§4.1.4 [S11]),
-  kvíz HW pravidel – homogenní profil, jeden vendor, žádné stateless hosty, vmk0 na VSS (§3.2 [S7][S9]),
-  kontrola `validateEsxHostsForBringup`.
+### 1 – Příprava ESX hostů (tutoriál)
+- Úkoly: kvíz pořadí fáze Preparation (20 §4.1, §3.1 [S5]); dál v pořadí dokumentace: instalace z ISO
+  (20 §4.1.1 [S8]), síť v DCUI (§4.1.2 [S9]), DNS A + PTR (§3.5 [S20]), NTP (§4.1.3 [S10]), regenerace
+  certifikátu po nastavení hostname + vypnutí SSH (§4.1.4 [S11]), kvíz HW pravidel – homogenní profil, jeden
+  vendor, žádné stateless hosty, vmk0 na VSS (§3.2 [S7][S9]), kontrola `validateEsxHostsForBringup`.
+- Installer ve výchozím stavu ještě není nasazen (`not-deployed`) – hosty se připravují před ním [S5].
 - Pasti: `ESX_CUSTOM_DNS_SUFFIXES` (§4.1.2 krok 6), chybějící PTR `DNS_RECORD_MISSING` (§3.5),
   `ESX_SSH_DISABLED` (§4.1.4), NTP před sítí `ESX_NETWORK_NOT_CONFIGURED` (§4.1.3 – Host Client potřebuje síť).
+
+### 2 – VCF Installer (tutoriál)
+- Výchozí stav: připravené hosty z mise 1 (self-check `validateEsxHostsForBringup` = žádné chyby).
+- Úkoly: zdroje appliance (20 §3.3, §6.1 [S6][S35]), umístění installeru (20 §4.1.5 [S6], 00 §2.6 [S4]),
+  nasazení OVA (20 §4.1.5, §3.3, §3.6 [S6]), kvíz kontrol po nasazení – SSH jako `vcf`, ping na ESX hosty,
+  forward/reverse DNS lookup hostů a NTP serverů (20 §4.1.5 „Po nasazení“ [S6]), ověření DNS lookupu hostů
+  a NTP serveru (`dns-forward-reverse`; NTP server ve výchozím stavu nemá PTR), login `admin@local`
+  (20 §4.1.5, §4.2 krok 1 [S6][S14]).
+- Pasti (kódy modelu): politika hesel `PASSWORD_*` (20 §3.6, §5.2 [S6]), max. 2 DNS servery
+  `INSTALLER_TOO_MANY_DNS_SERVERS` (20 §4.1.5 krok 9, §6.1 [S6]), Host Name installeru bez PTR
+  `DNS_RECORD_MISSING` (20 §3.3 [S6] – DNS záznamy a FQDN appliance musí být platné a resolvovatelné; §3.5 [S20]).
+- Pravidla `.local` / velkých písmen se na FQDN installeru **nepoužívají** – spec je pro appliance installeru
+  neuvádí (20 §3.5, §8 q15); model pole klasifikuje jako `unclassified`.
 
 ### 3 – Depot a binárky (běžný provoz)
 - Úkoly: 16 binárek, VCF Operations/Automation i při odložení (20 §3.4 [S12]), připojení online/offline depotu
@@ -44,21 +55,27 @@ Body, srážky a rozpočet jsou **herní mechanika** (fiktivní), ne fakta z dok
   `DEPOT_CERT_NOT_TRUSTED`, stahování bez depotu `DEPOT_NOT_CONNECTED` (§4.1.6 [S13]).
 
 ### 4 – Bring-up Simple (běžný provoz)
-- Úkoly = kroky 2–20 průvodce „Deploy a new VCF fleet“ (20 §4.2 [S14]), validace warnings/errors (§5.1),
+- Úkoly = kroky 2–20 průvodce „Deploy a new VCF fleet“ (20 §4.2 [S14]), validace warnings/errors (§5.1;
+  obecný postup – Acknowledge jen pro warnings vrácené validací),
   kontrola výsledné fleet (`buildFleetFromBringup` + `validateFleet`, 20 §2.1, 00 §2.1), post-deployment:
   licence, záloha, nepřesouvat VM management services (20 §4.4, §5.2; 00 §3 [S9]).
 - Pasti: Simple jen Small `SIZE_NOT_ALLOWED_FOR_MODEL` (§4.2 krok 5), `NSX_NODE_COUNT` (§6.4, 00 §2.9),
-  `VCF_AUTOMATION_IPS_TOO_FEW`, `SERVICES_RUNTIME_IPS_TOO_FEW`, warning `SERVICES_RUNTIME_IPS_BELOW_RECOMMENDED`
-  (§3.5, §6.4 [S19]), inclusion range mimo podsíť / network-broadcast (§5.1 [S14][S34]),
+  `VCF_AUTOMATION_IPS_TOO_FEW`, `SERVICES_RUNTIME_IPS_TOO_FEW`, `SERVICES_RUNTIME_IPS_BELOW_RECOMMENDED`
+  (§3.5, §6.4 [S19]; severity `recommendation` – doporučení dokumentace „doporučeno 30 IP“, **ne** warning
+  installeru, nic se nepotvrzuje; past dává jen herní bonus za dodržení doporučení), inclusion range mimo podsíť / network-broadcast (§5.1 [S14][S34]),
   `FQDN_IP_IN_RESERVED_RANGE` / `FQDN_IP_NOT_UNIQUE` (§3.5), Deploy před validací `ILLEGAL_DEPLOYMENT_TRANSITION`.
 
 ### 5 – Troubleshooting (JSON spec)
 - Workflow „Deploy Using JSON Spec“ (20 §4.3 [S15]); installer na management hostu → po nasazení SDDC Manager mode
   (20 §4.1.5 [S6], 00 §2.6 [S4]).
 - Osm chyb ve výchozím stavu (přesně ověřeno testem proti modelu): `SDDC_MANAGER_FQDN_FIXED` (§4.1.5 krok 8,
-  §4.2 krok 17), `DNS_RECORD_MISSING` (chybějící PTR, §3.5 [S20]), `FQDN_NOT_LOWERCASE` (known issue #2,
-  §5.3 [S31]), `FQDN_LOCAL_DOMAIN` (§3.5), `SERVICES_RUNTIME_IPS_TOO_FEW` (§3.5), `INCLUSION_RANGE_TOO_SMALL`
-  (§5.1), `INSTALLER_CANNOT_REACH` NTP (§3.3 [S5][S6], KB 439240 [S44]), `ESX_CERT_CN_MISMATCH` (§5.2 [S11]).
+  §4.2 krok 17), `DNS_RECORD_MISSING` (chybějící PTR, §3.5 [S20]), `FQDN_NOT_LOWERCASE` u Identity broker FQDN
+  (kontejnerová služba; §3.5 [S14][S19], known issue #2 §5.3 [S31]), `FQDN_LOCAL_DOMAIN` u VCF services runtime
+  FQDN (kontejnerová služba; §3.5, §5.1 [S14][S19][S55]), `SERVICES_RUNTIME_IPS_TOO_FEW` (§3.5),
+  `INCLUSION_RANGE_TOO_SMALL` (§5.1), `INSTALLER_CANNOT_REACH` NTP (§3.3 [S5][S6], KB 439240 [S44]),
+  `ESX_CERT_CN_MISMATCH` (§5.2 [S11]).
+- Teaching point (kvíz `t-local-quiz`): `.local` není zakázané obecně – vCenter, ESX, NSX Manager, SDDC Manager
+  a VCF Operations „continue to operate with .local domains“ [S19][S55]; zákaz jen pro kontejnerové služby.
 
 ### 6 – Návrh pro produkci (HA)
 - Rozhodnutí: fleet design Basic a single-rack management cluster (00 §6 [S16][S7]), HA pro produkci
@@ -74,6 +91,8 @@ Body, srážky a rozpočet jsou **herní mechanika** (fiktivní), ne fakta z dok
 - Rozpočet 500 000 herních kreditů – jen rámec, katalog HW zatím není.
 
 ## Záměrně vynecháno (otevřené otázky ve specu / modelu)
+- Kontroly po nasazení installeru „SSH jako `vcf`“ a „ping na ESX hosty“ (20 §4.1.5 [S6]) – schéma/model pro ně
+  nemá akci ani podmínku splnění; v misi 2 jsou jen v kvízu, hodnotí se DNS lookup (`dns-forward-reverse`).
 - Minima hostů, která spec neuvádí jednoznačně (stretched NFS/FC – vMSC, další clustery / WLD; 10 §8 q2) –
   model je nekontroluje, mise je nepoužívají. Mise 5 past `MGMT_DOMAIN_TOO_FEW_HOSTS` nemá (Simple, 4 hosty;
   přesná sada výchozích chyb zůstává beze změny).

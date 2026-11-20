@@ -17,7 +17,22 @@ import type { ValidationCode } from './codes';
 export type { ValidationCode } from './codes';
 export { VALIDATION_CODES, isValidationCode } from './codes';
 
-export type Severity = 'error' | 'warning';
+/**
+ * - `error` / `warning`: documented VCF Installer validation semantics (20 §5.1), see header.
+ * - `recommendation`: the documentation only *recommends* something (e.g. "reserve 30 IPs", 20 §3.5 [S19])
+ *   and no installer warning is documented. Non-blocking and NOT acknowledgeable: it never moves the
+ *   deployment state machine to `awaiting-acknowledgement`. UI should show it as a hint, not as a
+ *   VCF validation result.
+ */
+export type Severity = 'error' | 'warning' | 'recommendation';
+
+/**
+ * Where an issue comes from:
+ * - `vcf`: modelled VCF behaviour / documented requirement (default when omitted),
+ * - `game-scope`: limitation of this game's model (feature not modelled yet). It is NOT a VCF error;
+ *   the UI should disable the option instead of presenting it as a validation failure.
+ */
+export type IssueScope = 'vcf' | 'game-scope';
 
 export interface ValidationIssue {
   /** Stable machine code (used by engine/scenarios/scoring); registry in codes.ts. */
@@ -29,6 +44,8 @@ export interface ValidationIssue {
   readonly specRef: string;
   /** Object the issue relates to (FQDN, host, field path…). */
   readonly subject?: string;
+  /** Omitted = 'vcf'. */
+  readonly scope?: IssueScope;
 }
 
 export function issue(
@@ -37,10 +54,16 @@ export function issue(
   message: string,
   specRef: string,
   subject?: string,
+  scope?: IssueScope,
 ): ValidationIssue {
-  return subject === undefined
-    ? { code, severity, message, specRef }
-    : { code, severity, message, specRef, subject };
+  return {
+    code,
+    severity,
+    message,
+    specRef,
+    ...(subject !== undefined ? { subject } : {}),
+    ...(scope !== undefined && scope !== 'vcf' ? { scope } : {}),
+  };
 }
 
 export const errorsOf = (issues: readonly ValidationIssue[]): ValidationIssue[] =>
@@ -48,6 +71,13 @@ export const errorsOf = (issues: readonly ValidationIssue[]): ValidationIssue[] 
 
 export const warningsOf = (issues: readonly ValidationIssue[]): ValidationIssue[] =>
   issues.filter((i) => i.severity === 'warning');
+
+export const recommendationsOf = (issues: readonly ValidationIssue[]): ValidationIssue[] =>
+  issues.filter((i) => i.severity === 'recommendation');
+
+/** Issues that are limitations of the game model, not VCF validation results. */
+export const gameScopeOf = (issues: readonly ValidationIssue[]): ValidationIssue[] =>
+  issues.filter((i) => i.scope === 'game-scope');
 
 export const hasErrors = (issues: readonly ValidationIssue[]): boolean =>
   issues.some((i) => i.severity === 'error');

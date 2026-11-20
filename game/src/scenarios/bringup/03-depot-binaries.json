@@ -6,7 +6,7 @@
   "title": "Depot a binárky",
   "difficulty": "routine",
   "vcfVersion": "9.1.1",
-  "requires": ["c1-m1-vcf-installer"],
+  "requires": ["c1-m2-vcf-installer"],
   "summary": "Připoj VCF Installer k online nebo offline depotu a stáhni všech 16 binárek pro nové nasazení VCF.",
   "briefing": "Installer běží, ale bez binárek nic nenasadí. Firma nemá přímý přístup na Internet. K dispozici jsou dvě proxy a interní offline depot přes HTTPS. Formuláře v Depot Settings and Binary Management už někdo začal vyplňovat – zkontroluj je, než je odešleš. Stačí jeden funkční depot: připojený může být vždy jen jeden typ.",
   "objectives": [

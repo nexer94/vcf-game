@@ -106,7 +106,7 @@
         "vsp01.dc1.vcfhra.cz": "10.10.0.38",
         "auto01.dc1.vcfhra.cz": "10.10.0.39",
         "vsp02.dc1.vcfhra.cz": "10.10.0.40",
-        "vc01.dc1.vcfhra.local": "10.10.0.41",
+        "vsp01.dc1.vcfhra.local": "10.10.0.41",
         "esx01.dc1.vcfhra.cz": "10.10.0.101",
         "esx02.dc1.vcfhra.cz": "10.10.0.102",
         "esx03.dc1.vcfhra.cz": "10.10.0.103",
@@ -128,7 +128,7 @@
         "10.10.0.38": "vsp01.dc1.vcfhra.cz",
         "10.10.0.39": "auto01.dc1.vcfhra.cz",
         "10.10.0.40": "vsp02.dc1.vcfhra.cz",
-        "10.10.0.41": "vc01.dc1.vcfhra.local",
+        "10.10.0.41": "vsp01.dc1.vcfhra.local",
         "10.10.0.101": "esx01.dc1.vcfhra.cz",
         "10.10.0.102": "esx02.dc1.vcfhra.cz",
         "10.10.0.103": "esx03.dc1.vcfhra.cz",
@@ -183,12 +183,12 @@
         "fleetComponentsFqdn": "fleet01.dc1.vcfhra.cz",
         "instanceComponentsFqdn": "inst01.dc1.vcfhra.cz",
         "identityBrokerFqdn": "IDB01.dc1.vcfhra.cz",
-        "servicesRuntimeFqdn": "vsp01.dc1.vcfhra.cz",
+        "servicesRuntimeFqdn": "vsp01.dc1.vcfhra.local",
         "internalClusterCidrIpv4": "198.18.0.0/15",
         "vcfAutomationFqdn": "auto01.dc1.vcfhra.cz",
         "vcfAutomationServicesRuntimeFqdn": "vsp02.dc1.vcfhra.cz"
       },
-      "vcenter": { "fqdn": "vc01.dc1.vcfhra.local" },
+      "vcenter": { "fqdn": "vc01.dc1.vcfhra.cz" },
       "storageDetails": { "datastoreName": "dc1-m01-cl01-ds-vsan01" },
       "vds": {
         "profile": "default",
@@ -212,7 +212,8 @@
         { "key": "ntp", "label": "NTP servery firmy", "value": "ntp.dc1.vcfhra.cz (ntp2 byl v říjnu vyřazen a firewall k němu je zavřený)" },
         { "key": "net.services", "label": "IP blok pro VCF Management Services", "value": "10.10.1.10 – 10.10.1.39 (30 IP)" },
         { "key": "net.vmotion", "label": "vMotion inclusion range", "value": "10.10.2.10 – 10.10.2.20" },
-        { "key": "fqdn.vcenter", "label": "vCenter", "value": "vc01.dc1.vcfhra.cz (vc01.dc1.vcfhra.local je starý záznam z labu)" },
+        { "key": "fqdn.vcenter", "label": "vCenter", "value": "vc01.dc1.vcfhra.cz" },
+        { "key": "fqdn.servicesRuntime", "label": "VCF services runtime FQDN", "value": "vsp01.dc1.vcfhra.cz (vsp01.dc1.vcfhra.local je starý záznam z labu)" },
         { "key": "installer", "label": "VCF Installer", "value": "vcfinst01.dc1.vcfhra.cz, nasazen na esx01 (lokální disk)" }
       ]
     }
@@ -258,18 +259,44 @@
       "id": "t-fqdn",
       "order": 4,
       "title": "Oprav FQDN komponent",
-      "description": "FQDN musí být malými písmeny a nesmí používat doménu .local. Velká písmena v FQDN identity brokeru nebo services runtime nasazení shodí (známý problém).",
+      "description": "Kontejnerové služby (Fleet components, Instance components, Identity broker, VCF services runtime, VCF Automation, VCF services runtime pro VCF Automation) nesmí mít v FQDN velká písmena ani doménu .local. Velká písmena v těchto polích nasazení shodí (známý problém). U vCenteru, ESX, NSX, SDDC Manageru a VCF Operations .local povolené je – ty neměň.",
       "actions": [{ "kind": "deployment-event", "event": "edit" }],
       "completion": { "kind": "codes-absent", "check": "validateBringupSpec", "codes": ["FQDN_NOT_LOWERCASE", "FQDN_LOCAL_DOMAIN"] },
       "points": 15,
       "specRefs": [
-        { "spec": "20-deployment", "section": "§3.5", "sources": ["S14", "S19"] },
+        { "spec": "20-deployment", "section": "§3.5", "sources": ["S14", "S19", "S55"] },
+        { "spec": "20-deployment", "section": "§5.1", "sources": ["S14", "S19"] },
         { "spec": "20-deployment", "section": "§5.3", "sources": ["S31"] }
       ]
     },
     {
-      "id": "t-pools",
+      "id": "t-local-quiz",
       "order": 5,
+      "title": "Kde .local smí být?",
+      "description": "Kolega z jiného týmu tvrdí, že .local je ve VCF zakázané úplně a chce přejmenovat i vCenter a ESX hosty ve svém labu.",
+      "actions": [{ "kind": "quiz" }],
+      "completion": {
+        "kind": "quiz",
+        "question": "Které komponenty mohou podle dokumentace používat FQDN v doméně .local? (více odpovědí)",
+        "options": [
+          "vCenter",
+          "ESX hosty",
+          "VCF services runtime",
+          "VCF Identity Broker",
+          "NSX Manager"
+        ],
+        "correct": [0, 1, 4],
+        "explanation": "„Traditional virtual appliances, such as vCenter, ESX hosts, NSX Manager, SDDC Manager, and VCF Operations, continue to operate with .local domains.“ Naopak „Containerized services, such as VCF management services, VCF Automation, VCF Identity Broker, and VMware vSphere Supervisor, do not support .local domains.“ Zákaz .local tedy není obecný – platí jen pro kontejnerové služby."
+      },
+      "points": 5,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§3.5", "sources": ["S19", "S55"] },
+        { "spec": "20-deployment", "section": "§5.1", "sources": ["S19"] }
+      ]
+    },
+    {
+      "id": "t-pools",
+      "order": 6,
       "title": "Oprav IP rozsahy",
       "description": "VCF services runtime potřebuje min. 12 IP (doporučeno 30); vMotion inclusion range musí mít aspoň tolik adres jako hostů.",
       "actions": [{ "kind": "deployment-event", "event": "edit" }],
@@ -283,7 +310,7 @@
     },
     {
       "id": "t-ntp",
-      "order": 6,
+      "order": 7,
       "title": "NTP server, na který installer dosáhne",
       "description": "Appliance musí dosáhnout na DNS a NTP servery. ntp2 je za zavřeným firewallem.",
       "actions": [{ "kind": "deployment-event", "event": "edit" }],
@@ -296,7 +323,7 @@
     },
     {
       "id": "t-cert",
-      "order": 7,
+      "order": 8,
       "title": "Certifikát na esx03",
       "description": "esx03 má stále původní certifikát s CN localhost.localdomain. Zapni SSH, regeneruj certifikát, rebootuj a SSH vypni.",
       "actions": [
@@ -312,7 +339,7 @@
     },
     {
       "id": "t-validate",
-      "order": 8,
+      "order": 9,
       "title": "Validace",
       "description": "Spusť validaci. Errors oprav, warnings oprav nebo potvrď.",
       "actions": [
@@ -328,7 +355,7 @@
     },
     {
       "id": "t-deploy",
-      "order": 9,
+      "order": 10,
       "title": "Nasaď a sleduj přepnutí appliance",
       "description": "Deploy. Installer na management hostu se po nasazení přesune Storage vMotion z lokálního disku a přepne do SDDC Manager mode.",
       "actions": [{ "kind": "deployment-event", "event": "deploy" }],
@@ -347,7 +374,7 @@
     },
     {
       "id": "t-mode-quiz",
-      "order": 10,
+      "order": 11,
       "title": "Půjde appliance použít znovu?",
       "description": "Vedení chce stejnou appliance použít pro další instanci.",
       "actions": [{ "kind": "quiz" }],
@@ -395,24 +422,30 @@
     {
       "id": "tr-uppercase",
       "title": "Identity broker FQDN velkými písmeny",
-      "description": "IDB01.dc1.vcfhra.cz – nasazení selže, pokud FQDN identity brokeru (a dalších fleet FQDN) obsahuje velká písmena.",
+      "description": "IDB01.dc1.vcfhra.cz – pole Identity broker FQDN nese v průvodci poznámku „Do not use capital letters in the FQDN.“ a nasazení s velkými písmeny v tomto poli selže (známý problém VCF Installer 9.1).",
       "codes": ["FQDN_NOT_LOWERCASE"],
       "armed": "initial-state",
       "detectedBy": ["validateBringupSpec"],
       "avoidBonus": 10,
       "relatedTasks": ["t-fqdn"],
-      "specRefs": [{ "spec": "20-deployment", "section": "§5.3", "sources": ["S31"] }]
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§3.5", "sources": ["S14", "S19"] },
+        { "spec": "20-deployment", "section": "§5.3", "sources": ["S31"] }
+      ]
     },
     {
       "id": "tr-local",
-      "title": "vCenter v doméně .local",
-      "description": "vc01.dc1.vcfhra.local – FQDN nesmí používat doménu .local.",
+      "title": "VCF services runtime v doméně .local",
+      "description": "vsp01.dc1.vcfhra.local – VCF services runtime je kontejnerová služba a ta .local domény nepodporuje (v průvodci „Do not use a .local FQDN.“). To, že starý záznam z labu má A i PTR, nepomůže – použij vsp01.dc1.vcfhra.cz.",
       "codes": ["FQDN_LOCAL_DOMAIN"],
       "armed": "initial-state",
       "detectedBy": ["validateBringupSpec"],
       "avoidBonus": 5,
       "relatedTasks": ["t-fqdn"],
-      "specRefs": [{ "spec": "20-deployment", "section": "§3.5", "sources": ["S14", "S19"] }]
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§3.5", "sources": ["S14", "S19", "S55"] },
+        { "spec": "20-deployment", "section": "§5.1", "sources": ["S14", "S19"] }
+      ]
     },
     {
       "id": "tr-runtime-pool",
@@ -482,9 +515,17 @@
     {
       "id": "h-uppercase",
       "trapId": "tr-uppercase",
-      "text": "Known issue VCF Installer 9.1: nasazení selže, pokud FQDN fleet components, instance components, identity broker, VCF services runtime nebo VCF Automation obsahují velká písmena.",
+      "text": "Known issue VCF Installer 9.1: nasazení selže, pokud FQDN fleet components, instance components, identity broker, VCF services runtime, VCF Automation nebo VCF services runtime pro VCF Automation obsahují velká písmena.",
       "specRef": { "spec": "20-deployment", "section": "§5.3", "sources": ["S31"] },
       "doc": { "title": "VCF Installer 9.1 Known Issues", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-0-0-release-notes/known-issues/vcf-installer-91-known-issues.html" },
+      "cost": 3
+    },
+    {
+      "id": "h-local",
+      "trapId": "tr-local",
+      "text": "„Containerized services, such as VCF management services, VCF Automation, VCF Identity Broker, and VMware vSphere Supervisor, do not support .local domains.“ – zákaz se týká jen těchto služeb; vCenter, ESX, NSX Manager, SDDC Manager a VCF Operations s .local fungují dál.",
+      "specRef": { "spec": "20-deployment", "section": "§3.5", "sources": ["S19"] },
+      "doc": { "title": "First VCF Instance FQDNs and IP addresses", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/vcf-components-fqdns-and-ip-addresses/first-vcf-instance-fqdns-and-ip-addresses.html" },
       "cost": 3
     },
     {
@@ -516,7 +557,7 @@
     "orderBonus": { "points": 10, "sequence": ["t-review", "t-validate", "t-deploy"] },
     "cleanRunBonus": 25,
     "penalties": { "perValidationError": 4, "perValidationRun": 5, "freeValidationRuns": 1, "perIllegalAction": 5 },
-    "maxPoints": 245,
+    "maxPoints": 250,
     "passPoints": 150
   },
   "expectedInitialIssues": [
@@ -536,7 +577,7 @@
     }
   ],
   "referenceSolution": {
-    "description": "PTR pro opscp01, certifikát esx03 regenerován; v JSON: NTP ntp.dc1.vcfhra.cz, services runtime 30 IP, vMotion 11 IP, idb01 malými písmeny, vCenter vc01.dc1.vcfhra.cz, SDDC Manager = vcfinst01.",
+    "description": "PTR pro opscp01, certifikát esx03 regenerován; v JSON: NTP ntp.dc1.vcfhra.cz, services runtime 30 IP, vMotion 11 IP, idb01 malými písmeny, VCF services runtime vsp01.dc1.vcfhra.cz (ne .local), SDDC Manager = vcfinst01.",
     "hostPatches": [{ "id": "esx03", "patch": { "certificateCn": "esx03.dc1.vcfhra.cz", "sshEnabled": false } }],
     "dnsPatch": { "reverse": { "10.10.0.33": "opscp01.dc1.vcfhra.cz" } },
     "spec": {

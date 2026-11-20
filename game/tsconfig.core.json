@@ -1,11 +1,11 @@
 {
-  // Model + engine + scenarios: no DOM, no PixiJS. Type-checked separately
+  // Model + engine + scenarios + modes: no DOM, no PixiJS. Type-checked separately
   // so that an accidental DOM/Pixi dependency fails the build.
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "lib": ["ES2022"],
     "types": []
   },
-  "include": ["src/model", "src/engine", "src/scenarios"],
+  "include": ["src/model", "src/engine", "src/scenarios", "src/modes"],
   "exclude": ["src/**/*.test.ts"]
 }

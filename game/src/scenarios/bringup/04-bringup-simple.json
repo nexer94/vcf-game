@@ -6,7 +6,7 @@
   "title": "Bring-up první instance (Simple)",
   "difficulty": "routine",
   "vcfVersion": "9.1.1",
-  "requires": ["c1-m2-esx-hosts", "c1-m3-depot-binaries"],
+  "requires": ["c1-m1-esx-hosts", "c1-m3-depot-binaries"],
   "summary": "Projdi průvodce „Deploy a new VCF fleet“ krok za krokem, zvaliduj vstupy a nasaď první VCF Instance v modelu Simple.",
   "briefing": "Hosty jsou připravené, binárky stažené. Teď přichází hlavní událost: bring-up nové VCF fleet s první VCF Instance a její management doménou. Jde o testovací prostředí, proto vedení zvolilo deployment model Simple. Všechny hodnoty máš ve workbooku. Průvodce má 20 kroků – validace na konci ti řekne, co je špatně, ale každá chyba stojí body. Po nasazení nezapomeň na kroky po nasazení.",
   "objectives": [
@@ -411,7 +411,7 @@
     {
       "id": "tr-runtime-recommended",
       "title": "Méně než doporučených 30 IP",
-      "description": "Doporučeno je rezervovat 30 IP – Day-N služby (log management, real-time metrics) berou IP ze stejného bloku. Validace vrátí warning.",
+      "description": "Minimum je 12 IP, dokumentace ale doporučuje rezervovat 30 – Day-N služby (log management, real-time metrics) berou IP ze stejného bloku. Jde o doporučení z dokumentace, ne o warning installeru: nasazení neblokuje a nic se nepotvrzuje (Acknowledge). Hra ho hlásí jako doporučení a za jeho dodržení dává bonus.",
       "codes": ["SERVICES_RUNTIME_IPS_BELOW_RECOMMENDED"],
       "armed": "player-input",
       "detectedBy": ["validateBringupSpec"],
