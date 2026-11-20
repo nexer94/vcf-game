@@ -34,7 +34,7 @@ import {
   parseCidr,
   parseIpv4,
 } from './net';
-import { type TransitionResult, type ValidationIssue, hasErrors, issue, warningsOf } from './validation';
+import { type TransitionResult, type ValidationCode, type ValidationIssue, hasErrors, issue, warningsOf } from './validation';
 
 // ===========================================================================
 // Constants from the spec
@@ -151,8 +151,8 @@ export const COMPLETION_ORDER = [
 /**
  * Host counts documented only in the convergence context (20 §6.3 [S25]):
  * "Simple: 3 ESX hosts with vSAN or 2 with external storage; HA: 4 ESX hosts".
- * NOT applied to greenfield bring-up by default – see BringupRules.minManagementHosts
- * (20 §8 open question 1).
+ * Kept for the convergence workflow; greenfield bring-up uses minManagementDefaultClusterHosts()
+ * (spec 10 §6.1), which documents the same 3/2/4 numbers for the first management cluster.
  */
 export const CONVERGENCE_MIN_HOSTS = { simpleVsan: 3, simpleExternalStorage: 2, ha: 4 } as const;
 
@@ -403,7 +403,7 @@ export interface PasswordPolicyOptions {
 export function validateInstallerPassword(password: string, field: string, opts: PasswordPolicyOptions): ValidationIssue[] {
   const ref = '20 §3.6, §5.2 [S6]';
   const out: ValidationIssue[] = [];
-  const fail = (code: string, msg: string): void => {
+  const fail = (code: ValidationCode, msg: string): void => {
     out.push(issue(code, 'error', `${field}: ${msg}`, ref, field));
   };
   if (password.length < INSTALLER_PASSWORD_MIN_LENGTH) fail('PASSWORD_TOO_SHORT', `must be at least ${INSTALLER_PASSWORD_MIN_LENGTH} characters.`);
@@ -601,14 +601,68 @@ export function regenerateHostCertificate(host: EsxHost): TransitionResult<EsxHo
   return { ok: true, state: { ...host, certificateCn: host.network?.hostnameFqdn ?? ESX_DEFAULT_CERT_CN } };
 }
 
+/**
+ * Minimum number of ESX hosts in the management domain default (first) vSphere cluster,
+ * per cluster model, deployment model and principal storage (spec 10 §6.1).
+ *
+ * - Single-Rack [P9] (9.0 identical [P10]) and Multi-Rack Layer 2 [P11], column "Mgmt domain –
+ *   default cluster": vSAN Simple 3 / HA 4; NFS or VMFS on FC Simple 2 / HA 4. These cells are
+ *   unambiguous (10 §8 q2 concerns only the "other clusters / WLD" columns). The same 3/2/4 numbers
+ *   appear for convergence (20 §6.3 [P31]) and HA NSX Manager needs "at least four physical hosts" [P23].
+ * - Multi-Rack Layer 3 [P12]: not supported for the management domain default cluster -> undefined here;
+ *   reported by architecture.validateCluster as MGMT_DEFAULT_CLUSTER_L3_UNSUPPORTED.
+ * - Stretched [P13]: vSAN Simple 6 / Highly Available 8 ("Mgmt first cluster" column).
+ *   TODO(spec 10 §6.1, §8 q2): stretched NFS/FC (vMSC) first cluster points to KB 417356 [P35]
+ *   ("Simple min. 2, HA min. 6 … numbers are doubled to account for the 2nd Site") – ambiguous
+ *   whether the numbers are already doubled -> undefined (not checked).
+ *
+ * Returns undefined when the spec gives no unambiguous minimum (= not checked).
+ * Other clusters / workload domains are not covered here (10 §8 q2 merged cells; WLD model is area 40).
+ */
+export function minManagementDefaultClusterHosts(
+  clusterModel: ClusterModel,
+  model: DeploymentModel,
+  storage: StorageType,
+): number | undefined {
+  const vsan = storage === 'vsan-esa' || storage === 'vsan-osa';
+  switch (clusterModel) {
+    case 'single-rack': // 10 §6.1 Single-Rack table [P9]
+    case 'multi-rack-l2': // 10 §6.1 Multi-Rack Layer 2 table [P11]
+      if (model === 'high-availability') return 4;
+      return vsan ? 3 : 2;
+    case 'multi-rack-l3': // 10 §6.1 [P12]: "Not supported for primary cluster"
+      return undefined;
+    case 'stretched': // 10 §6.1 Stretched table [P13]
+      if (!vsan) return undefined; // TODO(10 §8 q2): vMSC numbers via KB 417356 ambiguous
+      return model === 'high-availability' ? 8 : 6;
+  }
+}
+
+/**
+ * Host-count check for the management domain default cluster (spec 10 §6.1 [P9][P11][P13];
+ * requirement VCF-ESX-REQD-CFG-001 / VCF-CLS-REQD-CFG-002, 10 §4 step 5 [P14][P9]).
+ * Severity error: documented as a minimum / requirement. The documentation gives no message text
+ * for greenfield bring-up (10 §5) – the message here is descriptive, not a quote.
+ */
+export function validateManagementHostCount(
+  hostCount: number,
+  ctx: { readonly model: DeploymentModel; readonly storage: StorageType; readonly clusterModel: ClusterModel },
+): ValidationIssue[] {
+  const min = minManagementDefaultClusterHosts(ctx.clusterModel, ctx.model, ctx.storage);
+  if (min === undefined || hostCount >= min) return [];
+  return [
+    issue(
+      'MGMT_DOMAIN_TOO_FEW_HOSTS',
+      'error',
+      `Management domain default cluster (${ctx.clusterModel}, ${ctx.model}, ${ctx.storage}) requires at least ${min} ESX hosts; ${hostCount} provided.`,
+      ctx.clusterModel === 'stretched' ? '10 §6.1 [P13]' : '10 §6.1 [P9][P11]',
+      'esxHosts',
+    ),
+  ];
+}
+
 /** Configurable rules where the spec has open questions. */
 export interface BringupRules {
-  /**
-   * Minimum number of ESX hosts for the greenfield management domain.
-   * TODO(spec 20 §8 q1, 00 §8 q7): not documented for greenfield bring-up; undefined = not checked.
-   * Convergence context numbers are in CONVERGENCE_MIN_HOSTS.
-   */
-  readonly minManagementHosts?: (model: DeploymentModel, storage: StorageType) => number | undefined;
   /** Required ESX version per VCF Release Notes (20 §3.2 [S7]); undefined = not checked. */
   readonly requiredEsxVersion?: string;
   /** Dictionary used for password checks (20 §3.6 [S6]). */
@@ -626,12 +680,18 @@ export function validateEsxHostsForBringup(
     readonly model: DeploymentModel;
     readonly storage: StorageType;
     readonly rules?: BringupRules;
+    /** Cluster model of the management domain default cluster; default 'single-rack' (10 §6.1 [P9]). */
+    readonly clusterModel?: ClusterModel;
+    /**
+     * Check the minimum host count (10 §6.1). Default true. validateHostEntries passes false and checks
+     * the number of wizard entries itself (so a missing host is not reported twice).
+     */
+    readonly checkHostCount?: boolean;
   },
 ): ValidationIssue[] {
   const out: ValidationIssue[] = [];
-  const min = ctx.rules?.minManagementHosts?.(ctx.model, ctx.storage);
-  if (min !== undefined && hosts.length < min)
-    out.push(issue('ESX_HOST_COUNT_TOO_LOW', 'error', `At least ${min} ESX hosts are required for this deployment model and storage type.`, '20 §3.2, §6.3 [S7] (TODO: minimum not documented for greenfield)'));
+  if (ctx.checkHostCount !== false)
+    out.push(...validateManagementHostCount(hosts.length, { model: ctx.model, storage: ctx.storage, clusterModel: ctx.clusterModel ?? 'single-rack' }));
 
   // Homogeneous HW profile in the first cluster, single vendor (20 §3.2 [S7]).
   if (new Set(hosts.map((h) => h.hwProfileId)).size > 1)
@@ -1157,7 +1217,18 @@ export function validateHostEntries(spec: BringupSpec, env: BringupEnvironment):
     }
     selected.push(h);
   }
-  out.push(...validateEsxHostsForBringup(selected, { dns: env.dns, model: spec.model, storage: spec.storage.type, ...(env.rules ? { rules: env.rules } : {}) }));
+  // Host count = distinct hosts entered in the wizard (10 §6.1 [P9][P11]); bring-up builds a
+  // single-rack default cluster (stretching the management domain is Day 2, 10 §6.1 [P7]).
+  out.push(...validateManagementHostCount(seen.size, { model: spec.model, storage: spec.storage.type, clusterModel: 'single-rack' }));
+  out.push(
+    ...validateEsxHostsForBringup(selected, {
+      dns: env.dns,
+      model: spec.model,
+      storage: spec.storage.type,
+      checkHostCount: false,
+      ...(env.rules ? { rules: env.rules } : {}),
+    }),
+  );
   return out;
 }
 

@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 1,
+  "id": "c1-m1-vcf-installer",
+  "campaign": { "id": "c1-bringup", "order": 1, "title": "Nové prostředí – bring-up první instance" },
+  "order": 1,
+  "title": "První kroky: nasazení VCF Installeru",
+  "difficulty": "tutorial",
+  "vcfVersion": "9.1.1",
+  "requires": [],
+  "summary": "Nasaď appliance VCF Installer mimo budoucí management doménu a přihlas se do jeho UI.",
+  "briefing": "Firma staví nový privátní cloud na VCF 9.1.1. Než začne bring-up, potřebuješ VCF Installer – virtuální appliance, přes kterou se celá první instance nasadí. Síťaři ti poslali vyplněné hodnoty z Planning and Preparation Workbooku a formulář OVF šablony už je předvyplněný. Pozor: ne všechno, co ti poslali, projde validací. Appliance nasazuješ na existující infrastrukturu mimo budoucí management doménu, takže zůstane v režimu installeru.",
+  "objectives": [
+    "Zjistit, jaké zdroje appliance VCF Installer potřebuje a kam ji umístit.",
+    "Nasadit OVA VCF Installeru se správnými hesly, FQDN a DNS servery.",
+    "Přihlásit se do UI installeru jako admin@local."
+  ],
+  "initial": {
+    "installer": { "mode": "not-deployed", "version": "9.1.1", "platformsDeployed": 0 },
+    "depot": { "connection": { "kind": "none" }, "binaries": {} },
+    "hosts": [],
+    "dns": {
+      "forward": {
+        "vcfinst01.dc1.vcfhra.cz": "10.10.0.10",
+        "ntp.dc1.vcfhra.cz": "10.10.0.5"
+      },
+      "reverse": {
+        "10.10.0.10": "vcfinst01.dc1.vcfhra.cz",
+        "10.10.0.5": "ntp.dc1.vcfhra.cz"
+      }
+    },
+    "rules": { "dictionaryWords": ["password", "welcome", "secret"] },
+    "drafts": {
+      "installerOvf": {
+        "vmName": "vcf-installer",
+        "placement": "outside-management",
+        "datastore": "other",
+        "rootPassword": "",
+        "localUserPassword": "",
+        "hostnameFqdn": "VCFINST01.dc1.vcfhra.cz",
+        "ntpServers": ["ntp.dc1.vcfhra.cz"],
+        "ipVersion": "ipv4",
+        "ipv4Address": "10.10.0.10",
+        "subnetMask": "255.255.255.0",
+        "defaultGateway": "10.10.0.1",
+        "dnsDomainName": "dc1.vcfhra.cz",
+        "domainSearchPath": "dc1.vcfhra.cz",
+        "dnsServers": ["10.10.0.4", "10.10.0.7", "10.10.0.8"]
+      }
+    },
+    "workbook": {
+      "note": "Hodnoty jsou ilustrativní herní data (ne fakta z dokumentace). Zdroj formátu: Planning and Preparation Workbook.",
+      "entries": [
+        { "key": "installer.fqdn", "label": "VCF Installer – Host Name (od síťařů)", "value": "VCFINST01.dc1.vcfhra.cz" },
+        { "key": "installer.ip", "label": "VCF Installer – IPv4 / maska / brána", "value": "10.10.0.10 / 255.255.255.0 / 10.10.0.1" },
+        { "key": "dns.servers", "label": "DNS servery firmy", "value": ["10.10.0.4", "10.10.0.7", "10.10.0.8"] },
+        { "key": "dns.domain", "label": "DNS doména", "value": "dc1.vcfhra.cz" },
+        { "key": "ntp.servers", "label": "NTP server", "value": "ntp.dc1.vcfhra.cz" },
+        { "key": "installer.placement", "label": "Kam appliance nasadit", "value": "existující vSphere cluster mimo budoucí management doménu" }
+      ]
+    }
+  },
+  "tasks": [
+    {
+      "id": "t-resources",
+      "order": 1,
+      "title": "Kolik zdrojů appliance potřebuje?",
+      "description": "Než nasadíš OVA, ověř, že cílová infrastruktura má pro VM installeru dost prostředků.",
+      "actions": [{ "kind": "quiz" }],
+      "completion": {
+        "kind": "quiz",
+        "question": "Jaké prostředky potřebuje VM VCF Installeru (9.1)?",
+        "options": [
+          "2 vCPU, 8 GB RAM, 100 GB storage",
+          "4 vCPU, 16 GB RAM, 914 GB storage",
+          "8 vCPU, 32 GB RAM, 2 TB storage"
+        ],
+        "correct": [1],
+        "explanation": "Dokumentace uvádí pro VCF Installer 4 vCPU, 16 GB RAM a 914 GB storage."
+      },
+      "points": 10,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§3.3", "sources": ["S6"] },
+        { "spec": "20-deployment", "section": "§6.1", "sources": ["S6", "S35"] }
+      ]
+    },
+    {
+      "id": "t-placement",
+      "order": 2,
+      "title": "Kam installer umístit?",
+      "description": "Umístění appliance rozhoduje o tom, co s ní půjde dělat po nasazení.",
+      "actions": [{ "kind": "quiz" }, { "kind": "design-choice", "choice": "installer-placement" }],
+      "completion": {
+        "kind": "quiz",
+        "question": "Co platí pro VCF Installer nasazený mimo management infrastrukturu (např. na jiném vCenteru nebo laptopu)?",
+        "options": [
+          "Může nasadit více VCF/VVF platforem a zůstává installerem.",
+          "Po nasazení se vždy přepne do SDDC Manager mode.",
+          "Musí být nasazen na lokální disk ESX hostu."
+        ],
+        "correct": [0],
+        "explanation": "Mimo management infrastrukturu lze nasadit více platforem. Na ESX hostu budoucí management domény jen jednu – pak se appliance přepne do SDDC Manager mode a musí ležet na lokálním disku."
+      },
+      "points": 10,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.1.5", "sources": ["S6"] },
+        { "spec": "00-architektura", "section": "§2.6", "sources": ["S4"] }
+      ]
+    },
+    {
+      "id": "t-deploy",
+      "order": 3,
+      "title": "Nasaď OVA VCF Installeru",
+      "description": "VMware Host Client > Deploy OVF Template. Vyplň hesla (root a local user), Host Name (FQDN), NTP a síť. Opravuj hodnoty, které neodpovídají pravidlům.",
+      "actions": [{ "kind": "model", "action": "deploy-installer-ova" }],
+      "completion": { "kind": "installer-mode", "mode": "installer" },
+      "points": 40,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.1.5", "sources": ["S6"] },
+        { "spec": "20-deployment", "section": "§3.6", "sources": ["S6"] }
+      ]
+    },
+    {
+      "id": "t-login",
+      "order": 4,
+      "title": "Přihlas se do UI installeru",
+      "description": "Otevři https://installer_appliance_FQDN, přijmi self-signed certifikát a přihlas se jako admin@local.",
+      "actions": [{ "kind": "wizard-step", "step": "login" }],
+      "completion": { "kind": "wizard-step-completed", "step": "login" },
+      "points": 20,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.1.5", "sources": ["S6"] },
+        { "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] }
+      ]
+    }
+  ],
+  "traps": [
+    {
+      "id": "tr-password-policy",
+      "title": "Slabé heslo",
+      "description": "Heslo root / local user musí mít aspoň 15 znaků, velké i malé písmeno, číslici a speciální znak z @ ! # $ % ? ^. Jinak nasazení selže.",
+      "codes": ["PASSWORD_TOO_SHORT", "PASSWORD_NO_UPPERCASE", "PASSWORD_NO_LOWERCASE", "PASSWORD_NO_DIGIT", "PASSWORD_NO_SPECIAL"],
+      "armed": "player-input",
+      "detectedBy": ["validateDeployInstallerOva"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-deploy"],
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§3.6", "sources": ["S6"] },
+        { "spec": "20-deployment", "section": "§5.2", "sources": ["S6"] }
+      ]
+    },
+    {
+      "id": "tr-password-words",
+      "title": "Heslo s uživatelským jménem nebo slovníkovým slovem",
+      "description": "Heslo nesmí obsahovat uživatelské jméno (root, admin@local, vcf) ani slovníkové slovo.",
+      "codes": ["PASSWORD_CONTAINS_USERNAME", "PASSWORD_CONTAINS_DICTIONARY_WORD"],
+      "armed": "player-input",
+      "detectedBy": ["validateDeployInstallerOva"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-deploy"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§3.6", "sources": ["S6"] }]
+    },
+    {
+      "id": "tr-dns-servers",
+      "title": "Tři DNS servery v OVF",
+      "description": "Síťaři poslali tři DNS servery, OVF šablona VCF Installeru jich přijme nejvýše dva.",
+      "codes": ["INSTALLER_TOO_MANY_DNS_SERVERS"],
+      "armed": "initial-state",
+      "detectedBy": ["validateDeployInstallerOva"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-deploy"],
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.1.5", "sources": ["S6"] },
+        { "spec": "20-deployment", "section": "§6.1", "sources": ["S6"] }
+      ]
+    },
+    {
+      "id": "tr-fqdn-uppercase",
+      "title": "FQDN velkými písmeny",
+      "description": "Host Name z workbooku je velkými písmeny. FQDN komponent VCF musí být malými písmeny.",
+      "codes": ["FQDN_NOT_LOWERCASE"],
+      "armed": "initial-state",
+      "detectedBy": ["validateDeployInstallerOva"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-deploy"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§3.5", "sources": ["S14", "S19"] }]
+    }
+  ],
+  "hints": [
+    {
+      "id": "h-resources",
+      "taskId": "t-resources",
+      "text": "Hledej v kapitole o nasazení appliance VCF Installer – sekce o požadavcích na VM.",
+      "specRef": { "spec": "20-deployment", "section": "§3.3", "sources": ["S6"] },
+      "doc": { "title": "Deploy the VCF Installer Appliance (9.1)", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/deploy-the-vmware-cloud-foundation-installer-appliance.html" },
+      "cost": 2
+    },
+    {
+      "id": "h-password",
+      "trapId": "tr-password-policy",
+      "text": "Aspoň 15 znaků; velké, malé, číslice a jeden ze znaků @ ! # $ % ? ^. Znak & mezi povolenými speciálními znaky není.",
+      "specRef": { "spec": "20-deployment", "section": "§3.6", "sources": ["S6"] },
+      "doc": { "title": "Deploy the VCF Installer Appliance (9.1)", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/deploy-the-vmware-cloud-foundation-installer-appliance.html" },
+      "cost": 3
+    },
+    {
+      "id": "h-dns",
+      "trapId": "tr-dns-servers",
+      "text": "Pole Domain Name Servers v OVF šabloně přijme nejvýše 2 servery.",
+      "specRef": { "spec": "20-deployment", "section": "§4.1.5", "sources": ["S6"] },
+      "doc": { "title": "Deploy the VCF Installer Appliance (9.1)", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/deploy-the-vmware-cloud-foundation-installer-appliance.html" },
+      "cost": 3
+    },
+    {
+      "id": "h-fqdn",
+      "trapId": "tr-fqdn-uppercase",
+      "text": "FQDN musí být malými písmeny a nesmí končit na .local; musí mít forward (A) i reverse (PTR) záznam.",
+      "specRef": { "spec": "20-deployment", "section": "§3.5", "sources": ["S20"] },
+      "doc": { "title": "VCF Components FQDNs and IP addresses", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/vcf-components-fqdns-and-ip-addresses.html" },
+      "cost": 3
+    }
+  ],
+  "scoring": {
+    "orderBonus": { "points": 10, "sequence": ["t-deploy", "t-login"] },
+    "cleanRunBonus": 10,
+    "penalties": { "perValidationError": 2, "perValidationRun": 0, "freeValidationRuns": 0, "perIllegalAction": 1 },
+    "maxPoints": 120,
+    "passPoints": 70
+  },
+  "expectedInitialIssues": [
+    {
+      "check": "validateDeployInstallerOva",
+      "codes": [
+        "PASSWORD_TOO_SHORT",
+        "PASSWORD_NO_UPPERCASE",
+        "PASSWORD_NO_LOWERCASE",
+        "PASSWORD_NO_DIGIT",
+        "PASSWORD_NO_SPECIAL",
+        "INSTALLER_TOO_MANY_DNS_SERVERS",
+        "FQDN_NOT_LOWERCASE"
+      ],
+      "exact": true
+    }
+  ],
+  "referenceSolution": {
+    "description": "Hesla podle politiky, Host Name malými písmeny, jen dva DNS servery; umístění mimo management doménu.",
+    "installerOvf": {
+      "vmName": "vcf-installer",
+      "placement": "outside-management",
+      "datastore": "other",
+      "rootPassword": "Kv8#Tmz!Q4rPx2wa",
+      "localUserPassword": "Bz9^Kt4@Lm2!Qw8x",
+      "hostnameFqdn": "vcfinst01.dc1.vcfhra.cz",
+      "ntpServers": ["ntp.dc1.vcfhra.cz"],
+      "ipVersion": "ipv4",
+      "ipv4Address": "10.10.0.10",
+      "subnetMask": "255.255.255.0",
+      "defaultGateway": "10.10.0.1",
+      "dnsDomainName": "dc1.vcfhra.cz",
+      "domainSearchPath": "dc1.vcfhra.cz",
+      "dnsServers": ["10.10.0.4", "10.10.0.7"]
+    },
+    "designChoices": { "installerPlacement": "outside-management" },
+    "checks": [{ "check": "validateDeployInstallerOva", "allowWarnings": false }]
+  },
+  "specRefs": [
+    { "spec": "20-deployment", "section": "§4.1.5", "sources": ["S6"] },
+    { "spec": "20-deployment", "section": "§3.3", "sources": ["S6"] },
+    { "spec": "00-architektura", "section": "§2.6", "sources": ["S4"] }
+  ],
+  "sourceNote": "Fáze Preparation, krok 3 „Deploy VCF Installer appliance“ (20 §4.1)."
+}

@@ -12,11 +12,16 @@
  * not quotes, unless explicitly marked as a quote.
  */
 
+import type { ValidationCode } from './codes';
+
+export type { ValidationCode } from './codes';
+export { VALIDATION_CODES, isValidationCode } from './codes';
+
 export type Severity = 'error' | 'warning';
 
 export interface ValidationIssue {
-  /** Stable machine code (used by engine/scenarios/scoring). */
-  readonly code: string;
+  /** Stable machine code (used by engine/scenarios/scoring); registry in codes.ts. */
+  readonly code: ValidationCode;
   readonly severity: Severity;
   /** Human-readable message (English, UI may localise). */
   readonly message: string;
@@ -27,7 +32,7 @@ export interface ValidationIssue {
 }
 
 export function issue(
-  code: string,
+  code: ValidationCode,
   severity: Severity,
   message: string,
   specRef: string,

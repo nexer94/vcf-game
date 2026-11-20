@@ -39,14 +39,20 @@
 - [ ] `fact-checker` – Sandbox: návrh + bring-up proti specu
 
 ### Ostatní
-- [ ] `scenario-designer` → `fact-checker` pro bring-up (vzorová oblast) *(scenario-designer běží)*
+- [x] `scenario-designer` – kampaň 1 (bring-up), 6 misí: tutoriál installer → ESX hosty → depot → bring-up Simple
+  → troubleshooting (8 chyb validace) → návrh HA pro produkci; schéma misí `scenarios/schema.ts`
+  (úkoly, pasti na validační kódy, body/srážky, rozpočet jako herní mechanika), README
+- [x] `domain-modeler` – registr `VALIDATION_CODES` (117 kódů, typově vynucený) + `MGMT_DOMAIN_TOO_FEW_HOSTS`
+  (single-rack / multi-rack L2: vSAN 3/4, NFS/FC 2/4; stretched vSAN 6/8) zapnuto ve výchozím stavu
+- [ ] `scenario-designer` – mise 6: z kvízu o min. hostech udělat past na `MGMT_DOMAIN_TOO_FEW_HOSTS`;
+  aktualizovat `bringup/README.md` a `schema.ts` (odstranit `minManagementHosts`)
+- [ ] `fact-checker` pro bring-up (spec 00/10/20 + model + mise)
 - [ ] `engine-dev` – vrstva režimů `game/src/modes/` (viz CLAUDE.md „Herní režimy“):
   - [ ] Sandbox – volné akce nad modelem, bez misí a peněz
   - [ ] Kariéra – mise, úkoly a body (formát dohodnout se `scenario-designer`)
   - [ ] Kariéra – ekonomika: rozpočet, katalog HW (fiktivní ceny), nákup, kapacita/HA podle specu
 - [ ] `ui-dev` – HUD kariéry (rozpočet, body, úkoly)
 - [ ] `doc-researcher` – pro ekonomiku a HA dál: `50-vsan` (storage policies, FTT), `52-vsphere` (HA, DRS)
-- [ ] `domain-modeler` – doplnit do modelu min. počty hostů z `10-planning` (zapnout `minManagementHosts`)
 
 ## Kampaně – režim Kariéra (rozcestník: VCF Upgrade Planner)
 1. [ ] Nové prostředí – bring-up první instance (spec `20-deployment`)
@@ -55,6 +61,8 @@
 4. [ ] Den 2 – nová workload doména (`40-workload-domains`), nová instance ve fleetu
 
 ## Otevřené otázky
+- Min. hosty: stretched NFS/FC (vMSC, KB 417356 „doubled“?), další clustery mgmt/WLD (sloučené buňky) – nemodelováno;
+  `Cluster` v architecture.ts nemá storage → doplnit v oblasti 40/50
 - Sizing: vzorec z Planning and Preparation Workbooku (xlsx, tab „Management Domain Sizing“) – agent ho
   nerozbalil; HA řádky tabulky minim hostů (sloučené buňky) ověřit v PDF
 - Model bring-up – TODO (detail v reportu domain-modelera, kód má komentáře TODO):

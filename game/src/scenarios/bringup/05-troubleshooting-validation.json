@@ -1,0 +1,624 @@
+{
+  "schemaVersion": 1,
+  "id": "c1-m5-troubleshooting-validation",
+  "campaign": { "id": "c1-bringup", "order": 1, "title": "Nové prostředí – bring-up první instance" },
+  "order": 5,
+  "title": "Validace selhala: JSON spec po kolegovi",
+  "difficulty": "troubleshooting",
+  "vcfVersion": "9.1.1",
+  "requires": ["c1-m4-bringup-simple"],
+  "summary": "Převezmi rozpracovaný bring-up druhé lokality. Kolegův JSON spec neprojde validací – najdi a oprav všechny příčiny a nasaď.",
+  "briefing": "Druhá lokalita, stejné jméno domény, jiný tým. Kolega připravil JSON spec pro „Deploy Using JSON Spec“ a odjel na dovolenou. VCF Installer tentokrát běží přímo na esx01 – na hostu budoucí management domény, na lokálním disku. Validace mu prý hlásila „spoustu červených“. Zkušený admin si JSON nejdřív přečte a chyby opraví dřív, než pustí validaci: každá chyba, kterou validace najde, stojí body. Nápověda: problémy jsou v JSONu, v DNS i na jednom hostu.",
+  "objectives": [
+    "Nahrát JSON spec a zkontrolovat Summary a JSON Preview.",
+    "Najít a opravit všechny chyby (DNS, FQDN, IP rozsahy, NTP, SDDC Manager FQDN, certifikát hostu).",
+    "Projít validací a nasadit.",
+    "Pochopit, co se po nasazení stane s appliance na management hostu."
+  ],
+  "initial": {
+    "installer": {
+      "mode": "installer",
+      "version": "9.1.1",
+      "platformsDeployed": 0,
+      "ovf": {
+        "vmName": "vcf-installer",
+        "placement": "management-host",
+        "datastore": "local-disk",
+        "rootPassword": "Kv8#Tmz!Q4rPx2wa",
+        "localUserPassword": "Bz9^Kt4@Lm2!Qw8x",
+        "hostnameFqdn": "vcfinst01.dc1.vcfhra.cz",
+        "ntpServers": ["ntp.dc1.vcfhra.cz"],
+        "ipVersion": "ipv4",
+        "ipv4Address": "10.10.0.10",
+        "subnetMask": "255.255.255.0",
+        "defaultGateway": "10.10.0.1",
+        "dnsDomainName": "dc1.vcfhra.cz",
+        "domainSearchPath": "dc1.vcfhra.cz",
+        "dnsServers": ["10.10.0.4", "10.10.0.7"]
+      }
+    },
+    "depot": {
+      "connection": { "kind": "online", "input": { "activationCode": "GAME-ACT-0002" } },
+      "binaries": {
+        "Cloud proxy": "downloaded",
+        "Fleet lifecycle": "downloaded",
+        "Identity broker": "downloaded",
+        "License server": "downloaded",
+        "Migration service engine": "downloaded",
+        "Salt master": "downloaded",
+        "Salt RaaS": "downloaded",
+        "SDDC lifecycle": "downloaded",
+        "SDDC Manager": "downloaded",
+        "Software depot": "downloaded",
+        "Telemetry": "downloaded",
+        "VCF Automation": "downloaded",
+        "VCF Operations": "downloaded",
+        "VCF services runtime": "downloaded",
+        "VMware NSX": "downloaded",
+        "VMware vCenter": "downloaded"
+      }
+    },
+    "hosts": [
+      {
+        "id": "esx01", "hwVendor": "Vendor A (herní)", "hwProfileId": "hw-profile-a", "pnicCount": 2, "stateless": false,
+        "esxVersion": "dle-RN-VCF-9.1.1", "vmk0OnStandardSwitch": true,
+        "network": { "vlanId": 1610, "ipv4Address": "10.10.0.101", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx01.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+        "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+        "sshEnabled": false, "certificateCn": "esx01.dc1.vcfhra.cz"
+      },
+      {
+        "id": "esx02", "hwVendor": "Vendor A (herní)", "hwProfileId": "hw-profile-a", "pnicCount": 2, "stateless": false,
+        "esxVersion": "dle-RN-VCF-9.1.1", "vmk0OnStandardSwitch": true,
+        "network": { "vlanId": 1610, "ipv4Address": "10.10.0.102", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx02.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+        "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+        "sshEnabled": false, "certificateCn": "esx02.dc1.vcfhra.cz"
+      },
+      {
+        "id": "esx03", "hwVendor": "Vendor A (herní)", "hwProfileId": "hw-profile-a", "pnicCount": 2, "stateless": false,
+        "esxVersion": "dle-RN-VCF-9.1.1", "vmk0OnStandardSwitch": true,
+        "network": { "vlanId": 1610, "ipv4Address": "10.10.0.103", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx03.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+        "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+        "sshEnabled": false, "certificateCn": "localhost.localdomain"
+      },
+      {
+        "id": "esx04", "hwVendor": "Vendor A (herní)", "hwProfileId": "hw-profile-a", "pnicCount": 2, "stateless": false,
+        "esxVersion": "dle-RN-VCF-9.1.1", "vmk0OnStandardSwitch": true,
+        "network": { "vlanId": 1610, "ipv4Address": "10.10.0.104", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx04.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+        "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+        "sshEnabled": false, "certificateCn": "esx04.dc1.vcfhra.cz"
+      }
+    ],
+    "dns": {
+      "forward": {
+        "ntp.dc1.vcfhra.cz": "10.10.0.5",
+        "ntp2.dc1.vcfhra.cz": "10.10.0.6",
+        "vcfinst01.dc1.vcfhra.cz": "10.10.0.10",
+        "vc01.dc1.vcfhra.cz": "10.10.0.20",
+        "sddc01.dc1.vcfhra.cz": "10.10.0.21",
+        "nsx01.dc1.vcfhra.cz": "10.10.0.22",
+        "nsx01a.dc1.vcfhra.cz": "10.10.0.23",
+        "ops01a.dc1.vcfhra.cz": "10.10.0.30",
+        "opscp01.dc1.vcfhra.cz": "10.10.0.33",
+        "lic01.dc1.vcfhra.cz": "10.10.0.34",
+        "fleet01.dc1.vcfhra.cz": "10.10.0.35",
+        "inst01.dc1.vcfhra.cz": "10.10.0.36",
+        "idb01.dc1.vcfhra.cz": "10.10.0.37",
+        "vsp01.dc1.vcfhra.cz": "10.10.0.38",
+        "auto01.dc1.vcfhra.cz": "10.10.0.39",
+        "vsp02.dc1.vcfhra.cz": "10.10.0.40",
+        "vc01.dc1.vcfhra.local": "10.10.0.41",
+        "esx01.dc1.vcfhra.cz": "10.10.0.101",
+        "esx02.dc1.vcfhra.cz": "10.10.0.102",
+        "esx03.dc1.vcfhra.cz": "10.10.0.103",
+        "esx04.dc1.vcfhra.cz": "10.10.0.104"
+      },
+      "reverse": {
+        "10.10.0.5": "ntp.dc1.vcfhra.cz",
+        "10.10.0.6": "ntp2.dc1.vcfhra.cz",
+        "10.10.0.10": "vcfinst01.dc1.vcfhra.cz",
+        "10.10.0.20": "vc01.dc1.vcfhra.cz",
+        "10.10.0.21": "sddc01.dc1.vcfhra.cz",
+        "10.10.0.22": "nsx01.dc1.vcfhra.cz",
+        "10.10.0.23": "nsx01a.dc1.vcfhra.cz",
+        "10.10.0.30": "ops01a.dc1.vcfhra.cz",
+        "10.10.0.34": "lic01.dc1.vcfhra.cz",
+        "10.10.0.35": "fleet01.dc1.vcfhra.cz",
+        "10.10.0.36": "inst01.dc1.vcfhra.cz",
+        "10.10.0.37": "idb01.dc1.vcfhra.cz",
+        "10.10.0.38": "vsp01.dc1.vcfhra.cz",
+        "10.10.0.39": "auto01.dc1.vcfhra.cz",
+        "10.10.0.40": "vsp02.dc1.vcfhra.cz",
+        "10.10.0.41": "vc01.dc1.vcfhra.local",
+        "10.10.0.101": "esx01.dc1.vcfhra.cz",
+        "10.10.0.102": "esx02.dc1.vcfhra.cz",
+        "10.10.0.103": "esx03.dc1.vcfhra.cz",
+        "10.10.0.104": "esx04.dc1.vcfhra.cz"
+      }
+    },
+    "unreachableFromInstaller": ["ntp2.dc1.vcfhra.cz"],
+    "spec": {
+      "target": "new-fleet",
+      "existing": { "existingVcfOperations": false, "existingVcenter": false, "vcenterRegisteredWithNsx": false, "existingVcfAutomationOrDeployLater": false },
+      "model": "simple",
+      "size": "small",
+      "networkConfig": {
+        "vmManagementNetwork": "shared-with-esx-management",
+        "vcfManagementNetwork": "shared-with-vm-management",
+        "dualStack": false,
+        "vmotionIpScheme": "ipv4",
+        "storageIpScheme": "ipv4",
+        "deployOpsAndAutomationToCustomNetwork": false,
+        "vpcNetwork": "full-stack",
+        "vpcGatewayConnectivity": "centralized"
+      },
+      "storage": { "type": "vsan-esa", "vsanEsaAllowAutoClaimHclIncompatible": false },
+      "general": {
+        "version": "9.1.1",
+        "instanceName": "dc1-m01",
+        "managementDomainName": "dc1-m01",
+        "ceip": false,
+        "dnsServers": ["10.10.0.4", "10.10.0.7"],
+        "ntpServers": ["ntp2.dc1.vcfhra.cz"],
+        "dnsDomainName": "dc1.vcfhra.cz",
+        "autogeneratePasswords": true
+      },
+      "esxHosts": [
+        { "fqdn": "esx01.dc1.vcfhra.cz" },
+        { "fqdn": "esx02.dc1.vcfhra.cz" },
+        { "fqdn": "esx03.dc1.vcfhra.cz" },
+        { "fqdn": "esx04.dc1.vcfhra.cz" }
+      ],
+      "networks": {
+        "esxManagement": { "vlanId": 1610, "cidr": "10.10.0.0/24", "gateway": "10.10.0.1" },
+        "managementServicesIpPool": { "kind": "range", "start": "10.10.1.10", "end": "10.10.1.19" },
+        "vcfAutomationIpPool": { "kind": "range", "start": "10.10.1.50", "end": "10.10.1.54" },
+        "vmotion": { "vlanId": 1612, "cidr": "10.10.2.0/24", "gateway": "10.10.2.1", "mtu": 9000, "inclusionRanges": [{ "kind": "range", "start": "10.10.2.10", "end": "10.10.2.12" }] },
+        "storage": { "vlanId": 1613, "cidr": "10.10.3.0/24", "gateway": "10.10.3.1", "mtu": 9000, "inclusionRanges": [{ "kind": "range", "start": "10.10.3.10", "end": "10.10.3.20" }] },
+        "nsxHostOverlay": { "vlanId": 1614, "cidr": "10.10.4.0/24", "gateway": "10.10.4.1", "mtu": 9000, "inclusionRanges": [{ "kind": "range", "start": "10.10.4.10", "end": "10.10.4.30" }] }
+      },
+      "components": {
+        "vcfOperationsPrimaryFqdn": "ops01a.dc1.vcfhra.cz",
+        "cloudProxyFqdn": "opscp01.dc1.vcfhra.cz",
+        "licenseServerFqdn": "lic01.dc1.vcfhra.cz",
+        "fleetComponentsFqdn": "fleet01.dc1.vcfhra.cz",
+        "instanceComponentsFqdn": "inst01.dc1.vcfhra.cz",
+        "identityBrokerFqdn": "IDB01.dc1.vcfhra.cz",
+        "servicesRuntimeFqdn": "vsp01.dc1.vcfhra.cz",
+        "internalClusterCidrIpv4": "198.18.0.0/15",
+        "vcfAutomationFqdn": "auto01.dc1.vcfhra.cz",
+        "vcfAutomationServicesRuntimeFqdn": "vsp02.dc1.vcfhra.cz"
+      },
+      "vcenter": { "fqdn": "vc01.dc1.vcfhra.local" },
+      "storageDetails": { "datastoreName": "dc1-m01-cl01-ds-vsan01" },
+      "vds": {
+        "profile": "default",
+        "switches": [
+          {
+            "name": "dc1-m01-cl01-vds01",
+            "uplinks": 2,
+            "uplinkMode": "vds-uplinks",
+            "trafficTypes": ["esx-management", "vcf-management", "vm-management", "vmotion", "vsan", "nsx"],
+            "loadBalancing": "route-based-on-physical-nic-load"
+          }
+        ]
+      },
+      "nsx": { "nodeFqdns": ["nsx01a.dc1.vcfhra.cz"], "vipFqdn": "nsx01.dc1.vcfhra.cz" },
+      "sddcManager": { "fqdn": "sddc01.dc1.vcfhra.cz" }
+    },
+    "deployment": { "status": "draft", "source": "json", "issues": [], "warningsAcknowledged": false },
+    "workbook": {
+      "note": "Hodnoty jsou ilustrativní herní data (ne fakta z dokumentace).",
+      "entries": [
+        { "key": "ntp", "label": "NTP servery firmy", "value": "ntp.dc1.vcfhra.cz (ntp2 byl v říjnu vyřazen a firewall k němu je zavřený)" },
+        { "key": "net.services", "label": "IP blok pro VCF Management Services", "value": "10.10.1.10 – 10.10.1.39 (30 IP)" },
+        { "key": "net.vmotion", "label": "vMotion inclusion range", "value": "10.10.2.10 – 10.10.2.20" },
+        { "key": "fqdn.vcenter", "label": "vCenter", "value": "vc01.dc1.vcfhra.cz (vc01.dc1.vcfhra.local je starý záznam z labu)" },
+        { "key": "installer", "label": "VCF Installer", "value": "vcfinst01.dc1.vcfhra.cz, nasazen na esx01 (lokální disk)" }
+      ]
+    }
+  },
+  "tasks": [
+    {
+      "id": "t-review",
+      "order": 1,
+      "title": "Nahraj JSON a zkontroluj Summary",
+      "description": "Deploy Using JSON Spec > nahrát soubor > Summary a JSON Preview. Projdi hodnoty dřív, než spustíš validaci.",
+      "actions": [
+        { "kind": "deployment-event", "event": "submit-for-review" },
+        { "kind": "wizard-step", "step": "review-deployment-information" }
+      ],
+      "completion": { "kind": "wizard-step-completed", "step": "review-deployment-information" },
+      "points": 5,
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.3", "sources": ["S15"] }]
+    },
+    {
+      "id": "t-sddc-fqdn",
+      "order": 2,
+      "title": "SDDC Manager FQDN",
+      "description": "Installer běží na management hostu – jeho Host Name se stane FQDN SDDC Manageru a nejde změnit. Uprav JSON.",
+      "actions": [{ "kind": "deployment-event", "event": "edit" }],
+      "completion": { "kind": "codes-absent", "check": "validateBringupSpec", "codes": ["SDDC_MANAGER_FQDN_FIXED"] },
+      "points": 15,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.1.5", "sources": ["S6"] },
+        { "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] }
+      ]
+    },
+    {
+      "id": "t-ptr",
+      "order": 3,
+      "title": "Doplň chybějící PTR záznam",
+      "description": "Jedno z FQDN komponent nemá reverse (PTR) záznam. Doplň ho na DNS serveru.",
+      "actions": [{ "kind": "environment", "action": "dns-add-reverse" }],
+      "completion": { "kind": "dns-forward-reverse", "fqdns": ["opscp01.dc1.vcfhra.cz"] },
+      "points": 15,
+      "specRefs": [{ "spec": "20-deployment", "section": "§3.5", "sources": ["S20"] }]
+    },
+    {
+      "id": "t-fqdn",
+      "order": 4,
+      "title": "Oprav FQDN komponent",
+      "description": "FQDN musí být malými písmeny a nesmí používat doménu .local. Velká písmena v FQDN identity brokeru nebo services runtime nasazení shodí (známý problém).",
+      "actions": [{ "kind": "deployment-event", "event": "edit" }],
+      "completion": { "kind": "codes-absent", "check": "validateBringupSpec", "codes": ["FQDN_NOT_LOWERCASE", "FQDN_LOCAL_DOMAIN"] },
+      "points": 15,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§3.5", "sources": ["S14", "S19"] },
+        { "spec": "20-deployment", "section": "§5.3", "sources": ["S31"] }
+      ]
+    },
+    {
+      "id": "t-pools",
+      "order": 5,
+      "title": "Oprav IP rozsahy",
+      "description": "VCF services runtime potřebuje min. 12 IP (doporučeno 30); vMotion inclusion range musí mít aspoň tolik adres jako hostů.",
+      "actions": [{ "kind": "deployment-event", "event": "edit" }],
+      "completion": { "kind": "codes-absent", "check": "validateBringupSpec", "codes": ["SERVICES_RUNTIME_IPS_TOO_FEW", "INCLUSION_RANGE_TOO_SMALL"] },
+      "points": 15,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§3.5", "sources": ["S19"] },
+        { "spec": "20-deployment", "section": "§5.1", "sources": ["S14"] },
+        { "spec": "20-deployment", "section": "§6.4", "sources": ["S19"] }
+      ]
+    },
+    {
+      "id": "t-ntp",
+      "order": 6,
+      "title": "NTP server, na který installer dosáhne",
+      "description": "Appliance musí dosáhnout na DNS a NTP servery. ntp2 je za zavřeným firewallem.",
+      "actions": [{ "kind": "deployment-event", "event": "edit" }],
+      "completion": { "kind": "codes-absent", "check": "validateBringupSpec", "codes": ["INSTALLER_CANNOT_REACH"] },
+      "points": 10,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§3.3", "sources": ["S5", "S6"] },
+        { "spec": "20-deployment", "section": "§4.1.5", "sources": ["S6"] }
+      ]
+    },
+    {
+      "id": "t-cert",
+      "order": 7,
+      "title": "Certifikát na esx03",
+      "description": "esx03 má stále původní certifikát s CN localhost.localdomain. Zapni SSH, regeneruj certifikát, rebootuj a SSH vypni.",
+      "actions": [
+        { "kind": "model", "action": "set-host-ssh" },
+        { "kind": "model", "action": "regenerate-host-certificate" }
+      ],
+      "completion": { "kind": "host-state", "hosts": ["esx03"], "require": { "certificateCnMatchesFqdn": true, "sshEnabled": false } },
+      "points": 15,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.1.4", "sources": ["S11"] },
+        { "spec": "20-deployment", "section": "§5.2", "sources": ["S11"] }
+      ]
+    },
+    {
+      "id": "t-validate",
+      "order": 8,
+      "title": "Validace",
+      "description": "Spusť validaci. Errors oprav, warnings oprav nebo potvrď.",
+      "actions": [
+        { "kind": "deployment-event", "event": "start-validation" },
+        { "kind": "deployment-event", "event": "acknowledge-warnings" }
+      ],
+      "completion": { "kind": "deployment-status", "status": "ready-to-deploy" },
+      "points": 15,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.3", "sources": ["S15"] },
+        { "spec": "20-deployment", "section": "§5.1", "sources": ["S14", "S15"] }
+      ]
+    },
+    {
+      "id": "t-deploy",
+      "order": 9,
+      "title": "Nasaď a sleduj přepnutí appliance",
+      "description": "Deploy. Installer na management hostu se po nasazení přesune Storage vMotion z lokálního disku a přepne do SDDC Manager mode.",
+      "actions": [{ "kind": "deployment-event", "event": "deploy" }],
+      "completion": {
+        "kind": "all-of",
+        "conditions": [
+          { "kind": "deployment-status", "status": "completed" },
+          { "kind": "installer-mode", "mode": "sddc-manager" }
+        ]
+      },
+      "points": 20,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.1.5", "sources": ["S6"] },
+        { "spec": "00-architektura", "section": "§2.6", "sources": ["S4"] }
+      ]
+    },
+    {
+      "id": "t-mode-quiz",
+      "order": 10,
+      "title": "Půjde appliance použít znovu?",
+      "description": "Vedení chce stejnou appliance použít pro další instanci.",
+      "actions": [{ "kind": "quiz" }],
+      "completion": {
+        "kind": "quiz",
+        "question": "Může appliance, která byla nasazena na hostu management domény, po bring-upu nasadit další VCF Instance?",
+        "options": [
+          "Ano, stačí ji restartovat v installer mode.",
+          "Ne – přepnula se do SDDC Manager mode a v installer mode už pracovat nemůže; na management hostu nasadí jen jednu platformu.",
+          "Ano, ale jen VVF."
+        ],
+        "correct": [1],
+        "explanation": "Na ESX hostu budoucí management domény nasadí installer jen jednu platformu a pak se přepne do SDDC Manager mode – „the appliance can no longer work in installer mode“. Pro další instance je potřeba installer mimo management infrastrukturu."
+      },
+      "points": 5,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.1.5", "sources": ["S6"] },
+        { "spec": "00-architektura", "section": "§2.6", "sources": ["S4"] }
+      ]
+    }
+  ],
+  "traps": [
+    {
+      "id": "tr-sddc-fqdn",
+      "title": "SDDC Manager FQDN ≠ Host Name installeru",
+      "description": "JSON uvádí sddc01, ale installer na management hostu má Host Name vcfinst01 – ten se stane FQDN SDDC Manageru.",
+      "codes": ["SDDC_MANAGER_FQDN_FIXED"],
+      "armed": "initial-state",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 10,
+      "relatedTasks": ["t-sddc-fqdn"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.1.5", "sources": ["S6"] }]
+    },
+    {
+      "id": "tr-missing-ptr",
+      "title": "Chybějící PTR cloud proxy",
+      "description": "opscp01 má A záznam, ale chybí reverse (PTR).",
+      "codes": ["DNS_RECORD_MISSING"],
+      "armed": "initial-state",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 10,
+      "relatedTasks": ["t-ptr"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§3.5", "sources": ["S20"] }]
+    },
+    {
+      "id": "tr-uppercase",
+      "title": "Identity broker FQDN velkými písmeny",
+      "description": "IDB01.dc1.vcfhra.cz – nasazení selže, pokud FQDN identity brokeru (a dalších fleet FQDN) obsahuje velká písmena.",
+      "codes": ["FQDN_NOT_LOWERCASE"],
+      "armed": "initial-state",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 10,
+      "relatedTasks": ["t-fqdn"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§5.3", "sources": ["S31"] }]
+    },
+    {
+      "id": "tr-local",
+      "title": "vCenter v doméně .local",
+      "description": "vc01.dc1.vcfhra.local – FQDN nesmí používat doménu .local.",
+      "codes": ["FQDN_LOCAL_DOMAIN"],
+      "armed": "initial-state",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-fqdn"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§3.5", "sources": ["S14", "S19"] }]
+    },
+    {
+      "id": "tr-runtime-pool",
+      "title": "IP blok services runtime má jen 10 adres",
+      "description": "Minimum je 12, doporučeno 30.",
+      "codes": ["SERVICES_RUNTIME_IPS_TOO_FEW"],
+      "armed": "initial-state",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 10,
+      "relatedTasks": ["t-pools"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§3.5", "sources": ["S19"] }]
+    },
+    {
+      "id": "tr-vmotion-range",
+      "title": "vMotion inclusion range pro 3 hosty",
+      "description": "Rozsah má 3 adresy, hosty jsou 4.",
+      "codes": ["INCLUSION_RANGE_TOO_SMALL"],
+      "armed": "initial-state",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 10,
+      "relatedTasks": ["t-pools"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§5.1", "sources": ["S14", "S34"] }]
+    },
+    {
+      "id": "tr-ntp-unreachable",
+      "title": "Nedosažitelný NTP server",
+      "description": "JSON používá ntp2, na který installer nedosáhne.",
+      "codes": ["INSTALLER_CANNOT_REACH"],
+      "armed": "initial-state",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 10,
+      "relatedTasks": ["t-ntp"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§3.3", "sources": ["S5", "S6"] }]
+    },
+    {
+      "id": "tr-cert",
+      "title": "esx03 s certifikátem localhost.localdomain",
+      "description": "Installer kontroluje CN certifikátu hostu proti FQDN.",
+      "codes": ["ESX_CERT_CN_MISMATCH"],
+      "armed": "initial-state",
+      "detectedBy": ["validateBringupSpec", "validateEsxHostsForBringup"],
+      "avoidBonus": 10,
+      "relatedTasks": ["t-cert"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§5.2", "sources": ["S11"] }]
+    },
+    {
+      "id": "tr-ssh",
+      "title": "Regenerace bez SSH",
+      "description": "/sbin/generate-certificates vyžaduje zapnuté SSH.",
+      "codes": ["ESX_SSH_DISABLED"],
+      "armed": "player-input",
+      "detectedBy": ["transition"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-cert"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.1.4", "sources": ["S11"] }]
+    }
+  ],
+  "hints": [
+    {
+      "id": "h-sddc",
+      "trapId": "tr-sddc-fqdn",
+      "text": "Při nasazení na management host se Host Name z OVF stane FQDN SDDC Manageru a nelze ho později změnit. Stránka SDDC Manager details je pak předvyplněná.",
+      "specRef": { "spec": "20-deployment", "section": "§4.1.5", "sources": ["S6"] },
+      "doc": { "title": "Deploy the VCF Installer Appliance (9.1)", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/deploy-the-vmware-cloud-foundation-installer-appliance.html" },
+      "cost": 4
+    },
+    {
+      "id": "h-uppercase",
+      "trapId": "tr-uppercase",
+      "text": "Known issue VCF Installer 9.1: nasazení selže, pokud FQDN fleet components, instance components, identity broker, VCF services runtime nebo VCF Automation obsahují velká písmena.",
+      "specRef": { "spec": "20-deployment", "section": "§5.3", "sources": ["S31"] },
+      "doc": { "title": "VCF Installer 9.1 Known Issues", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-0-0-release-notes/known-issues/vcf-installer-91-known-issues.html" },
+      "cost": 3
+    },
+    {
+      "id": "h-ntp",
+      "trapId": "tr-ntp-unreachable",
+      "text": "Installer musí dosáhnout na ESX hosty, VM management síť a externí služby (DNS, NTP). Viz i KB o selhání installeru kvůli nedosažitelnému NTP.",
+      "specRef": { "spec": "20-deployment", "section": "§3.3", "sources": ["S5", "S6"] },
+      "doc": { "title": "KB 439240 – VCF 9.1 installer fails due to unreachable NTP server", "url": "https://knowledge.broadcom.com/external/article/439240" },
+      "cost": 3
+    },
+    {
+      "id": "h-pools",
+      "taskId": "t-pools",
+      "text": "Services runtime: min. 12, doporučeno 30 IP. Inclusion range: aspoň tolik adres jako hostů, bez network/broadcast adresy, ve správné VLAN.",
+      "specRef": { "spec": "20-deployment", "section": "§5.1", "sources": ["S14"] },
+      "doc": { "title": "First VCF Instance FQDNs and IP addresses", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/vcf-components-fqdns-and-ip-addresses/first-vcf-instance-fqdns-and-ip-addresses.html" },
+      "cost": 3
+    },
+    {
+      "id": "h-cert",
+      "trapId": "tr-cert",
+      "text": "Původní self-signed certifikát má CN localhost.localdomain. Po nastavení hostname: SSH, /sbin/generate-certificates, reboot, vypnout SSH.",
+      "specRef": { "spec": "20-deployment", "section": "§4.1.4", "sources": ["S11"] },
+      "doc": { "title": "Regenerate the Self-Signed Certificate on ESX Hosts", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/regenerate-the-self-signed-certificate-on-esx-hosts.html" },
+      "cost": 3
+    }
+  ],
+  "scoring": {
+    "orderBonus": { "points": 10, "sequence": ["t-review", "t-validate", "t-deploy"] },
+    "cleanRunBonus": 25,
+    "penalties": { "perValidationError": 4, "perValidationRun": 5, "freeValidationRuns": 1, "perIllegalAction": 5 },
+    "maxPoints": 245,
+    "passPoints": 150
+  },
+  "expectedInitialIssues": [
+    {
+      "check": "validateBringupSpec",
+      "codes": [
+        "ESX_CERT_CN_MISMATCH",
+        "SERVICES_RUNTIME_IPS_TOO_FEW",
+        "INCLUSION_RANGE_TOO_SMALL",
+        "FQDN_LOCAL_DOMAIN",
+        "DNS_RECORD_MISSING",
+        "FQDN_NOT_LOWERCASE",
+        "SDDC_MANAGER_FQDN_FIXED",
+        "INSTALLER_CANNOT_REACH"
+      ],
+      "exact": true
+    }
+  ],
+  "referenceSolution": {
+    "description": "PTR pro opscp01, certifikát esx03 regenerován; v JSON: NTP ntp.dc1.vcfhra.cz, services runtime 30 IP, vMotion 11 IP, idb01 malými písmeny, vCenter vc01.dc1.vcfhra.cz, SDDC Manager = vcfinst01.",
+    "hostPatches": [{ "id": "esx03", "patch": { "certificateCn": "esx03.dc1.vcfhra.cz", "sshEnabled": false } }],
+    "dnsPatch": { "reverse": { "10.10.0.33": "opscp01.dc1.vcfhra.cz" } },
+    "spec": {
+      "target": "new-fleet",
+      "existing": { "existingVcfOperations": false, "existingVcenter": false, "vcenterRegisteredWithNsx": false, "existingVcfAutomationOrDeployLater": false },
+      "model": "simple",
+      "size": "small",
+      "networkConfig": {
+        "vmManagementNetwork": "shared-with-esx-management",
+        "vcfManagementNetwork": "shared-with-vm-management",
+        "dualStack": false,
+        "vmotionIpScheme": "ipv4",
+        "storageIpScheme": "ipv4",
+        "deployOpsAndAutomationToCustomNetwork": false,
+        "vpcNetwork": "full-stack",
+        "vpcGatewayConnectivity": "centralized"
+      },
+      "storage": { "type": "vsan-esa", "vsanEsaAllowAutoClaimHclIncompatible": false },
+      "general": {
+        "version": "9.1.1",
+        "instanceName": "dc1-m01",
+        "managementDomainName": "dc1-m01",
+        "ceip": false,
+        "dnsServers": ["10.10.0.4", "10.10.0.7"],
+        "ntpServers": ["ntp.dc1.vcfhra.cz"],
+        "dnsDomainName": "dc1.vcfhra.cz",
+        "autogeneratePasswords": true
+      },
+      "esxHosts": [
+        { "fqdn": "esx01.dc1.vcfhra.cz" },
+        { "fqdn": "esx02.dc1.vcfhra.cz" },
+        { "fqdn": "esx03.dc1.vcfhra.cz" },
+        { "fqdn": "esx04.dc1.vcfhra.cz" }
+      ],
+      "networks": {
+        "esxManagement": { "vlanId": 1610, "cidr": "10.10.0.0/24", "gateway": "10.10.0.1" },
+        "managementServicesIpPool": { "kind": "range", "start": "10.10.1.10", "end": "10.10.1.39" },
+        "vcfAutomationIpPool": { "kind": "range", "start": "10.10.1.50", "end": "10.10.1.54" },
+        "vmotion": { "vlanId": 1612, "cidr": "10.10.2.0/24", "gateway": "10.10.2.1", "mtu": 9000, "inclusionRanges": [{ "kind": "range", "start": "10.10.2.10", "end": "10.10.2.20" }] },
+        "storage": { "vlanId": 1613, "cidr": "10.10.3.0/24", "gateway": "10.10.3.1", "mtu": 9000, "inclusionRanges": [{ "kind": "range", "start": "10.10.3.10", "end": "10.10.3.20" }] },
+        "nsxHostOverlay": { "vlanId": 1614, "cidr": "10.10.4.0/24", "gateway": "10.10.4.1", "mtu": 9000, "inclusionRanges": [{ "kind": "range", "start": "10.10.4.10", "end": "10.10.4.30" }] }
+      },
+      "components": {
+        "vcfOperationsPrimaryFqdn": "ops01a.dc1.vcfhra.cz",
+        "cloudProxyFqdn": "opscp01.dc1.vcfhra.cz",
+        "licenseServerFqdn": "lic01.dc1.vcfhra.cz",
+        "fleetComponentsFqdn": "fleet01.dc1.vcfhra.cz",
+        "instanceComponentsFqdn": "inst01.dc1.vcfhra.cz",
+        "identityBrokerFqdn": "idb01.dc1.vcfhra.cz",
+        "servicesRuntimeFqdn": "vsp01.dc1.vcfhra.cz",
+        "internalClusterCidrIpv4": "198.18.0.0/15",
+        "vcfAutomationFqdn": "auto01.dc1.vcfhra.cz",
+        "vcfAutomationServicesRuntimeFqdn": "vsp02.dc1.vcfhra.cz"
+      },
+      "vcenter": { "fqdn": "vc01.dc1.vcfhra.cz" },
+      "storageDetails": { "datastoreName": "dc1-m01-cl01-ds-vsan01" },
+      "vds": {
+        "profile": "default",
+        "switches": [
+          {
+            "name": "dc1-m01-cl01-vds01",
+            "uplinks": 2,
+            "uplinkMode": "vds-uplinks",
+            "trafficTypes": ["esx-management", "vcf-management", "vm-management", "vmotion", "vsan", "nsx"],
+            "loadBalancing": "route-based-on-physical-nic-load"
+          }
+        ]
+      },
+      "nsx": { "nodeFqdns": ["nsx01a.dc1.vcfhra.cz"], "vipFqdn": "nsx01.dc1.vcfhra.cz" },
+      "sddcManager": { "fqdn": "vcfinst01.dc1.vcfhra.cz" }
+    },
+    "checks": [
+      { "check": "validateBringupSpec", "allowWarnings": false },
+      { "check": "validateEsxHostsForBringup", "context": { "model": "simple", "storage": "vsan-esa" }, "allowWarnings": false },
+      { "check": "validateFleet", "context": { "clusterModel": "single-rack" }, "allowWarnings": false }
+    ]
+  },
+  "specRefs": [
+    { "spec": "20-deployment", "section": "§4.3", "sources": ["S15"] },
+    { "spec": "20-deployment", "section": "§5.1", "sources": ["S14", "S15"] },
+    { "spec": "20-deployment", "section": "§5.3", "sources": ["S31"] },
+    { "spec": "20-deployment", "section": "§3.5", "sources": ["S19", "S20"] }
+  ],
+  "sourceNote": "Deployment přes JSON spec (20 §4.3) + chybové stavy validace (20 §5)."
+}

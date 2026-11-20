@@ -1,0 +1,318 @@
+{
+  "schemaVersion": 1,
+  "id": "c1-m3-depot-binaries",
+  "campaign": { "id": "c1-bringup", "order": 1, "title": "Nové prostředí – bring-up první instance" },
+  "order": 3,
+  "title": "Depot a binárky",
+  "difficulty": "routine",
+  "vcfVersion": "9.1.1",
+  "requires": ["c1-m1-vcf-installer"],
+  "summary": "Připoj VCF Installer k online nebo offline depotu a stáhni všech 16 binárek pro nové nasazení VCF.",
+  "briefing": "Installer běží, ale bez binárek nic nenasadí. Firma nemá přímý přístup na Internet. K dispozici jsou dvě proxy a interní offline depot přes HTTPS. Formuláře v Depot Settings and Binary Management už někdo začal vyplňovat – zkontroluj je, než je odešleš. Stačí jeden funkční depot: připojený může být vždy jen jeden typ.",
+  "objectives": [
+    "Vybrat cestu k binárkám (online depot přes proxy, nebo offline depot) podle prerekvizit.",
+    "Úspěšně připojit depot.",
+    "Stáhnout a zvalidovat všech 16 binárek pro nové nasazení VCF."
+  ],
+  "initial": {
+    "installer": {
+      "mode": "installer",
+      "version": "9.1.1",
+      "platformsDeployed": 0,
+      "ovf": {
+        "vmName": "vcf-installer",
+        "placement": "outside-management",
+        "datastore": "other",
+        "rootPassword": "Kv8#Tmz!Q4rPx2wa",
+        "localUserPassword": "Bz9^Kt4@Lm2!Qw8x",
+        "hostnameFqdn": "vcfinst01.dc1.vcfhra.cz",
+        "ntpServers": ["ntp.dc1.vcfhra.cz"],
+        "ipVersion": "ipv4",
+        "ipv4Address": "10.10.0.10",
+        "subnetMask": "255.255.255.0",
+        "defaultGateway": "10.10.0.1",
+        "dnsDomainName": "dc1.vcfhra.cz",
+        "domainSearchPath": "dc1.vcfhra.cz",
+        "dnsServers": ["10.10.0.4", "10.10.0.7"]
+      }
+    },
+    "depot": { "connection": { "kind": "none" }, "binaries": {} },
+    "hosts": [],
+    "dns": {
+      "forward": {
+        "ntp.dc1.vcfhra.cz": "10.10.0.5",
+        "vcfinst01.dc1.vcfhra.cz": "10.10.0.10",
+        "proxy01.dc1.vcfhra.cz": "10.10.0.60",
+        "proxy02.dc1.vcfhra.cz": "10.10.0.61",
+        "depot01.dc1.vcfhra.cz": "10.10.0.62"
+      },
+      "reverse": {
+        "10.10.0.5": "ntp.dc1.vcfhra.cz",
+        "10.10.0.10": "vcfinst01.dc1.vcfhra.cz",
+        "10.10.0.60": "proxy01.dc1.vcfhra.cz",
+        "10.10.0.61": "proxy02.dc1.vcfhra.cz",
+        "10.10.0.62": "depot01.dc1.vcfhra.cz"
+      }
+    },
+    "drafts": {
+      "onlineDepot": {
+        "activationCode": "",
+        "proxy": {
+          "protocol": "http",
+          "host": "proxy01.dc1.vcfhra.cz",
+          "port": 3128,
+          "auth": "ntlmv2",
+          "sslInterception": false,
+          "proxyCaInTruststore": false
+        }
+      },
+      "offlineDepot": {
+        "url": "https://depot01.dc1.vcfhra.cz/vcf",
+        "certificateImported": false,
+        "servicesRestarted": false
+      }
+    },
+    "workbook": {
+      "note": "Hodnoty jsou ilustrativní herní data (ne fakta z dokumentace).",
+      "entries": [
+        { "key": "proxy01", "label": "Proxy 1 (hlavní firemní)", "value": "http://proxy01.dc1.vcfhra.cz:3128, autentizace NTLMv2" },
+        { "key": "proxy02", "label": "Proxy 2 (pro servery)", "value": "http://proxy02.dc1.vcfhra.cz:8080, autentizace Basic (uživatel/heslo), provádí SSL/TLS interception; CA certifikát proxy je k dispozici od bezpečnostního týmu" },
+        { "key": "offline-depot", "label": "Offline depot", "value": "https://depot01.dc1.vcfhra.cz/vcf (HTTPS, interní CA)" },
+        { "key": "activation", "label": "Activation code (VCF Business Services console → Software Depot Registrations)", "value": "GAME-ACT-0001" }
+      ]
+    }
+  },
+  "tasks": [
+    {
+      "id": "t-binaries-quiz",
+      "order": 1,
+      "title": "Které binárky budeš potřebovat?",
+      "description": "Než začneš stahovat, ujasni si, co nové nasazení VCF vyžaduje.",
+      "actions": [{ "kind": "quiz" }],
+      "completion": {
+        "kind": "quiz",
+        "question": "Co platí pro binárky nového nasazení VCF 9.1?",
+        "options": [
+          "Je jich 16 a binárky VCF Operations a VCF Automation se musí stáhnout i tehdy, když je nasadíš později na custom networking.",
+          "Stačí binárky vCenter, NSX a SDDC Manager; zbytek se stáhne automaticky během nasazení.",
+          "Binárky VCF Automation se stahují jen tehdy, když ji nasazuješ hned."
+        ],
+        "correct": [0],
+        "explanation": "Seznam pro nové nasazení VCF má 16 položek. I když se VCF Operations a VCF Automation odkládají (custom networking), jejich binárky se stáhnout musí."
+      },
+      "points": 10,
+      "specRefs": [{ "spec": "20-deployment", "section": "§3.4", "sources": ["S12"] }]
+    },
+    {
+      "id": "t-depot",
+      "order": 2,
+      "title": "Připoj depot",
+      "description": "Depot Settings and Binary Management: buď Online Depot (activation code + případně proxy), nebo Offline Depot (u HTTPS nejdřív import certifikátu přes keytool a restart služeb).",
+      "actions": [{ "kind": "model", "action": "configure-depot" }],
+      "completion": { "kind": "depot-connected", "connection": "any" },
+      "points": 40,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.1.6", "sources": ["S13"] },
+        { "spec": "20-deployment", "section": "§3.4", "sources": ["S13"] }
+      ]
+    },
+    {
+      "id": "t-download",
+      "order": 3,
+      "title": "Stáhni binárky",
+      "description": "Binary Management: vyber produkt a verzi, označ binárky a klikni Download. Sleduj sloupec Download Status (stahování a validace).",
+      "actions": [{ "kind": "model", "action": "download-binary" }],
+      "completion": { "kind": "binaries-status", "binaries": "all-vcf", "status": "downloaded" },
+      "points": 30,
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.1.6", "sources": ["S13"] }]
+    },
+    {
+      "id": "t-verify",
+      "order": 4,
+      "title": "Ověř, že nic nechybí",
+      "description": "Zkontroluj, že jsou staženy všechny binárky potřebné pro nové nasazení.",
+      "actions": [{ "kind": "run-check", "check": "validateBinariesForDeployment" }],
+      "completion": { "kind": "check-clean", "check": "validateBinariesForDeployment", "allowWarnings": false },
+      "points": 10,
+      "specRefs": [{ "spec": "20-deployment", "section": "§3.4", "sources": ["S12"] }]
+    },
+    {
+      "id": "t-transfer-quiz",
+      "order": 5,
+      "title": "Co se stane s depotem po nasazení?",
+      "description": "Zjisti, co si fleet převezme z installeru.",
+      "actions": [{ "kind": "quiz" }],
+      "completion": {
+        "kind": "quiz",
+        "question": "Co se po nasazení přenese z VCF Installeru do fleet-level software depotu?",
+        "options": [
+          "Konfigurace depotu i stažené binárky.",
+          "Konfigurace depotu a autentizace, stažené binárky ne.",
+          "Nic, depot se musí nastavit znovu."
+        ],
+        "correct": [1],
+        "explanation": "Konfigurace depotu a autentizace se po nasazení přenese do fleet-level software depotu, stažené binárky ne."
+      },
+      "points": 10,
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.1.6", "sources": ["S13"] }]
+    }
+  ],
+  "traps": [
+    {
+      "id": "tr-ntlm-proxy",
+      "title": "Proxy s NTLMv2",
+      "description": "Předvyplněný online depot míří přes proxy01 s NTLMv2. Proxy s Kerberos nebo NTLMv2 autentizací není podporována.",
+      "codes": ["DEPOT_PROXY_AUTH_UNSUPPORTED"],
+      "armed": "initial-state",
+      "detectedBy": ["validateConfigureOnlineDepot"],
+      "avoidBonus": 10,
+      "relatedTasks": ["t-depot"],
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§3.4", "sources": ["S13"] },
+        { "spec": "20-deployment", "section": "§5.2", "sources": ["S13"] }
+      ]
+    },
+    {
+      "id": "tr-activation-code",
+      "title": "Chybí activation code",
+      "description": "Online depot potřebuje activation code z VCF Business Services console.",
+      "codes": ["DEPOT_ACTIVATION_CODE_MISSING"],
+      "armed": "initial-state",
+      "detectedBy": ["validateConfigureOnlineDepot"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-depot"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.1.6", "sources": ["S13"] }]
+    },
+    {
+      "id": "tr-ssl-interception",
+      "title": "SSL/TLS interception bez CA v truststore",
+      "description": "proxy02 provádí SSL/TLS interception. Bez CA proxy v truststore software depotu (KB 442978) installer nemusí navázat důvěryhodné spojení s autorizačním serverem Broadcom.",
+      "codes": ["DEPOT_SSL_INTERCEPTION"],
+      "armed": "player-input",
+      "detectedBy": ["validateConfigureOnlineDepot"],
+      "avoidBonus": 10,
+      "relatedTasks": ["t-depot"],
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§3.4", "sources": ["S13"] },
+        { "spec": "20-deployment", "section": "§5.2", "sources": ["S13"] }
+      ]
+    },
+    {
+      "id": "tr-offline-cert",
+      "title": "HTTPS offline depot bez importu certifikátu",
+      "description": "U HTTPS offline depotu je nutné nejdřív importovat certifikát serveru (keytool) a restartovat služby installeru.",
+      "codes": ["DEPOT_CERT_NOT_TRUSTED"],
+      "armed": "initial-state",
+      "detectedBy": ["validateConfigureOfflineDepot"],
+      "avoidBonus": 10,
+      "relatedTasks": ["t-depot"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.1.6", "sources": ["S13"] }]
+    },
+    {
+      "id": "tr-download-first",
+      "title": "Stahování bez depotu",
+      "description": "Binárky nejde stahovat, dokud není připojen online nebo offline depot.",
+      "codes": ["DEPOT_NOT_CONNECTED"],
+      "armed": "player-input",
+      "detectedBy": ["transition"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-download"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.1.6", "sources": ["S13"] }]
+    }
+  ],
+  "hints": [
+    {
+      "id": "h-proxy",
+      "trapId": "tr-ntlm-proxy",
+      "text": "Online depot nepodporuje proxy s Kerberos ani NTLMv2. Podívej se, jakou autentizaci mají ostatní proxy, nebo zvaž offline depot.",
+      "specRef": { "spec": "20-deployment", "section": "§3.4", "sources": ["S13"] },
+      "doc": { "title": "Connect to an Online Depot to Download Binaries", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/downloading-binaries-to-the-vcf-installer-appliance/connect-to-an-online-depot-to-download-binaries.html" },
+      "cost": 3
+    },
+    {
+      "id": "h-ssl",
+      "trapId": "tr-ssl-interception",
+      "text": "Proxy, která dělá SSL/TLS interception, vyžaduje přidat její CA do truststore software depotu (KB 442978).",
+      "specRef": { "spec": "20-deployment", "section": "§5.2", "sources": ["S13"] },
+      "doc": { "title": "Connect to an Online Depot to Download Binaries", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/downloading-binaries-to-the-vcf-installer-appliance/connect-to-an-online-depot-to-download-binaries.html" },
+      "cost": 3
+    },
+    {
+      "id": "h-offline",
+      "trapId": "tr-offline-cert",
+      "text": "HTTPS offline depot: SSH jako vcf, su, stáhni certifikát (openssl s_client), importuj ho keytoolem a spusť sddcmanager_restart_services.sh. Pak teprve Configure.",
+      "specRef": { "spec": "20-deployment", "section": "§4.1.6", "sources": ["S13"] },
+      "doc": { "title": "Connect to an Online/Offline Depot", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/downloading-binaries-to-the-vcf-installer-appliance/connect-to-an-online-depot-to-download-binaries.html" },
+      "cost": 3
+    },
+    {
+      "id": "h-binaries",
+      "taskId": "t-binaries-quiz",
+      "text": "Seznam binárek pro nové nasazení VCF je na stránce Downloading Binaries to the VCF Installer Appliance.",
+      "specRef": { "spec": "20-deployment", "section": "§3.4", "sources": ["S12"] },
+      "doc": { "title": "Downloading Binaries to the VCF Installer Appliance", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/downloading-binaries-to-the-vcf-installer-appliance.html" },
+      "cost": 2
+    }
+  ],
+  "scoring": {
+    "orderBonus": { "points": 10, "sequence": ["t-depot", "t-download", "t-verify"] },
+    "cleanRunBonus": 10,
+    "penalties": { "perValidationError": 3, "perValidationRun": 0, "freeValidationRuns": 0, "perIllegalAction": 2 },
+    "maxPoints": 160,
+    "passPoints": 100
+  },
+  "expectedInitialIssues": [
+    { "check": "validateConfigureOnlineDepot", "codes": ["DEPOT_ACTIVATION_CODE_MISSING", "DEPOT_PROXY_AUTH_UNSUPPORTED"], "exact": true },
+    { "check": "validateConfigureOfflineDepot", "codes": ["DEPOT_CERT_NOT_TRUSTED"], "exact": true },
+    { "check": "validateBinariesForDeployment", "codes": ["BINARY_NOT_DOWNLOADED"], "exact": true },
+    { "check": "validateInstallerCanDeploy", "codes": [], "exact": true }
+  ],
+  "referenceSolution": {
+    "description": "Online depot přes proxy02 (Basic autentizace) s CA proxy v truststore a activation code; všech 16 binárek staženo. Rovnocenná cesta: offline depot po importu certifikátu a restartu služeb.",
+    "depot": {
+      "connection": {
+        "kind": "online",
+        "input": {
+          "activationCode": "GAME-ACT-0001",
+          "proxy": {
+            "protocol": "http",
+            "host": "proxy02.dc1.vcfhra.cz",
+            "port": 8080,
+            "auth": "basic",
+            "sslInterception": true,
+            "proxyCaInTruststore": true
+          }
+        }
+      },
+      "binaries": {
+        "Cloud proxy": "downloaded",
+        "Fleet lifecycle": "downloaded",
+        "Identity broker": "downloaded",
+        "License server": "downloaded",
+        "Migration service engine": "downloaded",
+        "Salt master": "downloaded",
+        "Salt RaaS": "downloaded",
+        "SDDC lifecycle": "downloaded",
+        "SDDC Manager": "downloaded",
+        "Software depot": "downloaded",
+        "Telemetry": "downloaded",
+        "VCF Automation": "downloaded",
+        "VCF Operations": "downloaded",
+        "VCF services runtime": "downloaded",
+        "VMware NSX": "downloaded",
+        "VMware vCenter": "downloaded"
+      }
+    },
+    "checks": [
+      { "check": "validateConfigureOnlineDepot", "allowWarnings": false },
+      { "check": "validateBinariesForDeployment", "allowWarnings": false },
+      { "check": "validateInstallerCanDeploy", "allowWarnings": false }
+    ]
+  },
+  "specRefs": [
+    { "spec": "20-deployment", "section": "§3.4", "sources": ["S12", "S13"] },
+    { "spec": "20-deployment", "section": "§4.1.6", "sources": ["S13"] },
+    { "spec": "20-deployment", "section": "§3.1", "sources": ["S5"] }
+  ],
+  "sourceNote": "Fáze Preparation, krok 4 „Download binaries to VCF Installer“ (20 §4.1)."
+}

@@ -1,0 +1,593 @@
+{
+  "schemaVersion": 1,
+  "id": "c1-m6-production-ha-design",
+  "campaign": { "id": "c1-bringup", "order": 1, "title": "Nové prostředí – bring-up první instance" },
+  "order": 6,
+  "title": "Návrh pro produkci: HA fleet",
+  "difficulty": "production-design",
+  "vcfVersion": "9.1.1",
+  "requires": ["c1-m5-troubleshooting-validation"],
+  "summary": "Navrhni a nasaď produkční první instanci: deployment model, velikost, cluster model, distributed switche a IP plán podle požadavků zadání.",
+  "briefing": "Testovací prostředí se osvědčilo, teď přichází produkce. Zadání od architekta: jedna lokalita a jedna availability zone, produkční provoz s vysokou dostupností management komponent, VCF Operations jako cluster tří uzlů (primary, replica, data node), principal storage vSAN ESA a provoz vSAN oddělený na vlastní distributed switch. Plánuje se Day-N nasazení log management a real-time metrics, které berou IP z bloku VCF services runtime. Síťaři zatím nenakonfigurovali LACP na ToR switchích. Hosty mají po 4 fyzických NIC. Rozpočet je herní mechanika – katalog hardwaru zatím není, mise nákup nevyžaduje.",
+  "objectives": [
+    "Zvolit fleet design a cluster model management domény.",
+    "Zvolit deployment model a velikost, které splní požadavek na VCF Operations se třemi uzly.",
+    "Navrhnout distributed switche s oddělením vSAN provozu v mezích počtu pNIC.",
+    "Navrhnout IP rozsahy s rezervou pro Day-N služby a TEP adresy pro každý aktivní uplink.",
+    "Nasadit bez chyb a dokončit kroky po nasazení pro HA VCF Operations."
+  ],
+  "initial": {
+    "installer": {
+      "mode": "installer",
+      "version": "9.1.1",
+      "platformsDeployed": 0,
+      "ovf": {
+        "vmName": "vcf-installer",
+        "placement": "outside-management",
+        "datastore": "other",
+        "rootPassword": "Kv8#Tmz!Q4rPx2wa",
+        "localUserPassword": "Bz9^Kt4@Lm2!Qw8x",
+        "hostnameFqdn": "vcfinst01.dc1.vcfhra.cz",
+        "ntpServers": ["ntp.dc1.vcfhra.cz"],
+        "ipVersion": "ipv4",
+        "ipv4Address": "10.10.0.10",
+        "subnetMask": "255.255.255.0",
+        "defaultGateway": "10.10.0.1",
+        "dnsDomainName": "dc1.vcfhra.cz",
+        "domainSearchPath": "dc1.vcfhra.cz",
+        "dnsServers": ["10.10.0.4", "10.10.0.7"]
+      }
+    },
+    "depot": {
+      "connection": { "kind": "online", "input": { "activationCode": "GAME-ACT-0003" } },
+      "binaries": {
+        "Cloud proxy": "downloaded",
+        "Fleet lifecycle": "downloaded",
+        "Identity broker": "downloaded",
+        "License server": "downloaded",
+        "Migration service engine": "downloaded",
+        "Salt master": "downloaded",
+        "Salt RaaS": "downloaded",
+        "SDDC lifecycle": "downloaded",
+        "SDDC Manager": "downloaded",
+        "Software depot": "downloaded",
+        "Telemetry": "downloaded",
+        "VCF Automation": "downloaded",
+        "VCF Operations": "downloaded",
+        "VCF services runtime": "downloaded",
+        "VMware NSX": "downloaded",
+        "VMware vCenter": "downloaded"
+      }
+    },
+    "hosts": [
+      {
+        "id": "esx01", "hwVendor": "Vendor B (herní)", "hwProfileId": "hw-profile-b", "pnicCount": 4, "stateless": false,
+        "esxVersion": "dle-RN-VCF-9.1.1", "vmk0OnStandardSwitch": true,
+        "network": { "vlanId": 1610, "ipv4Address": "10.10.0.101", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx01.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+        "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+        "sshEnabled": false, "certificateCn": "esx01.dc1.vcfhra.cz"
+      },
+      {
+        "id": "esx02", "hwVendor": "Vendor B (herní)", "hwProfileId": "hw-profile-b", "pnicCount": 4, "stateless": false,
+        "esxVersion": "dle-RN-VCF-9.1.1", "vmk0OnStandardSwitch": true,
+        "network": { "vlanId": 1610, "ipv4Address": "10.10.0.102", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx02.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+        "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+        "sshEnabled": false, "certificateCn": "esx02.dc1.vcfhra.cz"
+      },
+      {
+        "id": "esx03", "hwVendor": "Vendor B (herní)", "hwProfileId": "hw-profile-b", "pnicCount": 4, "stateless": false,
+        "esxVersion": "dle-RN-VCF-9.1.1", "vmk0OnStandardSwitch": true,
+        "network": { "vlanId": 1610, "ipv4Address": "10.10.0.103", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx03.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+        "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+        "sshEnabled": false, "certificateCn": "esx03.dc1.vcfhra.cz"
+      },
+      {
+        "id": "esx04", "hwVendor": "Vendor B (herní)", "hwProfileId": "hw-profile-b", "pnicCount": 4, "stateless": false,
+        "esxVersion": "dle-RN-VCF-9.1.1", "vmk0OnStandardSwitch": true,
+        "network": { "vlanId": 1610, "ipv4Address": "10.10.0.104", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx04.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+        "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+        "sshEnabled": false, "certificateCn": "esx04.dc1.vcfhra.cz"
+      }
+    ],
+    "dns": {
+      "forward": {
+        "ntp.dc1.vcfhra.cz": "10.10.0.5",
+        "vcfinst01.dc1.vcfhra.cz": "10.10.0.10",
+        "vc01.dc1.vcfhra.cz": "10.10.0.20",
+        "sddc01.dc1.vcfhra.cz": "10.10.0.21",
+        "nsx01.dc1.vcfhra.cz": "10.10.0.22",
+        "nsx01a.dc1.vcfhra.cz": "10.10.0.23",
+        "nsx01b.dc1.vcfhra.cz": "10.10.0.24",
+        "nsx01c.dc1.vcfhra.cz": "10.10.0.25",
+        "ops01a.dc1.vcfhra.cz": "10.10.0.30",
+        "ops01b.dc1.vcfhra.cz": "10.10.0.31",
+        "ops01c.dc1.vcfhra.cz": "10.10.0.32",
+        "opscp01.dc1.vcfhra.cz": "10.10.0.33",
+        "lic01.dc1.vcfhra.cz": "10.10.0.34",
+        "fleet01.dc1.vcfhra.cz": "10.10.0.35",
+        "inst01.dc1.vcfhra.cz": "10.10.0.36",
+        "idb01.dc1.vcfhra.cz": "10.10.0.37",
+        "vsp01.dc1.vcfhra.cz": "10.10.0.38",
+        "auto01.dc1.vcfhra.cz": "10.10.0.39",
+        "vsp02.dc1.vcfhra.cz": "10.10.0.40",
+        "esx01.dc1.vcfhra.cz": "10.10.0.101",
+        "esx02.dc1.vcfhra.cz": "10.10.0.102",
+        "esx03.dc1.vcfhra.cz": "10.10.0.103",
+        "esx04.dc1.vcfhra.cz": "10.10.0.104"
+      },
+      "reverse": {
+        "10.10.0.5": "ntp.dc1.vcfhra.cz",
+        "10.10.0.10": "vcfinst01.dc1.vcfhra.cz",
+        "10.10.0.20": "vc01.dc1.vcfhra.cz",
+        "10.10.0.21": "sddc01.dc1.vcfhra.cz",
+        "10.10.0.22": "nsx01.dc1.vcfhra.cz",
+        "10.10.0.23": "nsx01a.dc1.vcfhra.cz",
+        "10.10.0.24": "nsx01b.dc1.vcfhra.cz",
+        "10.10.0.25": "nsx01c.dc1.vcfhra.cz",
+        "10.10.0.30": "ops01a.dc1.vcfhra.cz",
+        "10.10.0.31": "ops01b.dc1.vcfhra.cz",
+        "10.10.0.32": "ops01c.dc1.vcfhra.cz",
+        "10.10.0.33": "opscp01.dc1.vcfhra.cz",
+        "10.10.0.34": "lic01.dc1.vcfhra.cz",
+        "10.10.0.35": "fleet01.dc1.vcfhra.cz",
+        "10.10.0.36": "inst01.dc1.vcfhra.cz",
+        "10.10.0.37": "idb01.dc1.vcfhra.cz",
+        "10.10.0.38": "vsp01.dc1.vcfhra.cz",
+        "10.10.0.39": "auto01.dc1.vcfhra.cz",
+        "10.10.0.40": "vsp02.dc1.vcfhra.cz",
+        "10.10.0.101": "esx01.dc1.vcfhra.cz",
+        "10.10.0.102": "esx02.dc1.vcfhra.cz",
+        "10.10.0.103": "esx03.dc1.vcfhra.cz",
+        "10.10.0.104": "esx04.dc1.vcfhra.cz"
+      }
+    },
+    "physicalNetworkLagReady": false,
+    "workbook": {
+      "note": "Hodnoty jsou ilustrativní herní data (ne fakta z dokumentace). Požadavky zadání jsou herní scénář; pravidla, která z nich plynou, jsou ze specu.",
+      "entries": [
+        { "key": "req.site", "label": "Lokality", "value": "1 lokalita, 1 availability zone" },
+        { "key": "req.ha", "label": "Dostupnost", "value": "produkční, vysoká dostupnost management komponent" },
+        { "key": "req.ops", "label": "VCF Operations", "value": "3 uzly: primary, replica, data node" },
+        { "key": "req.storage", "label": "Principal storage", "value": "vSAN ESA, vSAN provoz na vlastním distributed switchi" },
+        { "key": "req.dayn", "label": "Day-N", "value": "log management, real-time metrics" },
+        { "key": "net.lacp", "label": "LACP na ToR", "value": "nenakonfigurováno" },
+        { "key": "hosts", "label": "ESX hosty", "value": "4× hw-profile-b, 4 pNIC" },
+        { "key": "net.esxmgmt", "label": "ESX Management Network", "value": "VLAN 1610, 10.10.0.0/24, brána 10.10.0.1" },
+        { "key": "net.services", "label": "Volné adresy pro VCF Management Services", "value": "10.10.1.0/24 (adresy .10 – .200 volné)" },
+        { "key": "net.vmotion", "label": "vMotion", "value": "VLAN 1612, 10.10.2.0/24, brána 10.10.2.1, MTU 9000" },
+        { "key": "net.vsan", "label": "vSAN", "value": "VLAN 1613, 10.10.3.0/24, brána 10.10.3.1, MTU 9000" },
+        { "key": "net.tep", "label": "NSX Host Overlay (TEP)", "value": "VLAN 1614, 10.10.4.0/24, brána 10.10.4.1, MTU 9000" },
+        { "key": "fqdn", "label": "Připravené DNS záznamy", "value": ["vc01", "sddc01", "nsx01 (VIP)", "nsx01a/b/c", "ops01a/b/c", "opscp01", "lic01", "fleet01", "inst01", "idb01", "vsp01", "auto01", "vsp02"] }
+      ]
+    }
+  },
+  "tasks": [
+    {
+      "id": "t-fleet-design",
+      "order": 1,
+      "title": "Fleet design",
+      "description": "Jedna lokalita a jedna AZ, bez požadavku na stretched cluster ani DR.",
+      "actions": [{ "kind": "design-choice", "choice": "fleet-design" }],
+      "completion": { "kind": "design-choice", "choice": "fleet-design", "oneOf": ["basic"] },
+      "points": 10,
+      "specRefs": [{ "spec": "00-architektura", "section": "§6", "sources": ["S16"] }]
+    },
+    {
+      "id": "t-cluster-model",
+      "order": 2,
+      "title": "Cluster model management domény",
+      "description": "Basic Design používá pro management doménu single-rack cluster. Multi-Rack Layer 3 jako default cluster management domény podporován není.",
+      "actions": [{ "kind": "design-choice", "choice": "cluster-model" }],
+      "completion": { "kind": "design-choice", "choice": "cluster-model", "oneOf": ["single-rack"] },
+      "points": 10,
+      "specRefs": [
+        { "spec": "00-architektura", "section": "§6", "sources": ["S16", "S7"] },
+        { "spec": "00-architektura", "section": "§3", "sources": ["S7"] }
+      ]
+    },
+    {
+      "id": "t-model",
+      "order": 3,
+      "title": "Deployment model",
+      "description": "Pro produkci dokumentace doporučuje High Availability.",
+      "actions": [{ "kind": "wizard-step", "step": "deployment-model-and-size" }],
+      "completion": { "kind": "spec-field", "path": "model", "oneOf": ["high-availability"] },
+      "points": 15,
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] }]
+    },
+    {
+      "id": "t-size",
+      "order": 4,
+      "title": "Velikost",
+      "description": "Data node VCF Operations (třetí uzel) je jen u HA Medium a Large.",
+      "actions": [{ "kind": "wizard-step", "step": "deployment-model-and-size" }],
+      "completion": { "kind": "spec-field", "path": "size", "oneOf": ["medium", "large"] },
+      "points": 15,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§2.1", "sources": ["S14", "S19"] },
+        { "spec": "20-deployment", "section": "§6.2", "sources": ["S23"] }
+      ]
+    },
+    {
+      "id": "t-sizing-quiz",
+      "order": 5,
+      "title": "Kolik to bude stát zdrojů?",
+      "description": "Ověř celkové nároky první instance pro zvolený profil.",
+      "actions": [{ "kind": "quiz" }],
+      "completion": {
+        "kind": "quiz",
+        "question": "Jaké jsou celkové nároky první VCF Instance v profilu HA – Medium?",
+        "options": [
+          "106 vCPU, 335 GB RAM, 8422 GB disk",
+          "184 vCPU, 656 GB RAM, 11445 GB disk",
+          "298 vCPU, 949 GB RAM, 15357 GB disk"
+        ],
+        "correct": [1],
+        "explanation": "Sizing profily první instance: HA – Small 106/335/8422, HA – Medium 184/656/11445, HA – Large 298/949/15357 (vCPU / GB RAM / GB disk)."
+      },
+      "points": 10,
+      "specRefs": [{ "spec": "20-deployment", "section": "§6.2", "sources": ["S23"] }]
+    },
+    {
+      "id": "t-hosts-quiz",
+      "order": 6,
+      "title": "Stačí čtyři hosty?",
+      "description": "Ověř minimální počet hostů pro zvolený model a úložiště (Design Library).",
+      "actions": [{ "kind": "quiz" }],
+      "completion": {
+        "kind": "quiz",
+        "question": "Kolik ESX hostů minimálně potřebuje default cluster management domény (single-rack) s vSAN v modelu High Availability?",
+        "options": ["2", "3", "4", "6"],
+        "correct": [2],
+        "explanation": "Single-Rack vSphere Cluster Model: vSAN Simple 3, vSAN HA 4, NFS/FC Simple 2, NFS/FC HA 4 hosty."
+      },
+      "points": 10,
+      "specRefs": [{ "spec": "10-planning", "section": "§6.1", "sources": ["P9"] }]
+    },
+    {
+      "id": "t-vds",
+      "order": 7,
+      "title": "Distributed switche",
+      "description": "Oddělení vSAN provozu na vlastní switch = profil Storage Traffic Separation (2 switche). Uplinky všech switchů se mapují na pNIC hostů. LACP na ToR není připraveno.",
+      "actions": [{ "kind": "wizard-step", "step": "distributed-switch" }],
+      "completion": { "kind": "spec-field", "path": "vds.profile", "oneOf": ["storage-traffic-separation"] },
+      "points": 15,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] },
+        { "spec": "20-deployment", "section": "§6.5", "sources": ["S14"] }
+      ]
+    },
+    {
+      "id": "t-ips",
+      "order": 8,
+      "title": "IP plán s rezervou",
+      "description": "Rezervuj doporučených 30 IP pro VCF services runtime (Day-N služby berou IP z tohoto bloku) a pro TEP 1 IP na každý aktivní uplink na host.",
+      "actions": [{ "kind": "wizard-step", "step": "network-details" }],
+      "completion": {
+        "kind": "codes-absent",
+        "check": "validateBringupSpec",
+        "codes": ["SERVICES_RUNTIME_IPS_BELOW_RECOMMENDED", "SERVICES_RUNTIME_IPS_TOO_FEW", "INCLUSION_RANGE_TOO_SMALL"]
+      },
+      "points": 15,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§3.5", "sources": ["S19"] },
+        { "spec": "20-deployment", "section": "§6.4", "sources": ["S19"] }
+      ]
+    },
+    {
+      "id": "t-validate",
+      "order": 9,
+      "title": "Čistá validace",
+      "description": "Produkční návrh má projít validací bez errors i warnings.",
+      "actions": [
+        { "kind": "deployment-event", "event": "submit-for-review" },
+        { "kind": "deployment-event", "event": "start-validation" }
+      ],
+      "completion": { "kind": "check-clean", "check": "validateBringupSpec", "allowWarnings": false },
+      "points": 15,
+      "specRefs": [{ "spec": "20-deployment", "section": "§5.1", "sources": ["S14", "S15"] }]
+    },
+    {
+      "id": "t-deploy",
+      "order": 10,
+      "title": "Nasaď",
+      "description": "Deploy a sleduj průběh v panelu Tasks.",
+      "actions": [{ "kind": "deployment-event", "event": "deploy" }],
+      "completion": { "kind": "deployment-status", "status": "completed" },
+      "points": 20,
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] }]
+    },
+    {
+      "id": "t-anti-affinity",
+      "order": 11,
+      "title": "DRS anti-affinity pro HA VCF Operations",
+      "description": "U HA VCF Operations přidej vSphere DRS anti-affinity pravidlo.",
+      "actions": [{ "kind": "post-deployment-step", "step": "vcf-operations-ha-drs-anti-affinity" }],
+      "completion": { "kind": "post-deployment-step-done", "step": "vcf-operations-ha-drs-anti-affinity" },
+      "points": 10,
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.4", "sources": ["S14", "S15"] }]
+    },
+    {
+      "id": "t-backup",
+      "order": 12,
+      "title": "Zálohování",
+      "description": "File-based backup SDDC Manageru a dalších komponent.",
+      "actions": [{ "kind": "post-deployment-step", "step": "file-based-backup" }],
+      "completion": { "kind": "post-deployment-step-done", "step": "file-based-backup" },
+      "points": 5,
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.4", "sources": ["S14", "S15"] }]
+    }
+  ],
+  "traps": [
+    {
+      "id": "tr-size-model",
+      "title": "Simple s velikostí Medium/Large",
+      "description": "Medium a Large jsou ve 9.1.1 jen pro High Availability.",
+      "codes": ["SIZE_NOT_ALLOWED_FOR_MODEL"],
+      "armed": "player-input",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-model", "t-size"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] }]
+    },
+    {
+      "id": "tr-missing-fqdn",
+      "title": "Chybějící FQDN replica / data node",
+      "description": "HA vyžaduje FQDN replica uzlu VCF Operations, Medium/Large navíc data node.",
+      "codes": ["FQDN_REQUIRED"],
+      "armed": "player-input",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-size"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§6.4", "sources": ["S19"] }]
+    },
+    {
+      "id": "tr-nsx-nodes",
+      "title": "Jeden uzel NSX Manageru v HA",
+      "description": "HA nasazuje 3 uzly NSX Manageru + VIP.",
+      "codes": ["NSX_NODE_COUNT"],
+      "armed": "player-input",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-model"],
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§6.4", "sources": ["S19"] },
+        { "spec": "00-architektura", "section": "§2.9", "sources": ["S14"] }
+      ]
+    },
+    {
+      "id": "tr-vds-count",
+      "title": "Profil vDS s jiným počtem switchů",
+      "description": "Storage Traffic Separation používá 2 distributed switche, Default 1.",
+      "codes": ["VDS_PROFILE_SWITCH_COUNT"],
+      "armed": "player-input",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-vds"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§6.5", "sources": ["S14"] }]
+    },
+    {
+      "id": "tr-pnic",
+      "title": "Víc uplinků než pNIC",
+      "description": "Uplinky všech distributed switchů se mapují na fyzické NIC; hosty mají jen 4.",
+      "codes": ["VDS_UPLINKS_EXCEED_PNICS"],
+      "armed": "player-input",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-vds"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] }]
+    },
+    {
+      "id": "tr-lag",
+      "title": "VDS LAG bez připravené fyzické sítě",
+      "description": "Validační pre-checky 9.1 kontrolují připravenost fyzické sítě na LAG – LACP na ToR není nakonfigurováno.",
+      "codes": ["LAG_PHYSICAL_NETWORK_NOT_READY"],
+      "armed": "player-input",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 10,
+      "relatedTasks": ["t-vds"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.2", "sources": ["S32"] }]
+    },
+    {
+      "id": "tr-tep-range",
+      "title": "TEP rozsah jen na 1 IP na host",
+      "description": "Host TEP potřebuje 1 IP na každý aktivní uplink switche s NSX na každý host.",
+      "codes": ["INCLUSION_RANGE_TOO_SMALL"],
+      "armed": "player-input",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 10,
+      "relatedTasks": ["t-ips"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§6.4", "sources": ["S19"] }]
+    },
+    {
+      "id": "tr-runtime-30",
+      "title": "Bez rezervy pro Day-N služby",
+      "description": "Méně než doporučených 30 IP pro VCF services runtime – log management a real-time metrics by neměly kde brát IP.",
+      "codes": ["SERVICES_RUNTIME_IPS_BELOW_RECOMMENDED", "SERVICES_RUNTIME_IPS_TOO_FEW"],
+      "armed": "player-input",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 10,
+      "relatedTasks": ["t-ips"],
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§3.5", "sources": ["S19"] },
+        { "spec": "20-deployment", "section": "§6.4", "sources": ["S19"] }
+      ]
+    },
+    {
+      "id": "tr-l3-mgmt",
+      "title": "Management doména na Multi-Rack Layer 3",
+      "description": "Default cluster management domény nelze postavit na Multi-Rack Layer 3 clusteru.",
+      "codes": ["MGMT_DEFAULT_CLUSTER_L3_UNSUPPORTED"],
+      "armed": "player-input",
+      "detectedBy": ["validateFleet"],
+      "avoidBonus": 10,
+      "relatedTasks": ["t-cluster-model"],
+      "specRefs": [
+        { "spec": "00-architektura", "section": "§3", "sources": ["S7"] },
+        { "spec": "00-architektura", "section": "§5", "sources": ["S7"] }
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "id": "h-size",
+      "taskId": "t-size",
+      "text": "Pole FQDN data node VCF Operations se v průvodci zobrazí jen pro HA s velikostí Medium nebo Large.",
+      "specRef": { "spec": "20-deployment", "section": "§2.1", "sources": ["S14", "S19"] },
+      "doc": { "title": "First VCF Instance FQDNs and IP addresses", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/vcf-components-fqdns-and-ip-addresses/first-vcf-instance-fqdns-and-ip-addresses.html" },
+      "cost": 3
+    },
+    {
+      "id": "h-cluster",
+      "taskId": "t-cluster-model",
+      "text": "Basic Design: management doména single-rack. Multi-Rack Layer 3: „Management domain default cluster not supported.“",
+      "specRef": { "spec": "00-architektura", "section": "§6", "sources": ["S7", "S16"] },
+      "doc": { "title": "vSphere Cluster Models (9.1)", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vsphere-cluster-models.html" },
+      "cost": 3
+    },
+    {
+      "id": "h-vds",
+      "taskId": "t-vds",
+      "text": "Profily: Default (1 switch), Storage Traffic Separation (2), NSX Traffic Separation (2), nebo Custom. Uplink mode VDS LAG (LACP) vyžaduje připravenou fyzickou síť.",
+      "specRef": { "spec": "20-deployment", "section": "§6.5", "sources": ["S14"] },
+      "doc": { "title": "Deploy a New VCF Fleet or a New VCF Instance (9.1)", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/deploy-a-new-vcf-fleet-or-a-new-vcf-instance.html" },
+      "cost": 3
+    },
+    {
+      "id": "h-tep",
+      "trapId": "tr-tep-range",
+      "text": "Host TEP: 1 IP na aktivní VDS uplink na host. Se 2 uplinky a 4 hosty to je 8 adres.",
+      "specRef": { "spec": "20-deployment", "section": "§6.4", "sources": ["S19"] },
+      "doc": { "title": "First VCF Instance FQDNs and IP addresses", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/vcf-components-fqdns-and-ip-addresses/first-vcf-instance-fqdns-and-ip-addresses.html" },
+      "cost": 3
+    },
+    {
+      "id": "h-hosts",
+      "taskId": "t-hosts-quiz",
+      "text": "Tabulka minimálních počtů hostů je v Design Library u Single-Rack vSphere Cluster Model.",
+      "specRef": { "spec": "10-planning", "section": "§6.1", "sources": ["P9"] },
+      "doc": { "title": "Single-Rack vSphere Cluster Model (9.1)", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/cluster-models/single-instance-single-availability-zone.html" },
+      "cost": 2
+    }
+  ],
+  "scoring": {
+    "orderBonus": {
+      "points": 20,
+      "sequence": ["t-fleet-design", "t-cluster-model", "t-model", "t-size", "t-vds", "t-validate", "t-deploy", "t-anti-affinity"]
+    },
+    "cleanRunBonus": 25,
+    "penalties": { "perValidationError": 5, "perValidationRun": 5, "freeValidationRuns": 1, "perIllegalAction": 5 },
+    "maxPoints": 260,
+    "passPoints": 170
+  },
+  "budget": {
+    "gameMechanic": true,
+    "currency": "herní kredity",
+    "amount": 500000,
+    "note": "Herní mechanika (fiktivní měna), ne fakt z dokumentace. Katalog HW a ceny zatím nejsou definovány; mise nákup nevyžaduje.",
+    "catalog": null
+  },
+  "expectedInitialIssues": [
+    { "check": "validateInstallerCanDeploy", "codes": [], "exact": true },
+    { "check": "validateBinariesForDeployment", "codes": [], "exact": true },
+    { "check": "validateEsxHostsForBringup", "context": { "model": "high-availability", "storage": "vsan-esa" }, "codes": [], "exact": true }
+  ],
+  "referenceSolution": {
+    "description": "Basic design, single-rack, HA Medium, vSAN ESA, Storage Traffic Separation (2×2 uplinky = 4 pNIC, bez LAG), 30 IP services runtime, TEP 21 IP (potřeba 8), 3 uzly NSX, VCF Operations primary/replica/data.",
+    "spec": {
+      "target": "new-fleet",
+      "existing": { "existingVcfOperations": false, "existingVcenter": false, "vcenterRegisteredWithNsx": false, "existingVcfAutomationOrDeployLater": false },
+      "model": "high-availability",
+      "size": "medium",
+      "networkConfig": {
+        "vmManagementNetwork": "shared-with-esx-management",
+        "vcfManagementNetwork": "shared-with-vm-management",
+        "dualStack": false,
+        "vmotionIpScheme": "ipv4",
+        "storageIpScheme": "ipv4",
+        "deployOpsAndAutomationToCustomNetwork": false,
+        "vpcNetwork": "full-stack",
+        "vpcGatewayConnectivity": "centralized"
+      },
+      "storage": { "type": "vsan-esa", "vsanEsaAllowAutoClaimHclIncompatible": false },
+      "general": {
+        "version": "9.1.1",
+        "instanceName": "dc1-m01",
+        "managementDomainName": "dc1-m01",
+        "ceip": false,
+        "dnsServers": ["10.10.0.4", "10.10.0.7"],
+        "ntpServers": ["ntp.dc1.vcfhra.cz"],
+        "dnsDomainName": "dc1.vcfhra.cz",
+        "autogeneratePasswords": true
+      },
+      "esxHosts": [
+        { "fqdn": "esx01.dc1.vcfhra.cz" },
+        { "fqdn": "esx02.dc1.vcfhra.cz" },
+        { "fqdn": "esx03.dc1.vcfhra.cz" },
+        { "fqdn": "esx04.dc1.vcfhra.cz" }
+      ],
+      "networks": {
+        "esxManagement": { "vlanId": 1610, "cidr": "10.10.0.0/24", "gateway": "10.10.0.1" },
+        "managementServicesIpPool": { "kind": "range", "start": "10.10.1.10", "end": "10.10.1.39" },
+        "vcfAutomationIpPool": { "kind": "range", "start": "10.10.1.50", "end": "10.10.1.54" },
+        "vmotion": { "vlanId": 1612, "cidr": "10.10.2.0/24", "gateway": "10.10.2.1", "mtu": 9000, "inclusionRanges": [{ "kind": "range", "start": "10.10.2.10", "end": "10.10.2.20" }] },
+        "storage": { "vlanId": 1613, "cidr": "10.10.3.0/24", "gateway": "10.10.3.1", "mtu": 9000, "inclusionRanges": [{ "kind": "range", "start": "10.10.3.10", "end": "10.10.3.20" }] },
+        "nsxHostOverlay": { "vlanId": 1614, "cidr": "10.10.4.0/24", "gateway": "10.10.4.1", "mtu": 9000, "inclusionRanges": [{ "kind": "range", "start": "10.10.4.10", "end": "10.10.4.30" }] }
+      },
+      "components": {
+        "vcfOperationsPrimaryFqdn": "ops01a.dc1.vcfhra.cz",
+        "vcfOperationsReplicaFqdn": "ops01b.dc1.vcfhra.cz",
+        "vcfOperationsDataFqdn": "ops01c.dc1.vcfhra.cz",
+        "cloudProxyFqdn": "opscp01.dc1.vcfhra.cz",
+        "licenseServerFqdn": "lic01.dc1.vcfhra.cz",
+        "fleetComponentsFqdn": "fleet01.dc1.vcfhra.cz",
+        "instanceComponentsFqdn": "inst01.dc1.vcfhra.cz",
+        "identityBrokerFqdn": "idb01.dc1.vcfhra.cz",
+        "servicesRuntimeFqdn": "vsp01.dc1.vcfhra.cz",
+        "internalClusterCidrIpv4": "198.18.0.0/15",
+        "vcfAutomationFqdn": "auto01.dc1.vcfhra.cz",
+        "vcfAutomationServicesRuntimeFqdn": "vsp02.dc1.vcfhra.cz"
+      },
+      "vcenter": { "fqdn": "vc01.dc1.vcfhra.cz" },
+      "storageDetails": { "datastoreName": "dc1-m01-cl01-ds-vsan01" },
+      "vds": {
+        "profile": "storage-traffic-separation",
+        "switches": [
+          {
+            "name": "dc1-m01-cl01-vds01",
+            "uplinks": 2,
+            "uplinkMode": "vds-uplinks",
+            "trafficTypes": ["esx-management", "vcf-management", "vm-management", "vmotion", "nsx"],
+            "loadBalancing": "route-based-on-physical-nic-load"
+          },
+          {
+            "name": "dc1-m01-cl01-vds02",
+            "uplinks": 2,
+            "uplinkMode": "vds-uplinks",
+            "trafficTypes": ["vsan"],
+            "loadBalancing": "route-based-on-physical-nic-load"
+          }
+        ]
+      },
+      "nsx": {
+        "nodeFqdns": ["nsx01a.dc1.vcfhra.cz", "nsx01b.dc1.vcfhra.cz", "nsx01c.dc1.vcfhra.cz"],
+        "vipFqdn": "nsx01.dc1.vcfhra.cz"
+      },
+      "sddcManager": { "fqdn": "sddc01.dc1.vcfhra.cz" }
+    },
+    "designChoices": { "clusterModel": "single-rack", "fleetDesign": "basic", "installerPlacement": "outside-management" },
+    "checks": [
+      { "check": "validateBringupSpec", "allowWarnings": false },
+      { "check": "validateEsxHostsForBringup", "context": { "model": "high-availability", "storage": "vsan-esa" }, "allowWarnings": false },
+      { "check": "validateFleet", "context": { "clusterModel": "single-rack" }, "allowWarnings": false }
+    ]
+  },
+  "specRefs": [
+    { "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] },
+    { "spec": "20-deployment", "section": "§6.2", "sources": ["S23"] },
+    { "spec": "20-deployment", "section": "§6.4", "sources": ["S19"] },
+    { "spec": "00-architektura", "section": "§6", "sources": ["S7", "S16", "S19"] },
+    { "spec": "10-planning", "section": "§6.1", "sources": ["P9"] }
+  ],
+  "sourceNote": "Produkční varianta bring-upu: volby deployment modelu, velikosti a sítě (20 §4.2) podle designových modelů (00 §6) a minim z Design Library (10 §6.1)."
+}

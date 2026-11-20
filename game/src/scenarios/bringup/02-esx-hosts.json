@@ -1,0 +1,392 @@
+{
+  "schemaVersion": 1,
+  "id": "c1-m2-esx-hosts",
+  "campaign": { "id": "c1-bringup", "order": 1, "title": "Nové prostředí – bring-up první instance" },
+  "order": 2,
+  "title": "Příprava ESX hostů pro management doménu",
+  "difficulty": "routine",
+  "vcfVersion": "9.1.1",
+  "requires": ["c1-m1-vcf-installer"],
+  "summary": "Připrav čtyři ESX hosty: instalace z ISO, síť v DCUI, NTP, regenerace certifikátu a DNS záznamy.",
+  "briefing": "Do racku dorazily čtyři servery pro management doménu. Tři už mají ESX z ISO, čtvrtý je holý. Kolega na esx03 začal konfigurovat síť, ale nedokončil to. VCF Installer při validaci kontroluje každý host: statickou IP, FQDN, DNS záznamy, NTP a hlavně certifikát – jeho CN musí odpovídat FQDN. Připrav hosty tak, aby prošly kontrolou, a nezapomeň na pořadí kroků z dokumentace.",
+  "objectives": [
+    "Nainstalovat ESX na esx04.",
+    "Na všech hostech nastavit management síť v DCUI (bez Custom DNS Suffixes).",
+    "Zajistit forward i reverse DNS záznamy všech hostů.",
+    "Zapnout NTP na všech hostech.",
+    "Po nastavení hostname regenerovat self-signed certifikát a znovu vypnout SSH."
+  ],
+  "initial": {
+    "installer": {
+      "mode": "installer",
+      "version": "9.1.1",
+      "platformsDeployed": 0,
+      "ovf": {
+        "vmName": "vcf-installer",
+        "placement": "outside-management",
+        "datastore": "other",
+        "rootPassword": "Kv8#Tmz!Q4rPx2wa",
+        "localUserPassword": "Bz9^Kt4@Lm2!Qw8x",
+        "hostnameFqdn": "vcfinst01.dc1.vcfhra.cz",
+        "ntpServers": ["ntp.dc1.vcfhra.cz"],
+        "ipVersion": "ipv4",
+        "ipv4Address": "10.10.0.10",
+        "subnetMask": "255.255.255.0",
+        "defaultGateway": "10.10.0.1",
+        "dnsDomainName": "dc1.vcfhra.cz",
+        "domainSearchPath": "dc1.vcfhra.cz",
+        "dnsServers": ["10.10.0.4", "10.10.0.7"]
+      }
+    },
+    "depot": { "connection": { "kind": "none" }, "binaries": {} },
+    "hosts": [
+      {
+        "id": "esx01",
+        "hwVendor": "Vendor A (herní)",
+        "hwProfileId": "hw-profile-a",
+        "pnicCount": 2,
+        "stateless": false,
+        "esxVersion": "dle-RN-VCF-9.1.1",
+        "vmk0OnStandardSwitch": true,
+        "ntp": { "servers": [], "enabled": false, "serviceRunning": false },
+        "sshEnabled": false,
+        "certificateCn": "localhost.localdomain"
+      },
+      {
+        "id": "esx02",
+        "hwVendor": "Vendor A (herní)",
+        "hwProfileId": "hw-profile-a",
+        "pnicCount": 2,
+        "stateless": false,
+        "esxVersion": "dle-RN-VCF-9.1.1",
+        "vmk0OnStandardSwitch": true,
+        "ntp": { "servers": [], "enabled": false, "serviceRunning": false },
+        "sshEnabled": false,
+        "certificateCn": "localhost.localdomain"
+      },
+      {
+        "id": "esx03",
+        "hwVendor": "Vendor A (herní)",
+        "hwProfileId": "hw-profile-a",
+        "pnicCount": 2,
+        "stateless": false,
+        "esxVersion": "dle-RN-VCF-9.1.1",
+        "vmk0OnStandardSwitch": true,
+        "network": {
+          "vlanId": 1610,
+          "ipv4Address": "10.10.0.103",
+          "subnetMask": "255.255.255.0",
+          "defaultGateway": "10.10.0.1",
+          "dnsServers": ["10.10.0.4"],
+          "hostnameFqdn": "esx03.dc1.vcfhra.cz",
+          "customDnsSuffixes": ["dc1.vcfhra.cz"]
+        },
+        "ntp": { "servers": [], "enabled": false, "serviceRunning": false },
+        "sshEnabled": false,
+        "certificateCn": "localhost.localdomain"
+      },
+      {
+        "id": "esx04",
+        "hwVendor": "Vendor A (herní)",
+        "hwProfileId": "hw-profile-a",
+        "pnicCount": 2,
+        "stateless": false,
+        "vmk0OnStandardSwitch": false,
+        "ntp": { "servers": [], "enabled": false, "serviceRunning": false },
+        "sshEnabled": false,
+        "certificateCn": "localhost.localdomain"
+      }
+    ],
+    "dns": {
+      "forward": {
+        "ntp.dc1.vcfhra.cz": "10.10.0.5",
+        "vcfinst01.dc1.vcfhra.cz": "10.10.0.10",
+        "esx01.dc1.vcfhra.cz": "10.10.0.101",
+        "esx02.dc1.vcfhra.cz": "10.10.0.102",
+        "esx03.dc1.vcfhra.cz": "10.10.0.103",
+        "esx04.dc1.vcfhra.cz": "10.10.0.104"
+      },
+      "reverse": {
+        "10.10.0.5": "ntp.dc1.vcfhra.cz",
+        "10.10.0.10": "vcfinst01.dc1.vcfhra.cz",
+        "10.10.0.101": "esx01.dc1.vcfhra.cz",
+        "10.10.0.102": "esx02.dc1.vcfhra.cz",
+        "10.10.0.103": "esx03.dc1.vcfhra.cz"
+      }
+    },
+    "workbook": {
+      "note": "Hodnoty jsou ilustrativní herní data (ne fakta z dokumentace). Verze ESX se řídí VCF Release Notes; konkrétní build spec neuvádí.",
+      "entries": [
+        { "key": "esx.vlan", "label": "ESX Management Network VLAN ID", "value": 1610 },
+        { "key": "esx.subnet", "label": "Maska / brána", "value": "255.255.255.0 / 10.10.0.1" },
+        { "key": "esx.hosts", "label": "Hosty (FQDN = IPv4)", "value": ["esx01.dc1.vcfhra.cz = 10.10.0.101", "esx02.dc1.vcfhra.cz = 10.10.0.102", "esx03.dc1.vcfhra.cz = 10.10.0.103", "esx04.dc1.vcfhra.cz = 10.10.0.104"] },
+        { "key": "dns.servers", "label": "DNS servery", "value": ["10.10.0.4", "10.10.0.7"] },
+        { "key": "ntp.servers", "label": "NTP server", "value": "ntp.dc1.vcfhra.cz" },
+        { "key": "storage.type", "label": "Plánované principal storage", "value": "vSAN ESA" }
+      ]
+    }
+  },
+  "tasks": [
+    {
+      "id": "t-install",
+      "order": 1,
+      "title": "Nainstaluj ESX na esx04",
+      "description": "Připoj ESX ISO, nabootuj z něj, projdi instalaci (disk, klávesnice, root heslo, F11) a nastav boot z disku s ESX.",
+      "actions": [{ "kind": "model", "action": "install-esx" }],
+      "completion": { "kind": "host-state", "hosts": ["esx04"], "require": { "esxInstalled": true } },
+      "points": 10,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.1.1", "sources": ["S8"] },
+        { "spec": "20-deployment", "section": "§3.2", "sources": ["S7"] }
+      ]
+    },
+    {
+      "id": "t-network",
+      "order": 2,
+      "title": "Nastav management síť v DCUI",
+      "description": "F2 > Configure Management Network: VLAN, statická IPv4, DNS servery a hostname (FQDN). Custom DNS Suffixes musí zůstat prázdné. vmk0 zůstává na vSphere Standard Switchi.",
+      "actions": [{ "kind": "model", "action": "configure-host-network" }],
+      "completion": {
+        "kind": "host-state",
+        "hosts": ["esx01", "esx02", "esx03", "esx04"],
+        "require": { "networkConfigured": true, "customDnsSuffixesEmpty": true }
+      },
+      "points": 20,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.1.2", "sources": ["S9"] },
+        { "spec": "20-deployment", "section": "§3.2", "sources": ["S9"] }
+      ]
+    },
+    {
+      "id": "t-dns",
+      "order": 3,
+      "title": "Zkontroluj DNS záznamy hostů",
+      "description": "Každé FQDN musí mít forward (A) i reverse (PTR) záznam. Chybějící záznam doplň na DNS serveru firmy.",
+      "actions": [{ "kind": "environment", "action": "dns-add-forward" }, { "kind": "environment", "action": "dns-add-reverse" }],
+      "completion": {
+        "kind": "dns-forward-reverse",
+        "fqdns": ["esx01.dc1.vcfhra.cz", "esx02.dc1.vcfhra.cz", "esx03.dc1.vcfhra.cz", "esx04.dc1.vcfhra.cz"]
+      },
+      "points": 15,
+      "specRefs": [{ "spec": "20-deployment", "section": "§3.5", "sources": ["S20"] }]
+    },
+    {
+      "id": "t-ntp",
+      "order": 4,
+      "title": "Zapni NTP",
+      "description": "VMware Host Client > Host > Configure > Time Configuration > Network Time Protocol > Edit: Enable + NTP server. Ověř, že služba běží. Host Client potřebuje funkční management síť.",
+      "actions": [{ "kind": "model", "action": "configure-host-ntp" }],
+      "completion": {
+        "kind": "host-state",
+        "hosts": ["esx01", "esx02", "esx03", "esx04"],
+        "require": { "ntpRunning": true }
+      },
+      "points": 15,
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.1.3", "sources": ["S10"] }]
+    },
+    {
+      "id": "t-cert",
+      "order": 5,
+      "title": "Regeneruj self-signed certifikát",
+      "description": "Až po nastavení hostname: zapni SSH, spusť /sbin/generate-certificates, rebootuj host a SSH znovu vypni. Původní certifikát má CN localhost.localdomain a installer kontroluje, že CN odpovídá FQDN.",
+      "actions": [
+        { "kind": "model", "action": "set-host-ssh" },
+        { "kind": "model", "action": "regenerate-host-certificate" }
+      ],
+      "completion": {
+        "kind": "host-state",
+        "hosts": ["esx01", "esx02", "esx03", "esx04"],
+        "require": { "certificateCnMatchesFqdn": true, "sshEnabled": false }
+      },
+      "points": 25,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.1.4", "sources": ["S11"] },
+        { "spec": "20-deployment", "section": "§3.2", "sources": ["S11"] }
+      ]
+    },
+    {
+      "id": "t-hw-quiz",
+      "order": 6,
+      "title": "Jaké hosty smí být v prvním clusteru?",
+      "description": "Ověř si pravidla pro hardware management domény.",
+      "actions": [{ "kind": "quiz" }],
+      "completion": {
+        "kind": "quiz",
+        "question": "Která tvrzení platí pro hosty počátečního nasazení management domény? (více odpovědí)",
+        "options": [
+          "Všichni hosté musí mít jednotný HW profil – heterogenní cluster není podporován.",
+          "Hosty mohou být od různých HW vendorů, pokud mají stejnou verzi ESX.",
+          "VCF nepodporuje stateless ESX hosty.",
+          "Před nasazením musí být vmk0 na vSphere Distributed Switchi."
+        ],
+        "correct": [0, 2],
+        "explanation": "Počáteční nasazení nepodporuje heterogenní clustery a všichni hosté musí být od jednoho vendora; stateless hosty nejsou podporovány. vmk0 musí být na vSphere Standard Switchi – na distributed switch hosty migruje až installer."
+      },
+      "points": 10,
+      "specRefs": [{ "spec": "20-deployment", "section": "§3.2", "sources": ["S7", "S9"] }]
+    },
+    {
+      "id": "t-verify",
+      "order": 7,
+      "title": "Ověř připravenost hostů",
+      "description": "Spusť kontrolu hostů tak, jak je installer kontroluje při validaci (FQDN, DNS, statická IP, NTP, certifikát, vmk0).",
+      "actions": [{ "kind": "run-check", "check": "validateEsxHostsForBringup" }],
+      "completion": {
+        "kind": "check-clean",
+        "check": "validateEsxHostsForBringup",
+        "allowWarnings": false,
+        "context": { "hosts": ["esx01", "esx02", "esx03", "esx04"], "model": "simple", "storage": "vsan-esa" }
+      },
+      "points": 15,
+      "specRefs": [{ "spec": "20-deployment", "section": "§3.2", "sources": ["S7", "S9", "S10", "S11"] }]
+    }
+  ],
+  "traps": [
+    {
+      "id": "tr-dns-suffixes",
+      "title": "Custom DNS Suffixes na esx03",
+      "description": "Kolega vyplnil na esx03 Custom DNS Suffixes. Pole musí být prázdné.",
+      "codes": ["ESX_CUSTOM_DNS_SUFFIXES"],
+      "armed": "initial-state",
+      "detectedBy": ["validateEsxHostsForBringup", "validateBringupSpec"],
+      "avoidBonus": 10,
+      "relatedTasks": ["t-network"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.1.2", "sources": ["S9"] }]
+    },
+    {
+      "id": "tr-missing-ptr",
+      "title": "Chybějící PTR záznam esx04",
+      "description": "esx04 má na DNS serveru jen A záznam, reverse (PTR) chybí.",
+      "codes": ["DNS_RECORD_MISSING"],
+      "armed": "initial-state",
+      "detectedBy": ["validateEsxHostsForBringup", "validateBringupSpec"],
+      "avoidBonus": 10,
+      "relatedTasks": ["t-dns"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§3.5", "sources": ["S20"] }]
+    },
+    {
+      "id": "tr-ssh-disabled",
+      "title": "Regenerace certifikátu bez SSH",
+      "description": "/sbin/generate-certificates se spouští přes SSH – bez zapnutého SSH to nejde.",
+      "codes": ["ESX_SSH_DISABLED"],
+      "armed": "player-input",
+      "detectedBy": ["transition"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-cert"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.1.4", "sources": ["S11"] }]
+    },
+    {
+      "id": "tr-ntp-before-network",
+      "title": "NTP před sítí",
+      "description": "NTP se nastavuje ve VMware Host Client, ke kterému se bez management sítě nedostaneš.",
+      "codes": ["ESX_NETWORK_NOT_CONFIGURED"],
+      "armed": "player-input",
+      "detectedBy": ["transition"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-ntp"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.1.3", "sources": ["S10"] }]
+    }
+  ],
+  "hints": [
+    {
+      "id": "h-network",
+      "taskId": "t-network",
+      "text": "V DCUI zkontroluj i položku Custom DNS Suffixes – nesmí obsahovat žádný sufix.",
+      "specRef": { "spec": "20-deployment", "section": "§4.1.2", "sources": ["S9"] },
+      "doc": { "title": "Configure the Network on ESX Hosts", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/configure-the-network-on-vmware-cloud-foundation-hosts.html" },
+      "cost": 3
+    },
+    {
+      "id": "h-dns",
+      "trapId": "tr-missing-ptr",
+      "text": "Každé FQDN potřebuje forward (A) i reverse (PTR) záznam. Zkontroluj reverse lookup všech čtyř IP.",
+      "specRef": { "spec": "20-deployment", "section": "§3.5", "sources": ["S20"] },
+      "doc": { "title": "VCF Components FQDNs and IP addresses", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/vcf-components-fqdns-and-ip-addresses.html" },
+      "cost": 3
+    },
+    {
+      "id": "h-cert",
+      "taskId": "t-cert",
+      "text": "Certifikát přebírá CN z aktuálního hostname. Když ho regeneruješ dřív, než nastavíš FQDN, zůstane localhost.localdomain.",
+      "specRef": { "spec": "20-deployment", "section": "§4.1.4", "sources": ["S11"] },
+      "doc": { "title": "Regenerate the Self-Signed Certificate on ESX Hosts", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/regenerate-the-self-signed-certificate-on-esx-hosts.html" },
+      "cost": 3
+    },
+    {
+      "id": "h-ntp",
+      "taskId": "t-ntp",
+      "text": "Host Client > Host > Configure > Time Configuration > Network Time Protocol > EDIT > Enable.",
+      "specRef": { "spec": "20-deployment", "section": "§4.1.3", "sources": ["S10"] },
+      "doc": { "title": "Configure NTP on ESX Hosts", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/configure-ntp-on-vmware-cloud-foundation-hosts.html" },
+      "cost": 2
+    }
+  ],
+  "scoring": {
+    "orderBonus": { "points": 15, "sequence": ["t-install", "t-network", "t-ntp", "t-cert", "t-verify"] },
+    "cleanRunBonus": 10,
+    "penalties": { "perValidationError": 2, "perValidationRun": 2, "freeValidationRuns": 1, "perIllegalAction": 2 },
+    "maxPoints": 165,
+    "passPoints": 100
+  },
+  "expectedInitialIssues": [
+    {
+      "check": "validateEsxHostsForBringup",
+      "context": { "model": "simple", "storage": "vsan-esa" },
+      "codes": ["ESX_NETWORK_NOT_CONFIGURED", "ESX_NTP_NOT_RUNNING", "ESX_CUSTOM_DNS_SUFFIXES", "ESX_CERT_CN_MISMATCH", "ESX_NOT_INSTALLED"],
+      "exact": true
+    }
+  ],
+  "referenceSolution": {
+    "description": "ESX na esx04, síť bez sufixů na všech hostech, PTR pro esx04, NTP, certifikáty po nastavení hostname, SSH vypnuto.",
+    "hostPatches": [
+      {
+        "id": "esx01",
+        "patch": {
+          "network": { "vlanId": 1610, "ipv4Address": "10.10.0.101", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx01.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+          "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+          "certificateCn": "esx01.dc1.vcfhra.cz",
+          "sshEnabled": false
+        }
+      },
+      {
+        "id": "esx02",
+        "patch": {
+          "network": { "vlanId": 1610, "ipv4Address": "10.10.0.102", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx02.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+          "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+          "certificateCn": "esx02.dc1.vcfhra.cz",
+          "sshEnabled": false
+        }
+      },
+      {
+        "id": "esx03",
+        "patch": {
+          "network": { "vlanId": 1610, "ipv4Address": "10.10.0.103", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx03.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+          "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+          "certificateCn": "esx03.dc1.vcfhra.cz",
+          "sshEnabled": false
+        }
+      },
+      {
+        "id": "esx04",
+        "patch": {
+          "esxVersion": "dle-RN-VCF-9.1.1",
+          "vmk0OnStandardSwitch": true,
+          "network": { "vlanId": 1610, "ipv4Address": "10.10.0.104", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx04.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+          "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+          "certificateCn": "esx04.dc1.vcfhra.cz",
+          "sshEnabled": false
+        }
+      }
+    ],
+    "dnsPatch": { "reverse": { "10.10.0.104": "esx04.dc1.vcfhra.cz" } },
+    "checks": [
+      { "check": "validateEsxHostsForBringup", "context": { "model": "simple", "storage": "vsan-esa" }, "allowWarnings": false }
+    ]
+  },
+  "specRefs": [
+    { "spec": "20-deployment", "section": "§3.2", "sources": ["S7", "S8", "S9", "S10", "S11"] },
+    { "spec": "20-deployment", "section": "§4.1", "sources": ["S5"] },
+    { "spec": "20-deployment", "section": "§5.2", "sources": ["S11"] }
+  ],
+  "sourceNote": "Fáze Preparation, krok 2 „Image ESX hosts“ + konfigurace hostů (20 §4.1.1–4.1.4)."
+}

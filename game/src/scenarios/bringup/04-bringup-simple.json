@@ -1,0 +1,592 @@
+{
+  "schemaVersion": 1,
+  "id": "c1-m4-bringup-simple",
+  "campaign": { "id": "c1-bringup", "order": 1, "title": "Nové prostředí – bring-up první instance" },
+  "order": 4,
+  "title": "Bring-up první instance (Simple)",
+  "difficulty": "routine",
+  "vcfVersion": "9.1.1",
+  "requires": ["c1-m2-esx-hosts", "c1-m3-depot-binaries"],
+  "summary": "Projdi průvodce „Deploy a new VCF fleet“ krok za krokem, zvaliduj vstupy a nasaď první VCF Instance v modelu Simple.",
+  "briefing": "Hosty jsou připravené, binárky stažené. Teď přichází hlavní událost: bring-up nové VCF fleet s první VCF Instance a její management doménou. Jde o testovací prostředí, proto vedení zvolilo deployment model Simple. Všechny hodnoty máš ve workbooku. Průvodce má 20 kroků – validace na konci ti řekne, co je špatně, ale každá chyba stojí body. Po nasazení nezapomeň na kroky po nasazení.",
+  "objectives": [
+    "Zvolit nasazení nové VCF fleet bez existujících komponent.",
+    "Vyplnit deployment model Simple, síť, storage, hosty, IP rozsahy a FQDN komponent.",
+    "Projít validací (warnings opravit nebo potvrdit) a nasadit.",
+    "Po nasazení licencovat prostředí a nastavit zálohování."
+  ],
+  "initial": {
+    "installer": {
+      "mode": "installer",
+      "version": "9.1.1",
+      "platformsDeployed": 0,
+      "ovf": {
+        "vmName": "vcf-installer",
+        "placement": "outside-management",
+        "datastore": "other",
+        "rootPassword": "Kv8#Tmz!Q4rPx2wa",
+        "localUserPassword": "Bz9^Kt4@Lm2!Qw8x",
+        "hostnameFqdn": "vcfinst01.dc1.vcfhra.cz",
+        "ntpServers": ["ntp.dc1.vcfhra.cz"],
+        "ipVersion": "ipv4",
+        "ipv4Address": "10.10.0.10",
+        "subnetMask": "255.255.255.0",
+        "defaultGateway": "10.10.0.1",
+        "dnsDomainName": "dc1.vcfhra.cz",
+        "domainSearchPath": "dc1.vcfhra.cz",
+        "dnsServers": ["10.10.0.4", "10.10.0.7"]
+      }
+    },
+    "depot": {
+      "connection": { "kind": "online", "input": { "activationCode": "GAME-ACT-0001" } },
+      "binaries": {
+        "Cloud proxy": "downloaded",
+        "Fleet lifecycle": "downloaded",
+        "Identity broker": "downloaded",
+        "License server": "downloaded",
+        "Migration service engine": "downloaded",
+        "Salt master": "downloaded",
+        "Salt RaaS": "downloaded",
+        "SDDC lifecycle": "downloaded",
+        "SDDC Manager": "downloaded",
+        "Software depot": "downloaded",
+        "Telemetry": "downloaded",
+        "VCF Automation": "downloaded",
+        "VCF Operations": "downloaded",
+        "VCF services runtime": "downloaded",
+        "VMware NSX": "downloaded",
+        "VMware vCenter": "downloaded"
+      }
+    },
+    "hosts": [
+      {
+        "id": "esx01", "hwVendor": "Vendor A (herní)", "hwProfileId": "hw-profile-a", "pnicCount": 2, "stateless": false,
+        "esxVersion": "dle-RN-VCF-9.1.1", "vmk0OnStandardSwitch": true,
+        "network": { "vlanId": 1610, "ipv4Address": "10.10.0.101", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx01.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+        "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+        "sshEnabled": false, "certificateCn": "esx01.dc1.vcfhra.cz"
+      },
+      {
+        "id": "esx02", "hwVendor": "Vendor A (herní)", "hwProfileId": "hw-profile-a", "pnicCount": 2, "stateless": false,
+        "esxVersion": "dle-RN-VCF-9.1.1", "vmk0OnStandardSwitch": true,
+        "network": { "vlanId": 1610, "ipv4Address": "10.10.0.102", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx02.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+        "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+        "sshEnabled": false, "certificateCn": "esx02.dc1.vcfhra.cz"
+      },
+      {
+        "id": "esx03", "hwVendor": "Vendor A (herní)", "hwProfileId": "hw-profile-a", "pnicCount": 2, "stateless": false,
+        "esxVersion": "dle-RN-VCF-9.1.1", "vmk0OnStandardSwitch": true,
+        "network": { "vlanId": 1610, "ipv4Address": "10.10.0.103", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx03.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+        "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+        "sshEnabled": false, "certificateCn": "esx03.dc1.vcfhra.cz"
+      },
+      {
+        "id": "esx04", "hwVendor": "Vendor A (herní)", "hwProfileId": "hw-profile-a", "pnicCount": 2, "stateless": false,
+        "esxVersion": "dle-RN-VCF-9.1.1", "vmk0OnStandardSwitch": true,
+        "network": { "vlanId": 1610, "ipv4Address": "10.10.0.104", "subnetMask": "255.255.255.0", "defaultGateway": "10.10.0.1", "dnsServers": ["10.10.0.4", "10.10.0.7"], "hostnameFqdn": "esx04.dc1.vcfhra.cz", "customDnsSuffixes": [] },
+        "ntp": { "servers": ["ntp.dc1.vcfhra.cz"], "enabled": true, "serviceRunning": true },
+        "sshEnabled": false, "certificateCn": "esx04.dc1.vcfhra.cz"
+      }
+    ],
+    "dns": {
+      "forward": {
+        "ntp.dc1.vcfhra.cz": "10.10.0.5",
+        "vcfinst01.dc1.vcfhra.cz": "10.10.0.10",
+        "vc01.dc1.vcfhra.cz": "10.10.0.20",
+        "sddc01.dc1.vcfhra.cz": "10.10.0.21",
+        "nsx01.dc1.vcfhra.cz": "10.10.0.22",
+        "nsx01a.dc1.vcfhra.cz": "10.10.0.23",
+        "ops01a.dc1.vcfhra.cz": "10.10.0.30",
+        "opscp01.dc1.vcfhra.cz": "10.10.0.33",
+        "lic01.dc1.vcfhra.cz": "10.10.0.34",
+        "fleet01.dc1.vcfhra.cz": "10.10.0.35",
+        "inst01.dc1.vcfhra.cz": "10.10.0.36",
+        "idb01.dc1.vcfhra.cz": "10.10.0.37",
+        "vsp01.dc1.vcfhra.cz": "10.10.0.38",
+        "auto01.dc1.vcfhra.cz": "10.10.0.39",
+        "vsp02.dc1.vcfhra.cz": "10.10.0.40",
+        "esx01.dc1.vcfhra.cz": "10.10.0.101",
+        "esx02.dc1.vcfhra.cz": "10.10.0.102",
+        "esx03.dc1.vcfhra.cz": "10.10.0.103",
+        "esx04.dc1.vcfhra.cz": "10.10.0.104"
+      },
+      "reverse": {
+        "10.10.0.5": "ntp.dc1.vcfhra.cz",
+        "10.10.0.10": "vcfinst01.dc1.vcfhra.cz",
+        "10.10.0.20": "vc01.dc1.vcfhra.cz",
+        "10.10.0.21": "sddc01.dc1.vcfhra.cz",
+        "10.10.0.22": "nsx01.dc1.vcfhra.cz",
+        "10.10.0.23": "nsx01a.dc1.vcfhra.cz",
+        "10.10.0.30": "ops01a.dc1.vcfhra.cz",
+        "10.10.0.33": "opscp01.dc1.vcfhra.cz",
+        "10.10.0.34": "lic01.dc1.vcfhra.cz",
+        "10.10.0.35": "fleet01.dc1.vcfhra.cz",
+        "10.10.0.36": "inst01.dc1.vcfhra.cz",
+        "10.10.0.37": "idb01.dc1.vcfhra.cz",
+        "10.10.0.38": "vsp01.dc1.vcfhra.cz",
+        "10.10.0.39": "auto01.dc1.vcfhra.cz",
+        "10.10.0.40": "vsp02.dc1.vcfhra.cz",
+        "10.10.0.101": "esx01.dc1.vcfhra.cz",
+        "10.10.0.102": "esx02.dc1.vcfhra.cz",
+        "10.10.0.103": "esx03.dc1.vcfhra.cz",
+        "10.10.0.104": "esx04.dc1.vcfhra.cz"
+      }
+    },
+    "workbook": {
+      "note": "Hodnoty jsou ilustrativní herní data (ne fakta z dokumentace). Formát odpovídá Planning and Preparation Workbooku.",
+      "entries": [
+        { "key": "deploy.target", "label": "Co nasadit", "value": "Nová VCF fleet (první instance), žádné existující komponenty" },
+        { "key": "deploy.model", "label": "Deployment model / velikost", "value": "Simple / Small (testovací prostředí)" },
+        { "key": "storage.type", "label": "Principal storage", "value": "vSAN ESA" },
+        { "key": "general.instance", "label": "VCF Instance Name / Management domain name", "value": "dc1-m01 / dc1-m01" },
+        { "key": "general.dns", "label": "DNS servery / doména", "value": "10.10.0.4, 10.10.0.7 / dc1.vcfhra.cz" },
+        { "key": "general.ntp", "label": "NTP", "value": "ntp.dc1.vcfhra.cz" },
+        { "key": "hosts", "label": "ESX hosty", "value": ["esx01.dc1.vcfhra.cz", "esx02.dc1.vcfhra.cz", "esx03.dc1.vcfhra.cz", "esx04.dc1.vcfhra.cz"] },
+        { "key": "net.esxmgmt", "label": "ESX Management Network", "value": "VLAN 1610, 10.10.0.0/24, brána 10.10.0.1" },
+        { "key": "net.services", "label": "IP blok pro VCF Management Services", "value": "10.10.1.10 – 10.10.1.39 (30 IP)" },
+        { "key": "net.automation", "label": "IP rozsah VCF Automation", "value": "10.10.1.50 – 10.10.1.54" },
+        { "key": "net.vmotion", "label": "vMotion", "value": "VLAN 1612, 10.10.2.0/24, brána 10.10.2.1, MTU 9000" },
+        { "key": "net.vsan", "label": "vSAN", "value": "VLAN 1613, 10.10.3.0/24, brána 10.10.3.1, MTU 9000" },
+        { "key": "net.tep", "label": "NSX Host Overlay (TEP)", "value": "VLAN 1614, 10.10.4.0/24, brána 10.10.4.1, MTU 9000" },
+        { "key": "fqdn.components", "label": "FQDN komponent", "value": ["vCenter vc01", "SDDC Manager sddc01", "NSX VIP nsx01", "NSX uzel nsx01a", "VCF Operations ops01a", "Cloud proxy opscp01", "License server lic01", "Fleet components fleet01", "Instance components inst01", "Identity broker idb01", "VCF services runtime vsp01", "VCF Automation auto01", "VCF services runtime pro VCF Automation vsp02"] },
+        { "key": "vds", "label": "Distributed switch", "value": "Default Configuration, 1 switch, 2 uplinky (hosty mají 2 pNIC)" }
+      ]
+    }
+  },
+  "tasks": [
+    {
+      "id": "t-target",
+      "order": 1,
+      "title": "Co nasazujeme",
+      "description": "Deployment Wizard > VMware Cloud Foundation: „Deploy a new VCF fleet“, na stránce Existing components nic nezaškrtávej (existující vCenter by znamenal konvergenci).",
+      "actions": [
+        { "kind": "wizard-step", "step": "deployment-wizard-intro" },
+        { "kind": "wizard-step", "step": "select-what-to-deploy" },
+        { "kind": "wizard-step", "step": "existing-components" }
+      ],
+      "completion": {
+        "kind": "all-of",
+        "conditions": [
+          { "kind": "spec-field", "path": "target", "oneOf": ["new-fleet"] },
+          { "kind": "spec-field", "path": "existing.existingVcfOperations", "oneOf": [false] },
+          { "kind": "spec-field", "path": "existing.existingVcenter", "oneOf": [false] }
+        ]
+      },
+      "points": 10,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] },
+        { "spec": "20-deployment", "section": "§2.5", "sources": ["S14", "S28"] }
+      ]
+    },
+    {
+      "id": "t-model",
+      "order": 2,
+      "title": "Deployment model a velikost",
+      "description": "Zvol Simple. Pro Simple je ve 9.1.1 k dispozici jen velikost Small.",
+      "actions": [{ "kind": "wizard-step", "step": "deployment-model-and-size" }],
+      "completion": {
+        "kind": "all-of",
+        "conditions": [
+          { "kind": "spec-field", "path": "model", "oneOf": ["simple"] },
+          { "kind": "spec-field", "path": "size", "oneOf": ["small"] }
+        ]
+      },
+      "points": 10,
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] }]
+    },
+    {
+      "id": "t-netstorage",
+      "order": 3,
+      "title": "Síťová konfigurace a typ úložiště",
+      "description": "Ponech výchozí síťovou konfiguraci a zvol principal storage podle workbooku. Typ úložiště výchozího clusteru nejde později změnit.",
+      "actions": [
+        { "kind": "wizard-step", "step": "network-configuration" },
+        { "kind": "wizard-step", "step": "storage-type" }
+      ],
+      "completion": { "kind": "spec-field", "path": "storage.type", "oneOf": ["vsan-esa"] },
+      "points": 10,
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] }]
+    },
+    {
+      "id": "t-prereq",
+      "order": 4,
+      "title": "Projdi prerekvizity",
+      "description": "Stránka Review the prerequisites – seznam prerekvizit, případně PRE-FILL GENERATED FQDNs IN WIZARD.",
+      "actions": [{ "kind": "wizard-step", "step": "review-prerequisites" }],
+      "completion": { "kind": "wizard-step-completed", "step": "review-prerequisites" },
+      "points": 5,
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] }]
+    },
+    {
+      "id": "t-general",
+      "order": 5,
+      "title": "Obecná konfigurace a hosty",
+      "description": "Version, VCF Instance Name (unikátní), Management domain name, DNS, NTP, DNS doména, Autogenerate passwords. Pak ESX host details.",
+      "actions": [
+        { "kind": "wizard-step", "step": "general-configuration" },
+        { "kind": "wizard-step", "step": "esx-host-details" }
+      ],
+      "completion": { "kind": "wizard-step-completed", "step": "esx-host-details" },
+      "points": 10,
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] }]
+    },
+    {
+      "id": "t-networks",
+      "order": 6,
+      "title": "Sítě a IP rozsahy",
+      "description": "ESX Management, VCF Management Services IP Range, VCF Automation IP Range (5 IP), vMotion, vSAN a NSX Host Overlay včetně IP inclusion ranges a MTU.",
+      "actions": [{ "kind": "wizard-step", "step": "network-details" }],
+      "completion": { "kind": "wizard-step-completed", "step": "network-details" },
+      "points": 15,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] },
+        { "spec": "20-deployment", "section": "§3.5", "sources": ["S19"] },
+        { "spec": "20-deployment", "section": "§6.4", "sources": ["S19"] }
+      ]
+    },
+    {
+      "id": "t-components",
+      "order": 7,
+      "title": "FQDN komponent, vCenter, storage, vDS, NSX, SDDC Manager",
+      "description": "Vyplň FQDN management komponent a interní CIDR VCF services runtime, vCenter, jméno datastore, profil distributed switche, NSX Manager (Simple = 1 uzel + VIP) a SDDC Manager.",
+      "actions": [
+        { "kind": "wizard-step", "step": "vcf-management-components" },
+        { "kind": "wizard-step", "step": "vcenter-details" },
+        { "kind": "wizard-step", "step": "storage-details" },
+        { "kind": "wizard-step", "step": "distributed-switch" },
+        { "kind": "wizard-step", "step": "nsx-manager-details" },
+        { "kind": "wizard-step", "step": "sddc-manager-details" }
+      ],
+      "completion": { "kind": "wizard-step-completed", "step": "sddc-manager-details" },
+      "points": 15,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] },
+        { "spec": "20-deployment", "section": "§6.4", "sources": ["S19"] }
+      ]
+    },
+    {
+      "id": "t-validate",
+      "order": 8,
+      "title": "Kontrola a validace",
+      "description": "Review deployment information, pak Review validation. Errors oprav a validuj znovu, warnings oprav nebo potvrď (Acknowledge).",
+      "actions": [
+        { "kind": "wizard-step", "step": "review-deployment-information" },
+        { "kind": "wizard-step", "step": "review-validation" },
+        { "kind": "deployment-event", "event": "submit-for-review" },
+        { "kind": "deployment-event", "event": "start-validation" },
+        { "kind": "deployment-event", "event": "acknowledge-warnings" }
+      ],
+      "completion": { "kind": "deployment-status", "status": "ready-to-deploy" },
+      "points": 20,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] },
+        { "spec": "20-deployment", "section": "§5.1", "sources": ["S14", "S15"] }
+      ]
+    },
+    {
+      "id": "t-deploy",
+      "order": 9,
+      "title": "Nasaď",
+      "description": "Deploy a sleduj průběh. Pokud úloha selže, najdi ji v panelu Tasks, oprav příčinu a dej Retry.",
+      "actions": [
+        { "kind": "wizard-step", "step": "deploy" },
+        { "kind": "deployment-event", "event": "deploy" },
+        { "kind": "deployment-event", "event": "retry" }
+      ],
+      "completion": { "kind": "deployment-status", "status": "completed" },
+      "points": 25,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] },
+        { "spec": "20-deployment", "section": "§5.1", "sources": ["S14"] }
+      ]
+    },
+    {
+      "id": "t-fleet",
+      "order": 10,
+      "title": "Zkontroluj výslednou fleet",
+      "description": "Nová fleet má jednu (první) VCF Instance s management doménou, ve které běží vCenter, NSX, SDDC Manager, VCF Operations a VCF management services.",
+      "actions": [{ "kind": "run-check", "check": "validateFleet" }],
+      "completion": { "kind": "check-clean", "check": "validateFleet", "allowWarnings": false, "context": { "clusterModel": "single-rack" } },
+      "points": 10,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§2.1", "sources": ["S4"] },
+        { "spec": "00-architektura", "section": "§2.1", "sources": ["S1"] }
+      ]
+    },
+    {
+      "id": "t-license",
+      "order": 11,
+      "title": "Licencuj prostředí",
+      "description": "Zaregistruj VCF Operations a license server ve VCF Business Services console. Licenci je třeba přiřadit hned po dokončení nasazení.",
+      "actions": [{ "kind": "post-deployment-step", "step": "license-environment" }],
+      "completion": { "kind": "post-deployment-step-done", "step": "license-environment" },
+      "points": 10,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.4", "sources": ["S14", "S15"] },
+        { "spec": "00-architektura", "section": "§3", "sources": ["S9"] }
+      ]
+    },
+    {
+      "id": "t-backup",
+      "order": 12,
+      "title": "Nastav zálohování",
+      "description": "File-based backup SDDC Manageru a dalších komponent.",
+      "actions": [{ "kind": "post-deployment-step", "step": "file-based-backup" }],
+      "completion": { "kind": "post-deployment-step-done", "step": "file-based-backup" },
+      "points": 5,
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.4", "sources": ["S14", "S15"] }]
+    },
+    {
+      "id": "t-donotmove-quiz",
+      "order": 13,
+      "title": "Co po nasazení nedělat?",
+      "description": "Úklid ve vCenteru může mít nečekané následky.",
+      "actions": [{ "kind": "quiz" }],
+      "completion": {
+        "kind": "quiz",
+        "question": "Kolega chce přesunout VM VCF management services a VCF Automation do vlastní složky a resource poolu „kvůli pořádku“. Co se stane?",
+        "options": [
+          "Nic, umístění VM ve vCenteru VCF neřeší.",
+          "Pozdější patchování, nasazení a scale-out selžou – tyto VM se přesouvat nemají.",
+          "VM se automaticky vrátí zpět při dalším upgradu."
+        ],
+        "correct": [1],
+        "explanation": "Dokumentace výslovně uvádí: nepřesouvat VM VCF management services ani VCF Automation do jiného resource poolu nebo složky, jinak selžou pozdější patche, nasazení a scale-out."
+      },
+      "points": 5,
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§4.4", "sources": ["S14"] },
+        { "spec": "20-deployment", "section": "§5.2", "sources": ["S14"] }
+      ]
+    }
+  ],
+  "traps": [
+    {
+      "id": "tr-size",
+      "title": "Simple s velikostí Medium/Large",
+      "description": "Ve 9.1.1 je pro Simple jen Small; Medium a Large jsou jen pro High Availability.",
+      "codes": ["SIZE_NOT_ALLOWED_FOR_MODEL"],
+      "armed": "player-input",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-model"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] }]
+    },
+    {
+      "id": "tr-nsx-nodes",
+      "title": "Špatný počet uzlů NSX Manageru",
+      "description": "Simple nasazuje 1 uzel NSX Manageru (+ VIP), HA 3 uzly.",
+      "codes": ["NSX_NODE_COUNT"],
+      "armed": "player-input",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-components"],
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§6.4", "sources": ["S19"] },
+        { "spec": "00-architektura", "section": "§2.9", "sources": ["S14"] }
+      ]
+    },
+    {
+      "id": "tr-automation-ips",
+      "title": "Málo IP pro VCF Automation",
+      "description": "VCF Automation potřebuje rozsah 5 IP (3 pro uzly + 2 rezerva).",
+      "codes": ["VCF_AUTOMATION_IPS_TOO_FEW"],
+      "armed": "player-input",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-networks"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§3.5", "sources": ["S19"] }]
+    },
+    {
+      "id": "tr-runtime-min",
+      "title": "Příliš malý IP blok VCF services runtime",
+      "description": "VCF services runtime potřebuje minimálně 12 IP.",
+      "codes": ["SERVICES_RUNTIME_IPS_TOO_FEW"],
+      "armed": "player-input",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-networks"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§3.5", "sources": ["S19"] }]
+    },
+    {
+      "id": "tr-runtime-recommended",
+      "title": "Méně než doporučených 30 IP",
+      "description": "Doporučeno je rezervovat 30 IP – Day-N služby (log management, real-time metrics) berou IP ze stejného bloku. Validace vrátí warning.",
+      "codes": ["SERVICES_RUNTIME_IPS_BELOW_RECOMMENDED"],
+      "armed": "player-input",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-networks"],
+      "specRefs": [
+        { "spec": "20-deployment", "section": "§3.5", "sources": ["S19"] },
+        { "spec": "20-deployment", "section": "§6.4", "sources": ["S19"] }
+      ]
+    },
+    {
+      "id": "tr-inclusion-range",
+      "title": "Inclusion range mimo podsíť nebo s network/broadcast adresou",
+      "description": "IP inclusion ranges musí ležet ve správné VLAN/podsíti a nesmí obsahovat network ani broadcast adresu.",
+      "codes": ["INCLUSION_RANGE_OUTSIDE_SUBNET", "INCLUSION_RANGE_NETWORK_OR_BROADCAST"],
+      "armed": "player-input",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-networks"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§5.1", "sources": ["S14", "S34"] }]
+    },
+    {
+      "id": "tr-reserved-ip",
+      "title": "FQDN komponenty na IP z rezervovaného rozsahu",
+      "description": "Každé FQDN musí mířit na unikátní, nepřidělenou IP mimo rozsahy VCF management services.",
+      "codes": ["FQDN_IP_IN_RESERVED_RANGE", "FQDN_IP_NOT_UNIQUE"],
+      "armed": "player-input",
+      "detectedBy": ["validateBringupSpec"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-networks", "t-components"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§3.5", "sources": ["S14", "S19"] }]
+    },
+    {
+      "id": "tr-deploy-early",
+      "title": "Deploy před validací",
+      "description": "Nasadit jde až po úspěšné validaci (errors vyřešeny, warnings opraveny nebo potvrzeny).",
+      "codes": ["ILLEGAL_DEPLOYMENT_TRANSITION"],
+      "armed": "player-input",
+      "detectedBy": ["transition"],
+      "avoidBonus": 5,
+      "relatedTasks": ["t-validate", "t-deploy"],
+      "specRefs": [{ "spec": "20-deployment", "section": "§5.1", "sources": ["S14"] }]
+    }
+  ],
+  "hints": [
+    {
+      "id": "h-model",
+      "taskId": "t-model",
+      "text": "[9.1.1+] Small je výchozí pro Simple i HA; Medium a Large jen pro HA.",
+      "specRef": { "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] },
+      "doc": { "title": "Deploy a New VCF Fleet or a New VCF Instance (9.1)", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/deploy-a-new-vcf-fleet-or-a-new-vcf-instance.html" },
+      "cost": 2
+    },
+    {
+      "id": "h-ips",
+      "taskId": "t-networks",
+      "text": "VCF services runtime: min. 12 IP, doporučeno 30. VCF Automation: 5 IP. vMotion, vSAN: 1 IP na host; TEP: 1 IP na aktivní uplink na host.",
+      "specRef": { "spec": "20-deployment", "section": "§6.4", "sources": ["S19"] },
+      "doc": { "title": "First VCF Instance FQDNs and IP addresses", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/vcf-components-fqdns-and-ip-addresses/first-vcf-instance-fqdns-and-ip-addresses.html" },
+      "cost": 3
+    },
+    {
+      "id": "h-nsx",
+      "trapId": "tr-nsx-nodes",
+      "text": "NSX Manager: Simple = 1 uzel + VIP, High Availability = 3 uzly + VIP.",
+      "specRef": { "spec": "00-architektura", "section": "§2.9", "sources": ["S14"] },
+      "doc": { "title": "NSX Manager and Control Plane Models (9.1)", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vcf-networking-management-and-control-plane.html" },
+      "cost": 2
+    },
+    {
+      "id": "h-validation",
+      "taskId": "t-validate",
+      "text": "Warning: oprav nebo klikni Acknowledge. Error: oprav podle remediation v hlášce a spusť validaci znovu – Deploy jde až potom.",
+      "specRef": { "spec": "20-deployment", "section": "§5.1", "sources": ["S14"] },
+      "doc": { "title": "Deploy a New VCF Fleet or a New VCF Instance (9.1)", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/deploy-a-new-vcf-fleet-or-a-new-vcf-instance.html" },
+      "cost": 2
+    }
+  ],
+  "scoring": {
+    "orderBonus": {
+      "points": 20,
+      "sequence": ["t-target", "t-model", "t-netstorage", "t-prereq", "t-general", "t-networks", "t-components", "t-validate", "t-deploy", "t-license"]
+    },
+    "cleanRunBonus": 20,
+    "penalties": { "perValidationError": 3, "perValidationRun": 5, "freeValidationRuns": 1, "perIllegalAction": 5 },
+    "maxPoints": 230,
+    "passPoints": 140
+  },
+  "expectedInitialIssues": [
+    { "check": "validateInstallerCanDeploy", "codes": [], "exact": true },
+    { "check": "validateBinariesForDeployment", "codes": [], "exact": true },
+    { "check": "validateEsxHostsForBringup", "context": { "model": "simple", "storage": "vsan-esa" }, "codes": [], "exact": true }
+  ],
+  "referenceSolution": {
+    "description": "Nová fleet, Simple/Small, vSAN ESA, výchozí síť, 30 IP pro services runtime, 1 vDS (Default), 1 uzel NSX; management cluster single-rack (Basic design).",
+    "spec": {
+      "target": "new-fleet",
+      "existing": { "existingVcfOperations": false, "existingVcenter": false, "vcenterRegisteredWithNsx": false, "existingVcfAutomationOrDeployLater": false },
+      "model": "simple",
+      "size": "small",
+      "networkConfig": {
+        "vmManagementNetwork": "shared-with-esx-management",
+        "vcfManagementNetwork": "shared-with-vm-management",
+        "dualStack": false,
+        "vmotionIpScheme": "ipv4",
+        "storageIpScheme": "ipv4",
+        "deployOpsAndAutomationToCustomNetwork": false,
+        "vpcNetwork": "full-stack",
+        "vpcGatewayConnectivity": "centralized"
+      },
+      "storage": { "type": "vsan-esa", "vsanEsaAllowAutoClaimHclIncompatible": false },
+      "general": {
+        "version": "9.1.1",
+        "instanceName": "dc1-m01",
+        "managementDomainName": "dc1-m01",
+        "ceip": false,
+        "dnsServers": ["10.10.0.4", "10.10.0.7"],
+        "ntpServers": ["ntp.dc1.vcfhra.cz"],
+        "dnsDomainName": "dc1.vcfhra.cz",
+        "autogeneratePasswords": true
+      },
+      "esxHosts": [
+        { "fqdn": "esx01.dc1.vcfhra.cz" },
+        { "fqdn": "esx02.dc1.vcfhra.cz" },
+        { "fqdn": "esx03.dc1.vcfhra.cz" },
+        { "fqdn": "esx04.dc1.vcfhra.cz" }
+      ],
+      "networks": {
+        "esxManagement": { "vlanId": 1610, "cidr": "10.10.0.0/24", "gateway": "10.10.0.1" },
+        "managementServicesIpPool": { "kind": "range", "start": "10.10.1.10", "end": "10.10.1.39" },
+        "vcfAutomationIpPool": { "kind": "range", "start": "10.10.1.50", "end": "10.10.1.54" },
+        "vmotion": { "vlanId": 1612, "cidr": "10.10.2.0/24", "gateway": "10.10.2.1", "mtu": 9000, "inclusionRanges": [{ "kind": "range", "start": "10.10.2.10", "end": "10.10.2.20" }] },
+        "storage": { "vlanId": 1613, "cidr": "10.10.3.0/24", "gateway": "10.10.3.1", "mtu": 9000, "inclusionRanges": [{ "kind": "range", "start": "10.10.3.10", "end": "10.10.3.20" }] },
+        "nsxHostOverlay": { "vlanId": 1614, "cidr": "10.10.4.0/24", "gateway": "10.10.4.1", "mtu": 9000, "inclusionRanges": [{ "kind": "range", "start": "10.10.4.10", "end": "10.10.4.30" }] }
+      },
+      "components": {
+        "vcfOperationsPrimaryFqdn": "ops01a.dc1.vcfhra.cz",
+        "cloudProxyFqdn": "opscp01.dc1.vcfhra.cz",
+        "licenseServerFqdn": "lic01.dc1.vcfhra.cz",
+        "fleetComponentsFqdn": "fleet01.dc1.vcfhra.cz",
+        "instanceComponentsFqdn": "inst01.dc1.vcfhra.cz",
+        "identityBrokerFqdn": "idb01.dc1.vcfhra.cz",
+        "servicesRuntimeFqdn": "vsp01.dc1.vcfhra.cz",
+        "internalClusterCidrIpv4": "198.18.0.0/15",
+        "vcfAutomationFqdn": "auto01.dc1.vcfhra.cz",
+        "vcfAutomationServicesRuntimeFqdn": "vsp02.dc1.vcfhra.cz"
+      },
+      "vcenter": { "fqdn": "vc01.dc1.vcfhra.cz" },
+      "storageDetails": { "datastoreName": "dc1-m01-cl01-ds-vsan01" },
+      "vds": {
+        "profile": "default",
+        "switches": [
+          {
+            "name": "dc1-m01-cl01-vds01",
+            "uplinks": 2,
+            "uplinkMode": "vds-uplinks",
+            "trafficTypes": ["esx-management", "vcf-management", "vm-management", "vmotion", "vsan", "nsx"],
+            "loadBalancing": "route-based-on-physical-nic-load"
+          }
+        ]
+      },
+      "nsx": { "nodeFqdns": ["nsx01a.dc1.vcfhra.cz"], "vipFqdn": "nsx01.dc1.vcfhra.cz" },
+      "sddcManager": { "fqdn": "sddc01.dc1.vcfhra.cz" }
+    },
+    "designChoices": { "clusterModel": "single-rack", "fleetDesign": "basic" },
+    "checks": [
+      { "check": "validateBringupSpec", "allowWarnings": false },
+      { "check": "validateFleet", "context": { "clusterModel": "single-rack" }, "allowWarnings": false }
+    ]
+  },
+  "specRefs": [
+    { "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] },
+    { "spec": "20-deployment", "section": "§4.4", "sources": ["S14", "S15"] },
+    { "spec": "20-deployment", "section": "§5.1", "sources": ["S14", "S15"] },
+    { "spec": "20-deployment", "section": "§6.4", "sources": ["S19"] }
+  ],
+  "sourceNote": "Fáze Deployment – průvodce „Deploy a new VCF fleet“ (20 §4.2) a Post-deployment (20 §4.4)."
+}

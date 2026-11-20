@@ -226,7 +226,8 @@ const cases: [string, Mut, ('error' | 'warning')?][] = [
     const renamed = unwrap(configureHostNetwork(h, { ...h.network!, hostnameFqdn: 'esx01-new.sfo.rainpole.io' }));
     return [s, replaceHost(e, 0, renamed)];
   }],
-  ['ESX_HOST_COUNT_TOO_LOW', (s, e) => [s, { ...e, rules: { minManagementHosts: () => 5 } }]],
+  // Fixture is HA + vSAN ESA: 10 §6.1 requires 4 hosts in the management default cluster.
+  ['MGMT_DOMAIN_TOO_FEW_HOSTS', (s, e) => [{ ...s, esxHosts: s.esxHosts.slice(0, 3) }, e]],
   ['ESX_HETEROGENEOUS_CLUSTER', (s, e) => [s, replaceHost(e, 1, preparedHost(1, { profile: 'profile-2' }))]],
   ['ESX_MULTIPLE_VENDORS', (s, e) => [s, replaceHost(e, 1, preparedHost(1, { vendor: 'VendorB' }))]],
   ['ESX_STATELESS', (s, e) => [s, replaceHost(e, 0, { ...e.hosts[0]!, stateless: true })]],
