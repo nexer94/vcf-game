@@ -31,8 +31,10 @@
 - [x] `ui-dev` – hash router, hlavní menu (Sandbox / Kariéra „Připravujeme“ / Ukázka provozu), úvod Sandboxu,
   stepper Návrh → Příprava → Deploy (placeholdery); extension point `ui/sandbox/designData.ts` →
   `loadDesignStepData()` + typy `DesignDecision`/`DesignOption` (povinné `sources`)
-- [ ] `doc-researcher` – `05-design` (Design Library 9.1: workloady v management doméně vs. samostatná WLD,
-  pořadí návrhových rozhodnutí, design decision ID) *(běží)*
+- [x] `doc-researcher` – `docs/spec/05-design.md` (44 zdrojů): workloady v management doméně **povolené**
+  („Can also run business workloads“), doporučená samostatná WLD (VCF-WLD-RCMD-CFG-002); 8 návrhových
+  rozhodnutí s volbami a závislostmi, 50+ design decision ID; termín „consolidated“ v 9.x nenalezen;
+  část citací parafráze → ověřit při fact-checku; 12 otevřených otázek
 - [ ] `domain-modeler` – model návrhu (design decisions, závislosti, důsledky) ze `05-design`
 - [ ] `engine-dev` – Sandbox režim: návrh → příprava → bring-up přes model, stav sandboxu
 - [ ] `ui-dev` – obsah fáze Návrh (data z modelu) a wizard bring-upu (kroky 9.1.1 ze specu 20)
