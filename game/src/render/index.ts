@@ -10,3 +10,4 @@ export * from './traffic/trafficModel';
 export * from './scene/topology';
 export * from './scene/layout';
 export * from './scene/datacenterScene';
+export * from './stage';

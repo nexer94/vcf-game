@@ -45,6 +45,12 @@ Oba režimy sdílejí **stejný model a engine** (stejná pravidla VCF ze specu)
 - Hráč může dělat cokoliv, co dovoluje architektura a dokumentace (navrhnout fleet, nasadit, rozšiřovat, rozbíjet…).
 - Žádné mise ani peníze; neomezené zdroje. Validace a chybové stavy přesně podle specu.
 - Slouží i jako „laboratoř“ pro testování modelu.
+- Úvodní obrazovka Sandboxu vysvětlí, že jde o simulaci reálné architektury VCF podle dokumentace
+  (co všechno jde reálně udělat), s odkazem na modelovanou verzi.
+- Postup kopíruje reálný průběh: **1. návrh (design)** – rozhodnutí podle Design Library (např. samostatná
+  management doména vs. workloady sdílené v management doméně, deployment model fleet, cluster/storage/síťový
+  model, Simple vs. HA) → **2. příprava** (planning: DNS, IP, HW) → **3. postupný deploy** (VCF Installer,
+  bring-up, pak workload domény…). Každá volba a její důsledky musí mít oporu ve specu (`05-design` a další).
 
 ### 2. Kariéra – hra
 - Postup po **kampaních → misích → úkolech**; mise se odemykají postupně.
@@ -64,6 +70,7 @@ Oba režimy sdílejí **stejný model a engine** (stejná pravidla VCF ze specu)
 ## Oblasti (pořadí práce)
 Struktura kopíruje sekce TechDocs VCF 9.x:
 1. `00-architektura` – Private Cloud → Fleet → Instance → Domain → Cluster, komponenty
+   `05-design` – Design / Design Library: návrhová rozhodnutí a modely (podklad pro Sandbox)
 2. `10-planning` – Planning and Preparation (DNS, IP, sítě, HW, prerekvizity)
 3. `20-deployment` – VCF Installer, bring-up, convergence, upgrade
 4. `30-fleet-management` – VCF Operations, fleet management, Identity Broker

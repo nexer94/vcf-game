@@ -27,12 +27,24 @@
   HA admission control, vCPU:pCPU ≤ 2:1, resource check installeru = warning [9.0.x]; 13 otevřených otázek
 
 ## Další kroky
+### Sandbox (priorita uživatele, 2026-11-20)
+- [x] `ui-dev` – hash router, hlavní menu (Sandbox / Kariéra „Připravujeme“ / Ukázka provozu), úvod Sandboxu,
+  stepper Návrh → Příprava → Deploy (placeholdery); extension point `ui/sandbox/designData.ts` →
+  `loadDesignStepData()` + typy `DesignDecision`/`DesignOption` (povinné `sources`)
+- [ ] `doc-researcher` – `05-design` (Design Library 9.1: workloady v management doméně vs. samostatná WLD,
+  pořadí návrhových rozhodnutí, design decision ID) *(běží)*
+- [ ] `domain-modeler` – model návrhu (design decisions, závislosti, důsledky) ze `05-design`
+- [ ] `engine-dev` – Sandbox režim: návrh → příprava → bring-up přes model, stav sandboxu
+- [ ] `ui-dev` – obsah fáze Návrh (data z modelu) a wizard bring-upu (kroky 9.1.1 ze specu 20)
+- [ ] `fact-checker` – Sandbox: návrh + bring-up proti specu
+
+### Ostatní
 - [ ] `scenario-designer` → `fact-checker` pro bring-up (vzorová oblast) *(scenario-designer běží)*
 - [ ] `engine-dev` – vrstva režimů `game/src/modes/` (viz CLAUDE.md „Herní režimy“):
   - [ ] Sandbox – volné akce nad modelem, bez misí a peněz
   - [ ] Kariéra – mise, úkoly a body (formát dohodnout se `scenario-designer`)
   - [ ] Kariéra – ekonomika: rozpočet, katalog HW (fiktivní ceny), nákup, kapacita/HA podle specu
-- [ ] `ui-dev` – hlavní menu (Sandbox / Kariéra), HUD kariéry (rozpočet, body, úkoly)
+- [ ] `ui-dev` – HUD kariéry (rozpočet, body, úkoly)
 - [ ] `doc-researcher` – pro ekonomiku a HA dál: `50-vsan` (storage policies, FTT), `52-vsphere` (HA, DRS)
 - [ ] `domain-modeler` – doplnit do modelu min. počty hostů z `10-planning` (zapnout `minManagementHosts`)
 
