@@ -143,9 +143,20 @@ Pro VVF (8): Fleet lifecycle, License server, SDDC lifecycle, Software depot, Te
 
 Online depot navíc vyžaduje: účet ve **VCF Business Services console** s dostatečnou rolí, dostupné URL (KB 327186), proxy bez Kerberos/NTLMv2; při SSL/TLS interception přidat CA proxy do truststore software depotu (KB 442978) [S13].
 
-### 3.5 DNS / FQDN / IP [S19][S20][S14]
+### 3.5 DNS / FQDN / IP [S19][S20][S14][S55]
 - Každé FQDN musí mít funkční **forward (A) i reverse (PTR)** záznam; top-level doména jen ASCII písmena [S20].
-- FQDN **malými písmeny**, **ne `.local`**; každé FQDN na unikátní, nepřidělenou IP mimo rozsahy VCF management services [S14][S19].
+- Každé FQDN na unikátní, nepřidělenou IP mimo rozsahy VCF management services [S14][S19].
+- **Velká písmena** – zákaz platí jen pro konkrétní pole (poznámka „Do not use capital letters in the FQDN.“) [S19][S14]:
+  - VCF Management Services: **Fleet components FQDN, Instance components FQDN, Identity broker FQDN, VCF services runtime FQDN** [S14][S19];
+  - VCF Automation: **VCF Automation FQDN, VCF services runtime FQDN (pro VCF Automation)** [S14][S19];
+  - Day-N: Log management FQDN je v tabulce [S19] označen stejnou hvězdičkou (značka `*` je ale v Day-N tabulce použita pro více poznámek – viz Otevřené otázky).
+  - U VCF core components a VCF Operations (vCenter, ESX, NSX, SDDC Manager, VCF Operations, Cloud Proxy, License Server) [S19] tuto poznámku neuvádí.
+- **`.local` doména** – zákaz **není obecný** [S19][S55]:
+  - **Nesmí `.local`** – kontejnerové služby: [S19] „Containerized services, such as VCF management services, VCF Automation, VCF Identity Broker, and VMware vSphere Supervisor, do not support .local domains.“ KB 460245: „These components cannot be deployed using a .local network domain.“ – potřebují RFC-compliant doménu/subdoménu (např. acme.com) [S55]. V průvodci 9.1 nese poznámku „Do not use a .local FQDN.“ pole **Fleet components FQDN, Instance components FQDN, Identity broker FQDN, VCF services runtime FQDN** [S14]. Pole **VCF Automation FQDN** a **VCF services runtime FQDN (VCF Automation)** v průvodci tuto poznámku nemají (jen zákaz velkých písmen) [S14], ale VCF Automation je podle [S19] i [S55] mezi službami, které `.local` nepodporují.
+  - **Smí `.local`** – tradiční appliance: [S19] „Traditional virtual appliances, such as vCenter, ESX hosts, NSX Manager, SDDC Manager, and VCF Operations, continue to operate with .local domains.“; KB 460245: „They continue to allow the use of .local network domains out of the box“ [S55].
+  - SSO: „The internal vSphere SSO domain (vsphere.local) continues to operate normally.“ [S19]; VCF Identity Broker může jako identity source použít existující `.local` Active Directory [S55].
+  - Neuvedeno výslovně: Cloud Proxy, License Server, VCF Installer appliance – viz Otevřené otázky.
+- **[9.0]** Průvodce 9.0 [S34] poznámky o `.local` ani o velkých písmenech u FQDN polí neobsahuje; KB 460245 se vztahuje na „All VMware Cloud Foundation (VCF) and VMware vSphere Foundation (VVF) deployments“ bez rozlišení verzí [S55].
 - Dual-stack je nastavení na úrovni domény; FQDN dual-stack komponent musí resolvovat na IPv4 i IPv6 [S20].
 - VCF services runtime: minimálně **12 IP**, doporučeno rezervovat **30** [S19].
 - VCF Automation: **5 IP** (3 pro nové uzly, 2 buffer) [S19]. **[9.0]** HA VCF Automation potřebovalo 4 IP (3 aktivní + 1 rezerva pro upgrady); IP uzlů nepotřebují DNS záznamy [S34].
@@ -349,7 +360,9 @@ Nasadí se VCF Operations, VCF Automation, cloud proxy (u NSX segmentu na VM man
 | Validace vrátí **error** | „Review all failed validations and resolve the issue(s) using the remediation information provided in the error message.“ – nutné opravit a validaci spustit znovu (případně upravit a znovu nahrát JSON). Deploy je možný až po vyřešení. |
 | Selže úloha během nasazení | „If there are errors, review the failed tasks in the Tasks panel, address the issue(s), and retry the deployment.“ |
 | IP inclusion range | musí mít ≥ tolik adres jako hostů, bez konfliktů, ve správné VLAN, bez network/broadcast adresy [S14][S34] |
-| FQDN | lowercase, ne `.local`, unikátní volná IP mimo rozsahy management services [S14] |
+| FQDN – obecně | unikátní volná IP mimo rozsahy management services [S14][S19] |
+| FQDN – velká písmena | zakázána („Do not use capital letters in the FQDN.“) jen u Fleet components, Instance components, Identity broker, VCF services runtime, VCF Automation, VCF services runtime (VCF Automation) [S14][S19]; nasazení s velkými písmeny v těchto polích selže (známý problém, viz 5.3 #2) [S31] |
+| FQDN – `.local` | zakázáno u kontejnerových služeb: Fleet components, Instance components, Identity broker, VCF services runtime (v průvodci „Do not use a .local FQDN.“ [S14]) a VCF Automation („Containerized services, such as VCF management services, VCF Automation, VCF Identity Broker, and VMware vSphere Supervisor, do not support .local domains.“ [S19][S55]). **Povoleno** u vCenter, ESX, NSX Manager, SDDC Manager, VCF Operations („continue to operate with .local domains“ [S19][S55]). Přesné znění validační hlášky dokumentace neuvádí. |
 
 ### 5.2 Selhání v přípravě
 | Příčina | Důsledek | Zdroj |
@@ -538,7 +551,9 @@ Logické sítě (umístění komponent) [S21]:
    `Micro_Segmentation_Port_Requirement.xlsx`);
    (e) toky [S40][S45][S46][S49] jsou z KB pro 9.0.x – ověřit, zda platí beze změny pro 9.1.1.
 9. **Hodnota 914 GB** storage pro VCF Installer – tak uvedeno v 9.1 i 9.0 [S6][S35]; ověřit, zda jde o provisioned (thin) velikost.
-10. **Replica node FQDN** – stránka [S14] ho neoznačuje jako jen-HA, ale tabulka [S19] a [S4] uvádí repliku jen v HA. Ověřit chování průvodce u Simple.
+10. ~~**Replica node FQDN**~~ – **uzavřeno**: tabulka [S19] uvádí „Replica node“ Simple „-“, HA „1 FQDN“ (jen HA); „Data node“ Simple „-“, HA „1 FQDN“ s poznámkou „VCF Operations data node FQDN is required only when deploying VCF in High Availability mode with a Medium or Large deployment size.“; „Load balancer (Optional)“ jen HA. Průvodce [S14] u Replica node FQDN podmínku nepíše („Enter the FQDN of the VCF Operations replica node.“), u Data node („This field appears only when deploying VCF in High Availability mode with a Medium or Large deployment size.“) a Load balancer („This field appears only when deploying VCF in High Availability mode.“) ano. Pro model platí [S19]: replika jen HA. (Zda průvodce v Simple pole repliky skrývá, nebo jen nechává prázdné, dokumentace výslovně neříká – pro hru irelevantní.)
+15. **`.local` u Cloud Proxy, License Server a VCF Installer FQDN** – [S19] ani KB 460245 [S55] je výslovně nezařazují mezi „containerized services“ ani „traditional virtual appliances“; průvodce [S14] u nich poznámku „Do not use a .local FQDN.“ nemá. Nehádat; v modelu zatím nevalidovat.
+16. **Hvězdička u Log management FQDN** (Day-N tabulka [S19]) – značka `*` je v Day-N sekci použita pro dvě různé poznámky („Requires a dedicated IP address outside the IP block…“ a „The number of IP addresses per additional replica…“), takže není jisté, zda se na Log management vztahuje zákaz velkých písmen. Log management (VCF management services) však spadá pod kontejnerové služby → `.local` nepodporuje [S19].
 11. **Verze 9.1.0.0–9.1.0.300 / 9.1.0.400** u IP rozsahů – není jasné, zda jde o build/verzi installeru nebo deployment; jak se to promítá do 9.1.1.
 12. **Detailní kroky VVF průvodce** a konvergence pro VVF – v tomto souboru jen odkazy, nezpracováno.
 13. **Jednotlivé upgrade postupy** (VCF Operations 9.1, SDDC Manager 9.1, deploy VCF management services při upgradu) – zpracováno jen high-level; detail patří do `60-lifecycle`.
@@ -602,6 +617,7 @@ Základ URL: `https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-lat
 - [S52]: https://knowledge.broadcom.com/external/article/432304/password-remediation-for-esxi-and-vcente.html – KB 432304: Password remediation fails with handshake failure (TCP 443; VCF 5.2.2)
 - [S53]: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-0-0-release-notes/vcf-91-product-support-notes.html – VCF 9.1 Product Support Notes (vCenter syslog 514 → 1514)
 - [S54]: https://knowledge.broadcom.com/external/article/404593/unable-to-register-license-in-vcf-operat.html – KB 404593: Unable to Register License in VCF Operations in Connected Mode
+- [S55]: https://knowledge.broadcom.com/external/article/460245 – KB 460245: Guidelines for Using .Local DNS Domains in VCF and VVF Deployments
 
 [S1]: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment.html
 [S2]: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/overview-of-deploy--converge--and-upgrade.html
@@ -657,3 +673,4 @@ Základ URL: `https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-lat
 [S52]: https://knowledge.broadcom.com/external/article/432304/password-remediation-for-esxi-and-vcente.html
 [S53]: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-0-0-release-notes/vcf-91-product-support-notes.html
 [S54]: https://knowledge.broadcom.com/external/article/404593/unable-to-register-license-in-vcf-operat.html
+[S55]: https://knowledge.broadcom.com/external/article/460245

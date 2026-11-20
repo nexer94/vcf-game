@@ -48,7 +48,21 @@
   (single-rack / multi-rack L2: vSAN 3/4, NFS/FC 2/4; stretched vSAN 6/8) zapnuto ve výchozím stavu
 - [x] `scenario-designer` – mise 6: past `MGMT_DOMAIN_TOO_FEW_HOSTS` (3 hosty pro HA + vSAN), 270 / 175 bodů;
   README a schema pročištěny
-- [ ] `fact-checker` pro bring-up (spec 00/10/20 + model + mise) *(běží)*
+- [x] `fact-checker` bring-up 2026-11-20 → **NEOK**: 23 tvrzení ověřeno (čísla, limity, wizard, sizing OK);
+  blokující: zákaz `.local` platí jen pro FQDN VCF management services / kontejnerových služeb, ne pro
+  vCenter/ESX/NSX/SDDC Manager [S19] – model `validateFqdnSyntax` + mise 5 (past `tr-local`) + spec 20 §3.5/§5.1
+- [ ] Opravy po fact-checku:
+  - [x] `doc-researcher` – spec 20 §3.5/§5.1: `.local` zakázané jen pro Fleet/Instance components, Identity broker,
+    VCF services runtime, VCF Automation (+ jeho services runtime); povolené pro vCenter, ESX, NSX, SDDC Manager,
+    VCF Operations; nejasné Cloud Proxy / License Server / installer (q15) → nevalidovat; replica FQDN jen HA (q10)
+  - [ ] `domain-modeler` (po modelu návrhu) – `FQDN_LOCAL_DOMAIN` jen pro management services pole;
+    drobné: `SERVICES_RUNTIME_IPS_BELOW_RECOMMENDED` není doložený warning, `CONVERGENCE_NOT_MODELLED` není VCF
+    chyba (zakázat v UI), `new-instance` vkládá fleet-level služby, NFS + installer na mgmt hostu (ruční mount),
+    plné znění hlášky NFS, heslo „part of“ slova/jména
+  - [ ] `scenario-designer` – mise 5: nahradit past `.local` u vCenteru; mise 1: nápověda `h-fqdn`; mise 4: text
+    o warningu 12–29 IP; zvážit pořadí misí 1/2 (dokumentace: Image ESX hosts → Deploy VCF Installer)
+  - [ ] `ui-dev` – úvod Sandboxu: zmírnit „každá chybová hláška vychází z dokumentace“ (hlášky jsou popisné)
+  - [ ] `fact-checker` – znovu po opravách
 - [ ] `engine-dev` – vrstva režimů `game/src/modes/` (viz CLAUDE.md „Herní režimy“):
   - [ ] Sandbox – volné akce nad modelem, bez misí a peněz
   - [ ] Kariéra – mise, úkoly a body (formát dohodnout se `scenario-designer`)
