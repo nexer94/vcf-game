@@ -35,7 +35,11 @@
   („Can also run business workloads“), doporučená samostatná WLD (VCF-WLD-RCMD-CFG-002); 8 návrhových
   rozhodnutí s volbami a závislostmi, 50+ design decision ID; termín „consolidated“ v 9.x nenalezen;
   část citací parafráze → ověřit při fact-checku; 12 otevřených otázek
-- [ ] `domain-modeler` – model návrhu `model/design.ts` (rozhodnutí, závislosti, REQD=error / RCMD=warning) *(běží)*
+- [x] `domain-modeler` – `model/design.ts`: 19 rozhodnutí v 8 krocích, 37 design decision ID, 20 omezení
+  (REQD/nepodporované/Day 2 = error, RCMD = warning), `validateDesign`, `optionAvailability`,
+  `deriveBringupParams` (→ min. hostů), `summarizeDesign`; 18 nových kódů
+  - rozpor 00 §6 vs 05 §2.3 (Multi-Rack L2 v mgmt doméně podle fleet modelu) – zatím warning → ověřit
+  - mapování management network / VDS modelu na kroky wizardu je inference → ověřit fact-checkerem
 - [ ] `engine-dev` – Sandbox režim: návrh → příprava → bring-up přes model, stav sandboxu
 - [ ] `ui-dev` – obsah fáze Návrh (data z modelu) a wizard bring-upu (kroky 9.1.1 ze specu 20)
 - [ ] `fact-checker` – Sandbox: návrh + bring-up proti specu

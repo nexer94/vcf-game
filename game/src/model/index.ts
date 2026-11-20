@@ -4,3 +4,4 @@ export * from './validation';
 export * from './net';
 export * from './architecture';
 export * from './bringup';
+export * from './design';
