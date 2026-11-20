@@ -19,9 +19,12 @@
   (ParticleContainer, pool), zátěž 80/95 %, dropy, legenda, čas 0/1/4/16×, hover tooltip, pan/zoom, LOD;
   demo data v `render/demo/` (ilustrativní); kontrakt `TrafficSource`/`LinkTraffic` pro budoucí engine.
   Neověřeno: 60 FPS na reálném slabém HW, pinch-zoom, refit při resize
+- [x] `domain-modeler` – bring-up: `model/architecture.ts`, `bringup.ts`, `validation.ts`, `net.ts`; installer
+  (installer → SDDC Manager mode), příprava ESX, depot/binárky, vstupy wizardu 9.1.1, 99 kódů validací
+  (error/warning + specRef), stavový automat nasazení, `buildFleetFromBringup()`; 201 testů. 18 TODO (viz níže)
 
 ## Další kroky
-- [ ] `domain-modeler` → `scenario-designer` → `fact-checker` pro bring-up (vzorová oblast) *(domain-modeler běží)*
+- [ ] `scenario-designer` → `fact-checker` pro bring-up (vzorová oblast)
 - [ ] `engine-dev` – vrstva režimů `game/src/modes/` (viz CLAUDE.md „Herní režimy“):
   - [ ] Sandbox – volné akce nad modelem, bez misí a peněz
   - [ ] Kariéra – mise, úkoly a body (formát dohodnout se `scenario-designer`)
@@ -37,6 +40,11 @@
 4. [ ] Den 2 – nová workload doména (`40-workload-domains`), nová instance ve fleetu
 
 ## Otevřené otázky
+- Model bring-up – TODO (detail v reportu domain-modelera, kód má komentáře TODO):
+  min. počet hostů greenfield mgmt domény (parametr, vypnuto); replica FQDN v Simple; workery services runtime
+  Simple (2 vs 3); VCF Automation HA-Small (1 vs 3 uzly); texty validačních hlášek (doslovně jen z RN);
+  pole „ESX host details“/„vCenter details“; názvy interních úloh bring-upu; konvergence, VVF, deferred
+  komponenty a 9.0 wizard nemodelovány; kontrola kapacity hostů vs. sizing chybí (→ `10-planning`)
 - Porty: ports.broadcom.com nejde agentem přečíst (JS) – uživatel může tabulky pro VCF 9.1 exportovat/zkopírovat
   ručně; chybí porty pro vSAN, vMotion, NSX TEP/Edge, Identity broker, Salt, cloud proxy → VCF Ops
 - Rozpory ve specu 00 (Simple model – 2 vs 3 workery; VCF Automation HA-Small) → ověřit při fact-checku
