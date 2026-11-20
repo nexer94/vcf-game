@@ -16,7 +16,7 @@ Body, srážky a rozpočet jsou **herní mechanika** (fiktivní), ne fakta z dok
 | 3 | `03-depot-binaries.json` | Depot a binárky | Běžný provoz | 160 / 100 | 1 |
 | 4 | `04-bringup-simple.json` | Bring-up první instance (Simple) | Běžný provoz | 230 / 140 | 2, 3 |
 | 5 | `05-troubleshooting-validation.json` | Validace selhala: JSON spec po kolegovi | Troubleshooting | 245 / 150 | 4 |
-| 6 | `06-production-ha-design.json` | Návrh pro produkci: HA fleet | Návrh pro produkci | 260 / 170 | 5 |
+| 6 | `06-production-ha-design.json` | Návrh pro produkci: HA fleet | Návrh pro produkci | 270 / 175 | 5 |
 
 ## Mapování na spec
 
@@ -63,16 +63,20 @@ Body, srážky a rozpočet jsou **herní mechanika** (fiktivní), ne fakta z dok
 ### 6 – Návrh pro produkci (HA)
 - Rozhodnutí: fleet design Basic a single-rack management cluster (00 §6 [S16][S7]), HA pro produkci
   (20 §4.2 krok 5), velikost Medium/Large kvůli data node VCF Operations (20 §2.1, §6.2 [S14][S19][S23]),
-  sizing kvíz HA Medium 184/656/11445 (§6.2), minimum hostů vSAN HA = 4 (10 §6.1 [P9]) – jen kvíz,
-  profil Storage Traffic Separation (§4.2 krok 15, §6.5), 30 IP pro services runtime kvůli Day-N (§6.4),
+  sizing kvíz HA Medium 184/656/11445 (§6.2), hosty management domény – default cluster single-rack s vSAN
+  v HA potřebuje min. 4 hosty (10 §6.1 [P9]; stránka ESX host details, 20 §4.2 krok 10), profil Storage Traffic Separation (§4.2 krok 15, §6.5), 30 IP pro services runtime kvůli Day-N (§6.4),
   TEP 1 IP na aktivní uplink (§6.4), DRS anti-affinity pro HA VCF Operations (§4.4 krok 7).
 - Pasti: `SIZE_NOT_ALLOWED_FOR_MODEL`, `FQDN_REQUIRED`, `NSX_NODE_COUNT`, `VDS_PROFILE_SWITCH_COUNT`,
   `VDS_UPLINKS_EXCEED_PNICS`, `LAG_PHYSICAL_NETWORK_NOT_READY` (20 §4.2 [9.1] [S32]), `INCLUSION_RANGE_TOO_SMALL`
-  (TEP), `SERVICES_RUNTIME_IPS_BELOW_RECOMMENDED`, `MGMT_DEFAULT_CLUSTER_L3_UNSUPPORTED` (00 §3, §5 [S7]).
+  (TEP), `SERVICES_RUNTIME_IPS_BELOW_RECOMMENDED`, `MGMT_DEFAULT_CLUSTER_L3_UNSUPPORTED` (00 §3, §5 [S7]),
+  `MGMT_DOMAIN_TOO_FEW_HOSTS` – návrh nechat esx04 stranou a nasadit HA + vSAN na 3 hosty (10 §6.1 [P9]);
+  self-check ve `expectedInitialIssues`: esx01–03 v HA hlásí kód, ve Simple ne.
 - Rozpočet 500 000 herních kreditů – jen rámec, katalog HW zatím není.
 
 ## Záměrně vynecháno (otevřené otázky ve specu / modelu)
-- Minimální počet hostů jako **validace** (model `BringupRules.minManagementHosts` je vypnutý) – v misi 6 jen kvíz.
+- Minima hostů, která spec neuvádí jednoznačně (stretched NFS/FC – vMSC, další clustery / WLD; 10 §8 q2) –
+  model je nekontroluje, mise je nepoužívají. Mise 5 past `MGMT_DOMAIN_TOO_FEW_HOSTS` nemá (Simple, 4 hosty;
+  přesná sada výchozích chyb zůstává beze změny).
 - Replica FQDN v Simple, počet workerů services runtime v Simple, VCF Automation HA-Small, texty hlášek,
   pole „ESX host details“ / „vCenter details“, názvy interních úloh bring-upu, konvergence, VVF, deferred
   komponenty, kontrola kapacity hostů vs. sizing.

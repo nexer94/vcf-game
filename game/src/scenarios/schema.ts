@@ -323,9 +323,6 @@ export interface Workbook {
   readonly entries: readonly WorkbookEntry[];
 }
 
-/** Rules usable from JSON (functions such as minManagementHosts are not – spec 20 §8 q1 is open). */
-export type ScenarioRules = Omit<BringupRules, 'minManagementHosts'>;
-
 /** Starting world in terms of the model's types (BringupEnvironment + drafts). */
 export interface InitialEnvironment {
   readonly installer: InstallerState;
@@ -335,7 +332,8 @@ export interface InitialEnvironment {
   readonly existingInstanceNames?: readonly string[];
   readonly unreachableFromInstaller?: readonly string[];
   readonly physicalNetworkLagReady?: boolean;
-  readonly rules?: ScenarioRules;
+  /** Configurable model rules (BringupRules is plain data, usable from JSON). */
+  readonly rules?: BringupRules;
   /** Pre-filled wizard / JSON input (e.g. a colleague's JSON spec). */
   readonly spec?: BringupSpec;
   readonly deployment?: DeploymentState;

@@ -35,7 +35,7 @@
   („Can also run business workloads“), doporučená samostatná WLD (VCF-WLD-RCMD-CFG-002); 8 návrhových
   rozhodnutí s volbami a závislostmi, 50+ design decision ID; termín „consolidated“ v 9.x nenalezen;
   část citací parafráze → ověřit při fact-checku; 12 otevřených otázek
-- [ ] `domain-modeler` – model návrhu (design decisions, závislosti, důsledky) ze `05-design`
+- [ ] `domain-modeler` – model návrhu `model/design.ts` (rozhodnutí, závislosti, REQD=error / RCMD=warning) *(běží)*
 - [ ] `engine-dev` – Sandbox režim: návrh → příprava → bring-up přes model, stav sandboxu
 - [ ] `ui-dev` – obsah fáze Návrh (data z modelu) a wizard bring-upu (kroky 9.1.1 ze specu 20)
 - [ ] `fact-checker` – Sandbox: návrh + bring-up proti specu
@@ -46,9 +46,9 @@
   (úkoly, pasti na validační kódy, body/srážky, rozpočet jako herní mechanika), README
 - [x] `domain-modeler` – registr `VALIDATION_CODES` (117 kódů, typově vynucený) + `MGMT_DOMAIN_TOO_FEW_HOSTS`
   (single-rack / multi-rack L2: vSAN 3/4, NFS/FC 2/4; stretched vSAN 6/8) zapnuto ve výchozím stavu
-- [ ] `scenario-designer` – mise 6: z kvízu o min. hostech udělat past na `MGMT_DOMAIN_TOO_FEW_HOSTS`;
-  aktualizovat `bringup/README.md` a `schema.ts` (odstranit `minManagementHosts`)
-- [ ] `fact-checker` pro bring-up (spec 00/10/20 + model + mise)
+- [x] `scenario-designer` – mise 6: past `MGMT_DOMAIN_TOO_FEW_HOSTS` (3 hosty pro HA + vSAN), 270 / 175 bodů;
+  README a schema pročištěny
+- [ ] `fact-checker` pro bring-up (spec 00/10/20 + model + mise) *(běží)*
 - [ ] `engine-dev` – vrstva režimů `game/src/modes/` (viz CLAUDE.md „Herní režimy“):
   - [ ] Sandbox – volné akce nad modelem, bez misí a peněz
   - [ ] Kariéra – mise, úkoly a body (formát dohodnout se `scenario-designer`)

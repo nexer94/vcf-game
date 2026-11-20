@@ -8,10 +8,11 @@
   "vcfVersion": "9.1.1",
   "requires": ["c1-m5-troubleshooting-validation"],
   "summary": "Navrhni a nasaď produkční první instanci: deployment model, velikost, cluster model, distributed switche a IP plán podle požadavků zadání.",
-  "briefing": "Testovací prostředí se osvědčilo, teď přichází produkce. Zadání od architekta: jedna lokalita a jedna availability zone, produkční provoz s vysokou dostupností management komponent, VCF Operations jako cluster tří uzlů (primary, replica, data node), principal storage vSAN ESA a provoz vSAN oddělený na vlastní distributed switch. Plánuje se Day-N nasazení log management a real-time metrics, které berou IP z bloku VCF services runtime. Síťaři zatím nenakonfigurovali LACP na ToR switchích. Hosty mají po 4 fyzických NIC. Rozpočet je herní mechanika – katalog hardwaru zatím není, mise nákup nevyžaduje.",
+  "briefing": "Testovací prostředí se osvědčilo, teď přichází produkce. Zadání od architekta: jedna lokalita a jedna availability zone, produkční provoz s vysokou dostupností management komponent, VCF Operations jako cluster tří uzlů (primary, replica, data node), principal storage vSAN ESA a provoz vSAN oddělený na vlastní distributed switch. Plánuje se Day-N nasazení log management a real-time metrics, které berou IP z bloku VCF services runtime. Síťaři zatím nenakonfigurovali LACP na ToR switchích. Připravené jsou 4 hosty, každý se 4 fyzickými NIC. Vedoucí provozu by rád nasadil management doménu jen na esx01–esx03 a esx04 si nechal stranou jako rezervu – ověř, zda to zvolený model a úložiště dovolí. Rozpočet je herní mechanika – katalog hardwaru zatím není, mise nákup nevyžaduje.",
   "objectives": [
     "Zvolit fleet design a cluster model management domény.",
     "Zvolit deployment model a velikost, které splní požadavek na VCF Operations se třemi uzly.",
+    "Zadat do management domény aspoň minimální počet ESX hostů pro zvolený model a úložiště.",
     "Navrhnout distributed switche s oddělením vSAN provozu v mezích počtu pNIC.",
     "Navrhnout IP rozsahy s rezervou pro Day-N služby a TEP adresy pro každý aktivní uplink.",
     "Nasadit bez chyb a dokončit kroky po nasazení pro HA VCF Operations."
@@ -151,7 +152,7 @@
         { "key": "req.storage", "label": "Principal storage", "value": "vSAN ESA, vSAN provoz na vlastním distributed switchi" },
         { "key": "req.dayn", "label": "Day-N", "value": "log management, real-time metrics" },
         { "key": "net.lacp", "label": "LACP na ToR", "value": "nenakonfigurováno" },
-        { "key": "hosts", "label": "ESX hosty", "value": "4× hw-profile-b, 4 pNIC" },
+        { "key": "hosts", "label": "ESX hosty", "value": "4× hw-profile-b, 4 pNIC (návrh vedoucího provozu: management doména jen esx01–esx03, esx04 jako rezerva)" },
         { "key": "net.esxmgmt", "label": "ESX Management Network", "value": "VLAN 1610, 10.10.0.0/24, brána 10.10.0.1" },
         { "key": "net.services", "label": "Volné adresy pro VCF Management Services", "value": "10.10.1.0/24 (adresy .10 – .200 volné)" },
         { "key": "net.vmotion", "label": "vMotion", "value": "VLAN 1612, 10.10.2.0/24, brána 10.10.2.1, MTU 9000" },
@@ -229,20 +230,23 @@
       "specRefs": [{ "spec": "20-deployment", "section": "§6.2", "sources": ["S23"] }]
     },
     {
-      "id": "t-hosts-quiz",
+      "id": "t-mgmt-hosts",
       "order": 6,
-      "title": "Stačí čtyři hosty?",
-      "description": "Ověř minimální počet hostů pro zvolený model a úložiště (Design Library).",
-      "actions": [{ "kind": "quiz" }],
+      "title": "Hosty management domény",
+      "description": "Na stránce ESX host details zadej hosty pro default cluster management domény. Než přijmeš návrh nechat esx04 stranou, ověř minimum hostů pro High Availability s vSAN (Design Library).",
+      "actions": [{ "kind": "wizard-step", "step": "esx-host-details" }],
       "completion": {
-        "kind": "quiz",
-        "question": "Kolik ESX hostů minimálně potřebuje default cluster management domény (single-rack) s vSAN v modelu High Availability?",
-        "options": ["2", "3", "4", "6"],
-        "correct": [2],
-        "explanation": "Single-Rack vSphere Cluster Model: vSAN Simple 3, vSAN HA 4, NFS/FC Simple 2, NFS/FC HA 4 hosty."
+        "kind": "all-of",
+        "conditions": [
+          { "kind": "wizard-step-completed", "step": "esx-host-details" },
+          { "kind": "codes-absent", "check": "validateBringupSpec", "codes": ["MGMT_DOMAIN_TOO_FEW_HOSTS"] }
+        ]
       },
       "points": 10,
-      "specRefs": [{ "spec": "10-planning", "section": "§6.1", "sources": ["P9"] }]
+      "specRefs": [
+        { "spec": "10-planning", "section": "§6.1", "sources": ["P9"] },
+        { "spec": "20-deployment", "section": "§4.2", "sources": ["S14"] }
+      ]
     },
     {
       "id": "t-vds",
@@ -414,6 +418,17 @@
       ]
     },
     {
+      "id": "tr-mgmt-hosts",
+      "title": "Jen 3 hosty pro HA management doménu",
+      "description": "Default cluster management domény (single-rack) potřebuje s vSAN v modelu High Availability aspoň 4 ESX hosty. 3 hosty stačí jen u vSAN Simple – návrh nechat esx04 stranou validace odmítne.",
+      "codes": ["MGMT_DOMAIN_TOO_FEW_HOSTS"],
+      "armed": "player-input",
+      "detectedBy": ["validateBringupSpec", "validateEsxHostsForBringup"],
+      "avoidBonus": 10,
+      "relatedTasks": ["t-mgmt-hosts", "t-model"],
+      "specRefs": [{ "spec": "10-planning", "section": "§6.1", "sources": ["P9"] }]
+    },
+    {
       "id": "tr-l3-mgmt",
       "title": "Management doména na Multi-Rack Layer 3",
       "description": "Default cluster management domény nelze postavit na Multi-Rack Layer 3 clusteru.",
@@ -463,22 +478,23 @@
     },
     {
       "id": "h-hosts",
-      "taskId": "t-hosts-quiz",
-      "text": "Tabulka minimálních počtů hostů je v Design Library u Single-Rack vSphere Cluster Model.",
+      "taskId": "t-mgmt-hosts",
+      "trapId": "tr-mgmt-hosts",
+      "text": "Design Library, Single-Rack vSphere Cluster Model, sloupec „Mgmt domain – default cluster“: vSAN Simple 3, vSAN High Availability 4, NFS/FC Simple 2, NFS/FC High Availability 4 ESX hosty.",
       "specRef": { "spec": "10-planning", "section": "§6.1", "sources": ["P9"] },
       "doc": { "title": "Single-Rack vSphere Cluster Model (9.1)", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/cluster-models/single-instance-single-availability-zone.html" },
-      "cost": 2
+      "cost": 3
     }
   ],
   "scoring": {
     "orderBonus": {
       "points": 20,
-      "sequence": ["t-fleet-design", "t-cluster-model", "t-model", "t-size", "t-vds", "t-validate", "t-deploy", "t-anti-affinity"]
+      "sequence": ["t-fleet-design", "t-cluster-model", "t-model", "t-size", "t-mgmt-hosts", "t-vds", "t-validate", "t-deploy", "t-anti-affinity"]
     },
     "cleanRunBonus": 25,
     "penalties": { "perValidationError": 5, "perValidationRun": 5, "freeValidationRuns": 1, "perIllegalAction": 5 },
-    "maxPoints": 260,
-    "passPoints": 170
+    "maxPoints": 270,
+    "passPoints": 175
   },
   "budget": {
     "gameMechanic": true,
@@ -490,7 +506,9 @@
   "expectedInitialIssues": [
     { "check": "validateInstallerCanDeploy", "codes": [], "exact": true },
     { "check": "validateBinariesForDeployment", "codes": [], "exact": true },
-    { "check": "validateEsxHostsForBringup", "context": { "model": "high-availability", "storage": "vsan-esa" }, "codes": [], "exact": true }
+    { "check": "validateEsxHostsForBringup", "context": { "model": "high-availability", "storage": "vsan-esa" }, "codes": [], "exact": true },
+    { "check": "validateEsxHostsForBringup", "context": { "hosts": ["esx01", "esx02", "esx03"], "model": "high-availability", "storage": "vsan-esa" }, "codes": ["MGMT_DOMAIN_TOO_FEW_HOSTS"], "exact": true },
+    { "check": "validateEsxHostsForBringup", "context": { "hosts": ["esx01", "esx02", "esx03"], "model": "simple", "storage": "vsan-esa" }, "codes": [], "exact": true }
   ],
   "referenceSolution": {
     "description": "Basic design, single-rack, HA Medium, vSAN ESA, Storage Traffic Separation (2×2 uplinky = 4 pNIC, bez LAG), 30 IP services runtime, TEP 21 IP (potřeba 8), 3 uzly NSX, VCF Operations primary/replica/data.",
