@@ -22,16 +22,19 @@
 - [x] `domain-modeler` – bring-up: `model/architecture.ts`, `bringup.ts`, `validation.ts`, `net.ts`; installer
   (installer → SDDC Manager mode), příprava ESX, depot/binárky, vstupy wizardu 9.1.1, 99 kódů validací
   (error/warning + specRef), stavový automat nasazení, `buildFleetFromBringup()`; 201 testů. 18 TODO (viz níže)
+- [x] `doc-researcher` – `docs/spec/10-planning.md` (42 zdrojů, hlavně Design Library 9.1): DNS, IP, MTU/VLAN,
+  NIC, HW ESX (ESA/OSA), **min. hostů mgmt domény: vSAN 3 Simple / 4 HA, NFS/FC 2 / 4; stretched 6 / 8**,
+  HA admission control, vCPU:pCPU ≤ 2:1, resource check installeru = warning [9.0.x]; 13 otevřených otázek
 
 ## Další kroky
-- [ ] `scenario-designer` → `fact-checker` pro bring-up (vzorová oblast)
+- [ ] `scenario-designer` → `fact-checker` pro bring-up (vzorová oblast) *(scenario-designer běží)*
 - [ ] `engine-dev` – vrstva režimů `game/src/modes/` (viz CLAUDE.md „Herní režimy“):
   - [ ] Sandbox – volné akce nad modelem, bez misí a peněz
   - [ ] Kariéra – mise, úkoly a body (formát dohodnout se `scenario-designer`)
   - [ ] Kariéra – ekonomika: rozpočet, katalog HW (fiktivní ceny), nákup, kapacita/HA podle specu
 - [ ] `ui-dev` – hlavní menu (Sandbox / Kariéra), HUD kariéry (rozpočet, body, úkoly)
-- [ ] `doc-researcher` – pro ekonomiku a HA: požadavky na HW, minimální počty hostů, HA/failure tolerance
-  (oblasti `10-planning`, `50-vsan`, `52-vsphere`)
+- [ ] `doc-researcher` – pro ekonomiku a HA dál: `50-vsan` (storage policies, FTT), `52-vsphere` (HA, DRS)
+- [ ] `domain-modeler` – doplnit do modelu min. počty hostů z `10-planning` (zapnout `minManagementHosts`)
 
 ## Kampaně – režim Kariéra (rozcestník: VCF Upgrade Planner)
 1. [ ] Nové prostředí – bring-up první instance (spec `20-deployment`)
@@ -40,6 +43,8 @@
 4. [ ] Den 2 – nová workload doména (`40-workload-domains`), nová instance ve fleetu
 
 ## Otevřené otázky
+- Sizing: vzorec z Planning and Preparation Workbooku (xlsx, tab „Management Domain Sizing“) – agent ho
+  nerozbalil; HA řádky tabulky minim hostů (sloučené buňky) ověřit v PDF
 - Model bring-up – TODO (detail v reportu domain-modelera, kód má komentáře TODO):
   min. počet hostů greenfield mgmt domény (parametr, vypnuto); replica FQDN v Simple; workery services runtime
   Simple (2 vs 3); VCF Automation HA-Small (1 vs 3 uzly); texty validačních hlášek (doslovně jen z RN);
