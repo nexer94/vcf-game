@@ -1,0 +1,10 @@
+{
+  // Tests + tooling config run in Node.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": ["node"]
+  },
+  "include": ["src/**/*.test.ts", "vite.config.ts"],
+  "exclude": []
+}

@@ -461,27 +461,54 @@ Day-N: Log management 6 IP (+1 na další small/medium repliku, +2 na large), Re
 
 ## 7. Síťový provoz
 
-Pouze toky doložené v dokumentaci (porty komponent mezi sebou jsou na ports.broadcom.com, viz Otevřené otázky).
+Pouze toky doložené v dokumentaci.
 
-| # | Odkud | Kam | Port / protokol | Typ provozu | Zdroj |
-|---|---|---|---|---|---|
-| 1 | Admin (prohlížeč) | VCF Installer `https://installer_appliance_FQDN` | HTTPS (port neuveden, implicitně 443) | UI, login `admin@local` | [S6] |
-| 2 | Admin | VCF Installer | SSH (`vcf`, pak `su`) | správa, logy, certifikáty | [S6][S16] |
-| 3 | Admin | ESX host (VMware Host Client) | HTTPS | nasazení OVA, NTP, SSH služba | [S6][S10][S11] |
-| 4 | Admin | ESX host | SSH (dočasně) | regenerace certifikátu | [S11] |
-| 5 | VCF Installer | ESX hosty (management network) | ping; dále neuvedeno | ověření, konfigurace během bring-upu | [S5][S6] |
-| 6 | VCF Installer | DNS servery | DNS (forward + reverse) | resolve hostů a NTP | [S6] |
-| 7 | VCF Installer, ESX hosty | NTP servery | NTP | synchronizace času | [S6][S10] |
-| 8 | VCF Installer | `dl.broadcom.com`, `eapi.broadcom.com`, `vvs.broadcom.com`, `vsanhealth.vmware.com`, **[9.1.1+]** `vcf.packages.broadcom.com` | 443 | stažení binárek | [S22] |
-| 9 | VCF Installer | `vvs.broadcom.com` | 443 | data kompatibility komponent | [S22] |
-| 10 | VCF Installer | `vsanhealth.vmware.com`, `eapi.broadcom.com` | 443 | vSAN HCL data | [S22] |
-| 11 | VCF Installer | proxy (HTTP/HTTPS, FQDN/IP:port) | dle konfigurace | online depot přes proxy | [S13] |
-| 12 | VCF Installer | offline depot web server | HTTPS 443 (dle příkladu `openssl s_client -connect depot_server_FQDN:443`) | stažení binárek | [S13] |
-| 13 | Admin (prohlížeč) | `vcf.broadcom.com` (VCF Business Services console) | HTTPS | registrace software depotu, activation code | [S13] |
-| 14 | VCF Installer (na mgmt hostu) | management domain storage | Storage vMotion | přesun appliance z lokálního disku, přepnutí do SDDC Manager mode | [S6] |
-| 15 | VCF Operations | `vcf.broadcom.com`, `eapi.broadcom.com` | 443 | licencování (post-deployment) | [S22] |
-| 16 | VCF services runtime IP pools (s depotem) | `projects.packages.broadcom.com`, **[9.1.1+]** `vcf.packages.broadcom.com` | 443 | Supervisor a VCF service binárky | [S22] |
-| 17 | SDDC Manager, vCenter, VCF Operations, services runtime | `vcsa.vmware.com`, `vcsa.telemetry.broadcom.com`, `scapi.telemetry.broadcom.com` | 443 | CEIP telemetrie | [S22] |
+**Zdroj portů.** TechDocs 9.1 (Planning and Preparation [S36]) odkazuje pro porty na web **VMware Ports and
+Protocols** https://ports.broadcom.com/ [S37]. KB odkazy ukazují, že web má pohledy pro VCF **9.1**
+(např. `?vcfVersion=9.1+VCF-Automation+VCF-Management-Services` [S50]). Web je ale čistě JavaScriptová aplikace:
+při stažení (2026-11-20) vrací jen titulek „VMware Ports and Protocols“, žádné tabulky. **Porty níže proto nejsou
+z portálu.** Pocházejí z TechDocs a z KB článků na knowledge.broadcom.com, které konkrétní port uvádějí. Sloupec
+„Platí pro“ udává verzi, ke které se zdroj vztahuje. Výčet je **neúplný**: KB články řeší jednotlivé chyby,
+ne celou matici portů.
+
+| # | Odkud | Kam | Port / protokol | Typ provozu | Platí pro (dle zdroje) | Zdroj |
+|---|---|---|---|---|---|---|
+| 1 | Admin (prohlížeč) | VCF Installer `https://installer_appliance_FQDN` | HTTPS (port neuveden, implicitně 443) | UI, login `admin@local` | 9.1 | [S6] |
+| 2 | Admin | VCF Installer | SSH (`vcf`, pak `su`) | správa, logy, certifikáty | 9.1 | [S6][S16] |
+| 3 | Admin | ESX host (VMware Host Client) | HTTPS | nasazení OVA, NTP, SSH služba | 9.1 | [S6][S10][S11] |
+| 4 | Admin | ESX host | SSH (dočasně) | regenerace certifikátu | 9.1 | [S11] |
+| 5 | VCF Installer | ESX hosty (management network) | ping (ICMP); kontrola, zda IP není obsazená: pokusy o spojení na porty **7, 80, 8443** (KB uvádí i 22). Když jsou všechny zavřené, validace hlásí „IP Address <ESXi_IP> allocated for <ESXi_FQDN> is already in use“ a řešením je dočasně otevřít 7, 80 nebo 8443. Protokol KB neuvádí. | ověření, konfigurace během bring-upu | 9.x | [S5][S6][S39] |
+| 5a | VCF Installer / SDDC Manager | ESX hosty, vCenter | TCP 443 (TLS, `https://<HOST_FQDN>:443/sdk`), obousměrně | autentizace k host agentům (validace thumbprintu / SSL handshake, rotace hesel) | **VCF 5.2.2** (pro 9.x port nedoložen; ve 9.x KB [S38] popisuje jen selhání SSL handshake při validaci kvůli DNS) | [S52][S38] |
+| 6 | VCF Installer | DNS servery | DNS (forward + reverse), port **53** (UDP/TCP). Když DNS neprojde, validace hlásí „The provided thumbprints for the following products do not match with their actual thumbprints“ / „Error connecting to ESX Host“. | resolve hostů a NTP | 9.x | [S6][S38] |
+| 7 | VCF Installer, ESX hosty | NTP servery | NTP (port pro installer/ESX v povolených zdrojích neuveden) | synchronizace času | 9.1 | [S6][S10] |
+| 7a | VCF Operations uzly | NTP server | **UDP 123**. Když je zablokovaný, selže úloha „Install VCF Operations and VCF Cloud proxy using Fleet Lifecycle“ (`PUBLIC_FLEET_LCM_TASK_FAILED`). | synchronizace času | 9.1 | [S44] |
+| 8 | VCF Installer | `dl.broadcom.com`, `eapi.broadcom.com`, `vvs.broadcom.com`, `vsanhealth.vmware.com`, **[9.1.1+]** `vcf.packages.broadcom.com` | 443 | stažení binárek | 9.1 | [S22] |
+| 9 | VCF Installer | `vvs.broadcom.com` | 443 | data kompatibility komponent | 9.1 | [S22] |
+| 10 | VCF Installer | `vsanhealth.vmware.com`, `eapi.broadcom.com` | 443 | vSAN HCL data | 9.1 | [S22] |
+| 11 | VCF Installer | proxy (HTTP/HTTPS, FQDN/IP:port) | dle konfigurace | online depot přes proxy | 9.1 | [S13] |
+| 12 | VCF Installer | offline depot web server | HTTPS 443 (dle příkladu `openssl s_client -connect depot_server_FQDN:443`) | stažení binárek | 9.1 | [S13] |
+| 13 | Admin (prohlížeč) | `vcf.broadcom.com` (VCF Business Services console) | HTTPS | registrace software depotu, activation code | 9.1 | [S13] |
+| 14 | VCF Installer (na mgmt hostu) | management domain storage | Storage vMotion | přesun appliance z lokálního disku, přepnutí do SDDC Manager mode | 9.1 | [S6] |
+| 15 | VCF Operations | `vcf.broadcom.com`, `eapi.broadcom.com` | 443. Když je blokováno (proxy/firewall), registrace zůstane „activation pending“ s hláškou „Switching the reporting mode failed. Check your Internet connection.“ | licencování (post-deployment) | 9.1 / 9.x | [S22][S54] |
+| 16 | VCF services runtime IP pools (s depotem) | `projects.packages.broadcom.com`, **[9.1.1+]** `vcf.packages.broadcom.com` | 443 | Supervisor a VCF service binárky | 9.1 | [S22] |
+| 17 | SDDC Manager, vCenter, VCF Operations, services runtime | `vcsa.vmware.com`, `vcsa.telemetry.broadcom.com`, `scapi.telemetry.broadcom.com` | 443 | CEIP telemetrie | 9.1 | [S22] |
+
+Doplněné toky mezi komponentami během bring-upu / nasazení (porty z KB a TechDocs):
+
+| # | Odkud | Kam | Port / protokol | Typ provozu | Platí pro (dle zdroje) | Zdroj |
+|---|---|---|---|---|---|---|
+| 18 | VCF Installer / SDDC Manager (management subnet) | vCenter subnet (nově nasazovaný vCenter) | TCP 22 (SSH), TCP 443 (HTTPS), TCP 5480 (VAMI), ICMP – **obousměrně**. Při blokaci: „vCenter installation failed. Check logs under /var/log/vmware/vcf/domainmanager/ci-installer-##### for more details.“ | nasazení vCenter | VCF / vCenter / SDDC Manager 9.0.x | [S40] |
+| 19 | vCenter (nový) | ESX hosty (management) | 443 (HTTPS, management), 902 („MKS“, host management a konzole VM), ICMP. Při blokaci: „An internal error occurred while adding/moving hosts to the cluster“ (`vim.vmware.vlcm.error.batchAddHostsToCluster`), vCenter VM se automaticky smaže (rollback). | vLCM remediace a přidání hostů do clusteru | 9.0.1 / 9.x | [S41] |
+| 20 | ESX hosty | vCenter | UDP 902 | „ESXi host heartbeats“. Při blokaci selže nasazení VCF Operations collectoru: „IP address assignment check failed. Check if the network details are correct and retry.“ | 9.x | [S42] |
+| 21 | Bootstrap VM (VCF services runtime) | vCenter | TCP 443 | získání thumbprintu vCenteru. Při blokaci: „Failed to bootstrap VCF services runtime“ / „Failed to retrieve the vCenter server thumbprint for '<vCenter Server FQDN>'.“ | 9.1 | [S43] |
+| 22 | SDDC Manager | VCF Operations fleet management VM | 22, 443 (protokol KB neuvádí; chyba uvádí „SSH: Failed to establish SSH session“) | nasazení fleet management, výměna certifikátů (`REPLACE_VRSLCM_CERTIFICATES_FAILED`) | 9.0.1 | [S45] |
+| 23 | VCF Installer | NSX Manager (existující, konvergence/brownfield) | 443 (log „opening connection to <NSX Manager FQDN>:443“) | validace existujících komponent: „Existing components validation failed due to errors: Cannot connect to <NSX Manager FQDN>“ (v KB je příčinou špatné heslo, ne port) | 9.0 | [S46] |
+| 24 | SDDC Manager | všechny uzly NSX Manageru | 443 | prerekvizita importu existujícího vCenteru jako workload domény | 9.1 | [S47] |
+| 25 | ESX hosty (management IP, vmk0) | všechny uzly NSX Manageru | TCP 443, 1234, 1235. Odchozí pravidla na ESX firewallu vzniknou až po instalaci NSX VIB; fyzický firewall je musí povolit. | příprava hostů pro NSX (host transport node). Při blokaci: host „Installation Failed“, upgrade visí na „Waiting for connection to Managers“. | NSX 4.x/9.x, VCF 9.x | [S48] |
+| 26 | NSX Manager | vCenter | TCP 80 (HTTP CONNECT tunel na interní `sdkTunnel:8089`, uvnitř TLS); TCP 443 (probe verze) | registrace NSX jako vCenter extension, sync inventáře | **[9.0, 9.1.0]** TCP 80 nutný („Do NOT block this port“); **[9.1.1+]** NSX i vCenter ≥ 9.1.1 → automaticky HTTPS 443, TCP 80 lze zavřít | [S51] |
+| 27 | VCF Automation uzly | vCenter, do kterého se nasazují | 443 | nasazení VCF Automation. Při blokaci: „Failed to create services platform cluster.“ | VCF Automation 9.0 | [S49] |
+| 28 | SDDC Manager, Fleet LCM, VCF Operations | VCF Automation / VCF services runtime (VSP IP adresy, consumption cluster) | TCP 443, 6443, 9100, 2381, 10257, 10259 – obousměrně, na fyzickém firewallu i v NSX DFW (účel jednotlivých portů KB neuvádí) | nasazení VCF Automation (instalace se zasekne, „URL Not Reachable“) | VCF Automation 9.x | [S50] |
+| 29 | ESX / externí syslog klienti | vCenter (syslog) | 1514 (TLS); **[9.1]** 514 (UDP/TCP) zablokován, `syslog.ext.port` → `syslog.ext.tls.port` | syslog do vCenteru | **[9.1]** změna oproti 9.0 | [S53] |
 
 Logické sítě (umístění komponent) [S21]:
 - **ESX management network** – výchozí pro VM management provoz.
@@ -500,7 +527,16 @@ Logické sítě (umístění komponent) [S21]:
 5. **Pole stránek „ESX host details“ a „vCenter details“** (např. velikost vCenter, název datacentra/clusteru, počet hostů) – stránka 9.1 uvádí jen „Enter the ESX host details“ / „Enter the vCenter details“.
 6. **Pořadí a názvy interních úloh bring-upu** (co se v Tasks panelu děje: nasazení vCenter, vSAN, NSX, SDDC Manager, management services…) – v dokumentaci nenalezeno.
 7. **Konkrétní texty validačních chyb** (kromě známých problémů v [S31]) – dokumentace uvádí jen obecný mechanismus warnings/errors.
-8. **Porty mezi komponentami** (installer ↔ ESX, vCenter, NSX…) – dokumentace odkazuje na ports.broadcom.com (není v seznamu povolených zdrojů).
+8. **Porty mezi komponentami** (zúženo): portál https://ports.broadcom.com/ [S37] je čistě JS a jeho obsah nešel
+   stáhnout. Sekce 7 proto obsahuje jen porty z TechDocs a KB (toky 5–7a, 15, 18–29). Zbývá:
+   (a) ručně projít pohledy VCF 9.1 na portálu (SDDC Manager/VCF Installer, vCenter, ESX, NSX, VCF Operations,
+   VCF Automation, VCF Management Services) a doplnit úplné tabulky včetně účelu;
+   (b) port pro Admin → VCF Installer UI a SSH, VCF Installer → ESX (443 doložen jen pro VCF 5.2.2 [S52]),
+   VCF Installer/ESX → NTP (UDP 123 doložen jen pro VCF Operations uzly [S44]);
+   (c) KB [S39] pro kontrolu obsazené IP uvádí porty 7, 80, 8443 (a v příčině i 22) bez protokolu – ověřit;
+   (d) účel portů VCF Automation 6443/9100/2381/10257/10259 [S50] KB neuvádí (příloha
+   `Micro_Segmentation_Port_Requirement.xlsx`);
+   (e) toky [S40][S45][S46][S49] jsou z KB pro 9.0.x – ověřit, zda platí beze změny pro 9.1.1.
 9. **Hodnota 914 GB** storage pro VCF Installer – tak uvedeno v 9.1 i 9.0 [S6][S35]; ověřit, zda jde o provisioned (thin) velikost.
 10. **Replica node FQDN** – stránka [S14] ho neoznačuje jako jen-HA, ale tabulka [S19] a [S4] uvádí repliku jen v HA. Ověřit chování průvodce u Simple.
 11. **Verze 9.1.0.0–9.1.0.300 / 9.1.0.400** u IP rozsahů – není jasné, zda jde o build/verzi installeru nebo deployment; jak se to promítá do 9.1.1.
@@ -548,6 +584,24 @@ Základ URL: `https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-lat
 - [S34]: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/deploy-a-new-vcf-fleet-or-a-new-vcf-instance.html – Deployment Wizard (9.0)
 - [S35]: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/deploy-the-vmware-cloud-foundation-installer-appliance.html – Deploy VCF Installer (9.0)
 - [S36]: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation.html – Planning and Preparation
+- [S37]: https://ports.broadcom.com/ – VMware Ports and Protocols (portál, odkaz z [S36]; JS aplikace, obsah nešel stáhnout)
+- [S38]: https://knowledge.broadcom.com/external/article/441245/vcf-9x-host-validation-fails-with-ssl-th.html – KB 441245: VCF 9.x Host Validation Fails with SSL Thumbprint Mismatch due to Blocked DNS Traffic (Port 53)
+- [S39]: https://knowledge.broadcom.com/external/article/443202/vcf-installer-fails-on-esx-network-vali.html – KB 443202: VCF Installer fails on ESX network validation stage (porty 7/80/8443)
+- [S40]: https://knowledge.broadcom.com/external/article/443149 – KB 443149: VCF 9.x new instance deployment fails at initial vCenter deployment phase (22/443/5480/ICMP)
+- [S41]: https://knowledge.broadcom.com/external/article/435005/vcf-901-deployment-fails-and-rolls-back.html – KB 435005: VCF 9.0.1 Deployment Fails and Rolls Back (vCenter → ESX 443/902)
+- [S42]: https://knowledge.broadcom.com/external/article/436501/vcf-9x-deployment-fails-with-vmwithnamei.html – KB 436501: ESX → vCenter UDP 902
+- [S43]: https://knowledge.broadcom.com/external/article/458004 – KB 458004: VCF 9.1 deployment fails with „Failed to bootstrap VCF services runtime“ (TCP 443)
+- [S44]: https://knowledge.broadcom.com/external/article/439240 – KB 439240: VCF 9.1 installer fails due to unreachable NTP server (UDP 123)
+- [S45]: https://knowledge.broadcom.com/external/article/427641/vcf-900-deployment-failing-at-vcf-operat.html – KB 427641: deployment failing at VCF Operations fleet management (22/443)
+- [S46]: https://knowledge.broadcom.com/external/article/420256/vcf-installer-validation-failure-unable.html – KB 420256: VCF Installer Validation Failure: Unable to Connect to NSX Manager on Port 443
+- [S47]: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/working-with-workload-domains/import-an-existing-vcenter-to-create-a-workload-domain.html – Import an Existing vCenter to Create a Workload Domain (9.1)
+- [S48]: https://knowledge.broadcom.com/external/article/447321/nsx-vib-installation-or-upgrade-fails-du.html – KB 447321: NSX VIB installation or upgrade fails due to TCP port timeout (443/1234/1235)
+- [S49]: https://knowledge.broadcom.com/external/article/418755/vcf-9-automation-install-failing-with-lc.html – KB 418755: VCF 9 Automation install failing (Automation → vCenter 443)
+- [S50]: https://knowledge.broadcom.com/external/article/458322/vcf-automation-deployment-fails-due-to-b.html – KB 458322: VCF Automation deployment fails due to blocked ports in micro-segmented environment
+- [S51]: https://knowledge.broadcom.com/external/article/446323/nsx-manager-to-vcenter-server-communicat.html – KB 446323: NSX Manager to vCenter Server Communication Over TCP/80
+- [S52]: https://knowledge.broadcom.com/external/article/432304/password-remediation-for-esxi-and-vcente.html – KB 432304: Password remediation fails with handshake failure (TCP 443; VCF 5.2.2)
+- [S53]: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-0-0-release-notes/vcf-91-product-support-notes.html – VCF 9.1 Product Support Notes (vCenter syslog 514 → 1514)
+- [S54]: https://knowledge.broadcom.com/external/article/404593/unable-to-register-license-in-vcf-operat.html – KB 404593: Unable to Register License in VCF Operations in Connected Mode
 
 [S1]: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment.html
 [S2]: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/overview-of-deploy--converge--and-upgrade.html
@@ -585,3 +639,21 @@ Základ URL: `https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-lat
 [S34]: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/deploy-a-new-vcf-fleet-or-a-new-vcf-instance.html
 [S35]: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/deploy-the-vmware-cloud-foundation-installer-appliance.html
 [S36]: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation.html
+[S37]: https://ports.broadcom.com/
+[S38]: https://knowledge.broadcom.com/external/article/441245/vcf-9x-host-validation-fails-with-ssl-th.html
+[S39]: https://knowledge.broadcom.com/external/article/443202/vcf-installer-fails-on-esx-network-vali.html
+[S40]: https://knowledge.broadcom.com/external/article/443149
+[S41]: https://knowledge.broadcom.com/external/article/435005/vcf-901-deployment-fails-and-rolls-back.html
+[S42]: https://knowledge.broadcom.com/external/article/436501/vcf-9x-deployment-fails-with-vmwithnamei.html
+[S43]: https://knowledge.broadcom.com/external/article/458004
+[S44]: https://knowledge.broadcom.com/external/article/439240
+[S45]: https://knowledge.broadcom.com/external/article/427641/vcf-900-deployment-failing-at-vcf-operat.html
+[S46]: https://knowledge.broadcom.com/external/article/420256/vcf-installer-validation-failure-unable.html
+[S47]: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/working-with-workload-domains/import-an-existing-vcenter-to-create-a-workload-domain.html
+[S48]: https://knowledge.broadcom.com/external/article/447321/nsx-vib-installation-or-upgrade-fails-du.html
+[S49]: https://knowledge.broadcom.com/external/article/418755/vcf-9-automation-install-failing-with-lc.html
+[S50]: https://knowledge.broadcom.com/external/article/458322/vcf-automation-deployment-fails-due-to-b.html
+[S51]: https://knowledge.broadcom.com/external/article/446323/nsx-manager-to-vcenter-server-communicat.html
+[S52]: https://knowledge.broadcom.com/external/article/432304/password-remediation-for-esxi-and-vcente.html
+[S53]: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-0-0-release-notes/vcf-91-product-support-notes.html
+[S54]: https://knowledge.broadcom.com/external/article/404593/unable-to-register-license-in-vcf-operat.html

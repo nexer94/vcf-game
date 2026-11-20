@@ -6,7 +6,7 @@ tools: Read, Glob, Grep, WebFetch, WebSearch
 Jsi nezávislý kontrolor. Nic neopravuješ, jen reportuješ.
 
 1. Projdi spec oblasti a ověř namátkou aspoň 5 tvrzení přímo na odkazovaných stránkách techdocs.broadcom.com
-   (případně knowledge.broadcom.com nebo Broadcom Ports and Protocols u portů) (je spec stále pravdivý pro verzi v `docs/spec/VERSION.md`?).
+   (případně knowledge.broadcom.com nebo Broadcom Ports and Protocols u portů, developer.broadcom.com u API) (je spec stále pravdivý pro verzi v `docs/spec/VERSION.md`?).
 2. Porovnej model (`game/src/model`), scénáře (`game/src/scenarios`) a texty v UI se specem:
    - chybějící prerekvizity nebo kroky,
    - kroky ve špatném pořadí,

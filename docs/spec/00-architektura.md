@@ -328,20 +328,45 @@ např. jedna fleet na region (AMER, EMEA, APAC) [S16].
 
 ## 7. Síťový provoz
 
-Toky odvozené z architektury (porty dokumentace odkazuje na samostatný web Ports and Protocols, který není ve
-schválených zdrojích – viz otevřené otázky):
+**Zdroj portů.** TechDocs 9.1 (Planning and Preparation [S23], vSAN Network Port Requirements [S28], Import an
+Existing vCenter [S26]) odkazuje pro úplný seznam portů na web **VMware Ports and Protocols**
+https://ports.broadcom.com/ [S22]. Odkazy z KB článků ukazují, že web má pohledy pro VCF **9.1**
+(např. `?vcfVersion=9.1+VCF-Operations`, `?vcfVersion=9.1+VCF-Automation+VCF-Management-Services` [S33][S34]).
+Web je ale čistě JavaScriptová aplikace: při stažení (2026-11-20) vrací jen titulek „VMware Ports and Protocols“,
+žádné tabulky. **Porty níže proto nejsou z portálu.** Pocházejí z TechDocs 9.1 a z KB článků na
+knowledge.broadcom.com, které konkrétní port uvádějí. Ke každému je uvedena verze, na kterou se zdroj vztahuje.
+Jde o **neúplný výčet**: KB články řeší jednotlivé chyby, ne celou matici portů.
 
-| Odkud | Kam | Typ provozu | Zdroj |
-|---|---|---|---|
-| VCF Operations | všechny komponenty fleet (instance, vCentery) | správa/monitoring; umístění fleet „should account for the latency between VCF Operations and all the components of the fleet" | [S16] |
-| Cloud proxy (v každé instanci) | komponenty instance → VCF Operations | lokální sběr dat | [S2] |
-| Komponenty fleet (VCF Ops, VCF Automation, …) | Identity broker | SSO autentizace (kromě SDDC Manageru) | [S13] |
-| Telemetry (každá instance) | Broadcom | telemetrie | [S2] |
-| Fleet lifecycle (první instance) | SDDC lifecycle / komponenty ve všech instancích | orchestrace upgradů napříč instancemi | [S2] |
-| Salt Master (každá instance) | komponenty instance | vynucení desired-state konfigurace | [S2] |
-| ESX VMkernel | fyzická síť přes VDS | management, vSphere vMotion, vSAN, NSX host TEP | [S20] |
-| NSX Edge | fyzická síť | north-south; east-west mezi workloady | [S2] |
-| vSAN stretched cluster | mezi AZ + witness | replikace storage, low-latency link | [S16] |
+Toky odvozené z architektury (doplněné o porty, kde je zdroj uvádí):
+
+| Odkud | Kam | Port / protokol | Typ provozu | Platí pro (dle zdroje) | Zdroj |
+|---|---|---|---|---|---|
+| VCF Operations | všechny komponenty fleet (instance, vCentery) | – (souhrnně neuvedeno) | správa/monitoring; umístění fleet „should account for the latency between VCF Operations and all the components of the fleet" | 9.1 | [S16] |
+| VCF Operations (každý uzel clusteru) | vCenter | TCP 443 | API spojení integrace vCenter účtu; „all VCF Operations nodes in the cluster should have accessibility over 443“, pokud se pro sběr nepoužívá cloud proxy group | VCF Operations 9.x | [S33] |
+| Cloud proxy (v každé instanci) | komponenty instance → VCF Operations | odchozí HTTPS 443 („Allow outgoing HTTPS traffic for cloud proxy over port 443“) | lokální sběr dat | 9.1 | [S2][S25] |
+| Endpointy / push adaptéry / Suite-API | cloud proxy | příchozí 443; 4505, 4506 (Telegraf application monitoring); 8443 (dříve, „will reach end of support“; pro nové nasazení použít 443) | sběr dat agentů, push model adapters | 9.1 | [S25] |
+| Cloud proxy | síťová proxy (log forwarding) | 9543 („If you use a network proxy for log forwarding, port 9543 must be open“) | přeposílání logů | 9.1 | [S25] |
+| Komponenty fleet (VCF Ops, VCF Automation, …) | Identity broker | neuvedeno | SSO autentizace (kromě SDDC Manageru) | 9.1 | [S13] |
+| Telemetry (každá instance); SDDC Manager, vCenter, VCF Operations, services runtime | Broadcom (`vcsa.vmware.com`, `vcsa.telemetry.broadcom.com`, `scapi.telemetry.broadcom.com`) | 443 | telemetrie (CEIP) | 9.1 | [S2][S24] |
+| VCF Operations | `vcf.broadcom.com`, `eapi.broadcom.com` | 443 | licencování v connected módu („License usage submission and license downloads“) | 9.x | [S24][S40] |
+| Fleet lifecycle (první instance) | SDDC lifecycle / komponenty ve všech instancích | souhrnně neuvedeno | orchestrace upgradů napříč instancemi | 9.1 | [S2] |
+| SDDC Manager, Fleet LCM, VCF Operations | VCF Automation / VCF services runtime (VSP IP adresy, consumption cluster) | TCP 443, 6443, 9100, 2381, 10257, 10259 – obousměrně (účel jednotlivých portů KB neuvádí) | nasazení VCF Automation; pravidla musí sedět na fyzickém firewallu i v NSX DFW | VCF Automation 9.x | [S34] |
+| VCF Automation uzly | vCenter, do kterého se nasazují | 443 | nasazení („Failed to create services platform cluster“ při blokaci) | VCF Automation 9.0 | [S35] |
+| Bootstrap VM (VCF services runtime) | vCenter | TCP 443 | získání thumbprintu vCenteru při bootstrapu services runtime | 9.1 | [S41] |
+| SDDC Manager | VCF Operations fleet management VM | 22, 443 (protokol KB neuvádí; chybová hláška uvádí SSH) | nasazení fleet management, výměna certifikátů | 9.0.1 | [S36] |
+| SDDC Manager | všechny uzly NSX Manageru | 443 | prerekvizita importu vCenteru jako workload domény | 9.1 | [S26] |
+| SDDC Manager | vCenter, ESX hosty | TCP 443 (obousměrně) | autentizace k host agentům, rotace/remediace hesel | **VCF 5.2.2** (pro 9.x nedoloženo) | [S38] |
+| SDDC Manager | vCenter | 8084, 9084, 9087 (jednosměrně; protokol KB neuvádí) | ESX prechecky a patching | **VCF 4.x/5.x** (pro 9.x nedoloženo) | [S37] |
+| Salt Master (každá instance) | komponenty instance | neuvedeno | vynucení desired-state konfigurace | 9.1 | [S2] |
+| vCenter | ESX hosty | 443 (HTTPS, management), 902 („MKS“, host management a konzole VM); ICMP | správa hostů, vLCM remediace, přidání hostů do clusteru | 9.0.1 / 9.x | [S31] |
+| ESX hosty | vCenter | UDP 902 | „ESXi host heartbeats“ (při blokaci host neuvádí metadata VM, nasazení collectoru selže) | 9.x | [S32] |
+| ESX / externí syslog klienti | vCenter (syslog) | 1514 (TLS); **[9.1]** port 514 (UDP/TCP) zablokován | syslog do vCenteru | **[9.1]** změna oproti 9.0 | [S27] |
+| ESX hosty (management IP, vmk0) | všechny uzly NSX Manageru | TCP 443, 1234, 1235 | příprava hostu pro NSX (instalace VIB), spojení s NSX Manager; odchozí pravidla na ESX se vytvoří až po instalaci NSX VIB | NSX 4.x/9.x, VCF 9.x | [S29] |
+| NSX Manager | vCenter | TCP 80 (HTTP CONNECT tunel na interní `sdkTunnel:8089`, uvnitř TLS) – **do 9.1.0 nutný**; TCP 443 (jen probe verze, od 9.1.1 i autentizace a sync) | registrace NSX jako vCenter extension, discovery a sync inventáře | **[9.0, 9.1.0]** TCP 80 nutný; **[9.1.1+]** NSX i vCenter ≥ 9.1.1 → přepne na 443, TCP 80 lze zavřít | [S30] |
+| VCF Operations uzly | NTP server | UDP 123 | synchronizace času (při blokaci selže „Install VCF Operations and VCF Cloud proxy using Fleet Lifecycle“) | 9.1 | [S39] |
+| ESX VMkernel | fyzická síť přes VDS | neuvedeno (vSAN porty: TechDocs odkazuje na portál [S28]; ESX firewall pravidla pro vSAN se přidají automaticky) | management, vSphere vMotion, vSAN, NSX host TEP | 9.1 | [S20][S28] |
+| NSX Edge | fyzická síť | neuvedeno | north-south; east-west mezi workloady | 9.1 | [S2] |
+| vSAN stretched cluster | mezi AZ + witness | neuvedeno (portál [S28]) | replikace storage, low-latency link | 9.1 | [S16][S28] |
 
 Management sítě [S17]:
 - VCF Installer ve výchozím stavu nasadí management komponenty na **VM management network** (sdílená s vCenter,
@@ -371,8 +396,16 @@ Workload Separation; Dedicated vSphere Cluster for NSX Edge Nodes; vSAN Storage 
    která může obsluhovat celou fleet?
 5. **Úroveň Log management**: [S5] fleet-level, [S2] „First instance (Day-N)" – shodné, ale není jasné, zda může být
    i v dalších instancích.
-6. **Porty a protokoly** jednotlivých toků: dokumentace odkazuje na Ports and Protocols (mimo techdocs) – potřeba
-   najít ekvivalent na techdocs/knowledge.broadcom.com.
+6. **Porty a protokoly** (zúženo): portál https://ports.broadcom.com/ [S22] je čistě JS a nejde ho stáhnout jako
+   text. Porty v sekci 7 jsou proto z TechDocs a KB článků, a ty jsou neúplné. Zbývá:
+   (a) projít portál ručně v prohlížeči (pohledy VCF 9.1: SDDC Manager, vCenter, ESX, NSX, VCF Operations,
+   VCF Automation, VCF Management Services) a převzít celé tabulky včetně účelu portů;
+   (b) porty pro Identity broker, Salt Master, fleet lifecycle, cloud proxy → VCF Operations (cíl),
+   vSAN (vč. stretched/witness), vMotion, NSX TEP (Geneve) a NSX Edge – v povolených zdrojích nenalezeny;
+   (c) SDDC Manager → vCenter 8084/9084/9087 [S37] a SDDC Manager → ESX 443 [S38] jsou doloženy jen pro VCF 4.x/5.x;
+   pro 9.x ověřit;
+   (d) účel jednotlivých portů VCF Automation 6443/9100/2381/10257/10259 [S34] KB neuvádí (odkazuje na přílohu
+   `Micro_Segmentation_Port_Requirement.xlsx`).
 7. **Minimální počet hostů** v management domain / workload domain / clusteru (vSAN vs. jiný storage) – na fetchnutých
    stránkách neuvedeno; patří do `10-planning`, ale ovlivní model.
 8. **VCF Edge Models** (dříve Remote Clusters) a **vSphere Supervisor Models** – stránky existují v Design Library
@@ -409,3 +442,23 @@ Workload Separation; Dedicated vSphere Cluster for NSX Edge Nodes; vSAN Storage 
 - [S19] VCF Fleet Sizing Models (9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vcf-fleet-sizing-models-9-x.html
 - [S20] Distributed Switch Models (9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/cluster-network-deployment-models.html
 - [S21] Architectural Options in VMware Cloud Foundation (9.1, index Design Library modelů): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts.html
+- [S22] VMware Ports and Protocols (portál, odkaz z TechDocs [S23]; JS aplikace, obsah nešel stáhnout): https://ports.broadcom.com/
+- [S23] Planning and Preparation (9.1) – odkazuje na „VMware Ports and Protocols“: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation.html
+- [S24] Public URLs Required for Online Functionalities (9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/public-urls-required-for-vmware-cloud-foundation.html
+- [S25] Deploy Cloud Proxy for the VCF 9.1 Upgrade (porty cloud proxy): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/upgrading-cloud-foundation/upgrade-backup-and-restore/configuring-cloud-proxies-in-vrealize-operations-cloud.html
+- [S26] Import an Existing vCenter to Create a Workload Domain (9.1) – SDDC Manager → NSX Manager 443: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/working-with-workload-domains/import-an-existing-vcenter-to-create-a-workload-domain.html
+- [S27] VCF 9.1 Product Support Notes (vCenter syslog 514 → 1514): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-0-0-release-notes/vcf-91-product-support-notes.html
+- [S28] vSAN Network Port Requirements (9.1; odkazuje na portál): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/vsan-deployment-administration-and-monitoring/vsan-network-design/understanding-vsan-networking/network-requirements-for-vsan/vsan-network-port-requirements.html
+- [S29] KB 447321 – NSX VIB installation or upgrade fails due to TCP port timeout (ESX → NSX 443/1234/1235): https://knowledge.broadcom.com/external/article/447321/nsx-vib-installation-or-upgrade-fails-du.html
+- [S30] KB 446323 – NSX Manager to vCenter Server Communication Over TCP/80: https://knowledge.broadcom.com/external/article/446323/nsx-manager-to-vcenter-server-communicat.html
+- [S31] KB 435005 – VCF 9.0.1 Deployment Fails and Rolls Back (vCenter → ESX 443/902): https://knowledge.broadcom.com/external/article/435005/vcf-901-deployment-fails-and-rolls-back.html
+- [S32] KB 436501 – VCF 9.x deployment fails with VMWithNameIPAndHostNameNotFoundException (ESX → vCenter UDP 902): https://knowledge.broadcom.com/external/article/436501/vcf-9x-deployment-fails-with-vmwithnamei.html
+- [S33] KB 445194 – Configuring a vCenter Account in VCF Operations fails „Connection Timed out“ (VCF Ops → vCenter 443): https://knowledge.broadcom.com/external/article/445194/configuring-a-vcenter-account-in-vcf-ope.html
+- [S34] KB 458322 – VCF Automation deployment fails due to blocked ports in micro-segmented environment: https://knowledge.broadcom.com/external/article/458322/vcf-automation-deployment-fails-due-to-b.html
+- [S35] KB 418755 – VCF 9 Automation install failing (Automation nodes → vCenter 443): https://knowledge.broadcom.com/external/article/418755/vcf-9-automation-install-failing-with-lc.html
+- [S36] KB 427641 – VCF deployment failing at VCF Operations fleet management deployment (SDDC Manager → fleet management 22/443): https://knowledge.broadcom.com/external/article/427641/vcf-900-deployment-failing-at-vcf-operat.html
+- [S37] KB 411436 – ESXi patching from SDDC Manager fails (SDDC Manager → vCenter 8084/9084/9087; VCF 4.x/5.x): https://knowledge.broadcom.com/external/article/411436/esxi-patching-from-sddc-manager-fails-wi.html
+- [S38] KB 432304 – Password remediation for ESXi and vCenter accounts fails with handshake failure (TCP 443; VCF 5.2.2): https://knowledge.broadcom.com/external/article/432304/password-remediation-for-esxi-and-vcente.html
+- [S39] KB 439240 – VCF 9.1 installer fails due to unreachable NTP server (UDP 123): https://knowledge.broadcom.com/external/article/439240
+- [S40] KB 404593 – Unable to Register License in VCF Operations in Connected Mode (vcf/eapi.broadcom.com 443): https://knowledge.broadcom.com/external/article/404593/unable-to-register-license-in-vcf-operat.html
+- [S41] KB 458004 – VCF 9.1 deployment fails with „Failed to bootstrap VCF services runtime“ (bootstrap VM → vCenter TCP 443): https://knowledge.broadcom.com/external/article/458004

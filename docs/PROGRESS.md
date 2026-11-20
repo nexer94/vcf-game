@@ -13,12 +13,15 @@
 - [x] `doc-researcher` – `docs/spec/20-deployment.md` (36 stránek TechDocs; VCF Installer, příprava ESX, depot,
   20 kroků wizardu 9.1 + rozdíly 9.0, JSON spec, známé chyby, sizing, IP/FQDN, 17 síťových toků; konvergence
   a upgrade high-level; 14 otevřených otázek ve specu, sekce 8)
+- [x] `doc-researcher` – porty v sekci 7 obou speců (00: 26 toků / 17 s portem; 20: 31 toků / 23 s portem).
+  ports.broadcom.com je JS aplikace a nejde stáhnout → porty z TechDocs + KB, část jen pro 9.0.x / 5.2.2
+- [x] `ui-dev` – izometrický prototyp: 2 racky (ToR-A/B + 4 hosty), bezier kabely, pakety podle typu provozu
+  (ParticleContainer, pool), zátěž 80/95 %, dropy, legenda, čas 0/1/4/16×, hover tooltip, pan/zoom, LOD;
+  demo data v `render/demo/` (ilustrativní); kontrakt `TrafficSource`/`LinkTraffic` pro budoucí engine.
+  Neověřeno: 60 FPS na reálném slabém HW, pinch-zoom, refit při resize
 
 ## Další kroky
-- [ ] `doc-researcher` – doplnit porty a protokoly do sekce „Síťový provoz“ ve `00-architektura` (a `20-deployment`)
-  z webu Broadcom Ports and Protocols (povoleno uživatelem 2026-11-20)
-- [ ] `ui-dev` – izometrický prototyp: rack s hosty a animovaný provoz *(běží)*
-- [ ] `domain-modeler` → `scenario-designer` → `fact-checker` pro bring-up (vzorová oblast)
+- [ ] `domain-modeler` → `scenario-designer` → `fact-checker` pro bring-up (vzorová oblast) *(domain-modeler běží)*
 - [ ] `engine-dev` – vrstva režimů `game/src/modes/` (viz CLAUDE.md „Herní režimy“):
   - [ ] Sandbox – volné akce nad modelem, bez misí a peněz
   - [ ] Kariéra – mise, úkoly a body (formát dohodnout se `scenario-designer`)
@@ -34,6 +37,8 @@
 4. [ ] Den 2 – nová workload doména (`40-workload-domains`), nová instance ve fleetu
 
 ## Otevřené otázky
+- Porty: ports.broadcom.com nejde agentem přečíst (JS) – uživatel může tabulky pro VCF 9.1 exportovat/zkopírovat
+  ručně; chybí porty pro vSAN, vMotion, NSX TEP/Edge, Identity broker, Salt, cloud proxy → VCF Ops
 - Rozpory ve specu 00 (Simple model – 2 vs 3 workery; VCF Automation HA-Small) → ověřit při fact-checku
 - Minimální počty hostů domén/clusterů → oblast `10-planning` (spec 20 má jen čísla ze stránky o konvergenci)
-- API VCF Installeru: dokumentace odkazuje na developer.broadcom.com (není povolený zdroj) – povolit? (uživatel)
+- API VCF Installeru: developer.broadcom.com povolen pro API (uživatel, 2026-11-20) → doplnit při misích s API

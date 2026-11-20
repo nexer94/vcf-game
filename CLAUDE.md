@@ -15,6 +15,7 @@ Výjimka: drobné úpravy `docs/PROGRESS.md` a tohoto souboru děláš sám.
 - **Jediný zdroj faktů o VCF je `docs/spec/`.** Každé tvrzení ve specu má odkaz na techdocs.broadcom.com
   (nebo knowledge.broadcom.com). Pro porty a protokoly (sekce „Síťový provoz“) je povolený i oficiální
   web Broadcom **Ports and Protocols**, na který TechDocs odkazuje – vždy s odkazem na konkrétní stránku/produkt.
+  Pro API (endpointy, payloady, API workflow) je povolený **developer.broadcom.com** – jen pro API, s odkazem.
 - **VCF Upgrade Planner** (https://vmware.github.io/vcf-upgrade-planner/) slouží jako **rozcestník**: výběr situací
   pro kampaně, struktura a pořadí kroků. Fakta z něj se nepřebírají – ověřují se na techdocs/knowledge stránce,
   na kterou planner odkazuje.
