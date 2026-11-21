@@ -4,7 +4,7 @@
   "release": "ESXi 9.1 (vSAN 9.1)",
   "listQuery": "POST https://compatibilityguide.broadcom.com/compguide/programs/viewResults",
   "detailQuery": "POST https://compatibilityguide.broadcom.com/compguide/programs/viewDetails?programId=vsanesa&id=<productId>",
-  "fetchedAt": "2026-11-21T14:32Z",
+  "fetchedAt": "2026-11-21T15:40Z",
   "totalReadyNodesAllVendors": 350,
   "vendors": {
    "Lenovo": 76,
