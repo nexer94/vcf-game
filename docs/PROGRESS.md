@@ -29,6 +29,13 @@
   HA admission control, vCPU:pCPU ≤ 2:1, resource check installeru = warning [9.0.x]; 13 otevřených otázek
 
 ## Další kroky
+### Hlavní menu: Kariéra · Hotové scénáře · Sandbox (uživatel 2026-11-22)
+- Sandbox bez úkolů a bublin; checklist + bubliny jen v Kariéře
+- [ ] `doc-researcher` – `40-workload-domains` + inventář VM a spotřeba zdrojů pro hotové scénáře *(běží)*
+- [ ] `domain-modeler` / `engine-dev` – hotové scénáře: replay příkazů do plně nasazeného stavu, inventář VM
+- [ ] `scenario-designer` – 5 hotových scénářů (nejmenší Simple, HA, mgmt + WLD, více WLD, více instancí)
+- [ ] `ui-dev` – prohlížeč hotového prostředí (VM, zdroje)
+
 ### Sandbox v3 – zjednodušení + Kariéra level 1 (uživatel 2026-11-22)
 - [x] `ux-designer` – UX.md Část III (kap. 16–27) + GRAPHICS (bez červeného pruhu, šedý rošt místo jantarových žlabů,
   svislý rack s U pravítkem a ToR nahoře, BMC provoz hned); backlog ui-dev U1–U10, engine-dev E1–E8, scenario S1–S3

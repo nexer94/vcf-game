@@ -55,7 +55,10 @@ milníku (např. Sandbox hratelný od prázdné serverovny po bring-up). Před c
 Pravidlo „fakta jen ze specu“ platí pořád.
 
 ## Herní režimy
-Oba režimy sdílejí **stejný model a engine** (stejná pravidla VCF ze specu); liší se jen vrstvou nad nimi.
+**Hlavní menu (uživatel 2026-11-22), v tomto pořadí:** 1. **Kariéra** (příběh po levelech) · 2. **Hotové scénáře**
+(už nasazená prostředí podle designu – vidět spotřeba zdrojů a všechny běžící VM) · 3. **Sandbox** (volně, bez úkolů).
+
+Všechny režimy sdílejí **stejný model a engine** (stejná pravidla VCF ze specu); liší se jen vrstvou nad nimi.
 
 ### 1. Sandbox – volná simulace
 - Hráč může dělat cokoliv, co dovoluje architektura a dokumentace (navrhnout fleet, nasadit, rozšiřovat, rozbíjet…).
@@ -95,10 +98,16 @@ Oba režimy sdílejí **stejný model a engine** (stejná pravidla VCF ze specu)
   odškrtávací checklist po jednom kroku. Odkazy do dokumentace čitelnými názvy, ne čísly typu [P13]; menu se musí
   vejít na obrazovku. Instalace ESX jako ve skutečnosti (obrazovky instalátoru podle dokumentace).
 - **Kariéra – level 1**: nasadit Single Site fleet (VCF Fleet in a Single Site), vSAN, 4 hosty – řízený level.
-- **Checkpointy / úkoly i v Sandboxu**: hráč vždy ví, co dělat dál (tracker „Další krok“ s průběhem a splněním).
-  Jsou volitelné – dají se odkliknout / skrýt; nic nezamykají, jen vedou.
+- **Sandbox je bez úkolů a bublin** (uživatel 2026-11-22) – jen úvodní upozornění, že platí limity VCF a dokumentace
+  (validace dál běží). Checklist s bublinami patří do Kariéry.
 - Ovládání v místnosti: rack (zoom → 2D kabeláž), tabule (auto High-Level Design + vlastní kresba), počítač
   (návrh VCF dlaždicemi, use case, installer) – viz `docs/design/GRAPHICS.md`.
+
+### 3. Hotové scénáře – prohlížení nasazených designů
+- Předpřipravená, **plně nasazená** prostředí – hráč nic neinstaluje, jen zkoumá: rozmístění HW, běžící VM
+  (management komponenty) a **kolik zdrojů žerou** (vCPU/RAM/storage podle sizingu ze specu).
+- Řada scénářů (od nejmenšího): 1. nejmenší deploy, vše Simple · 2. HA instalace · 3. management + workload doména
+  odděleně · 4. více workload domén · 5. více instancí · dál podle blueprintů. Vše jen podle specu (`00`, `06`, `20`, `40`).
 
 ### 2. Kariéra – hra
 - Postup po **kampaních → misích → úkolech**; mise se odemykají postupně.
