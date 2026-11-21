@@ -91,8 +91,17 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
     všech 25 řádků B.3 přímo ze specu; `USE_CASE_NOT_MODELLED`; `hostPortRequirements`; `loadHardwareCatalog()`
   - [ ] přepnout session/UI na líné načítání katalogu (bundle) – postup v reportu domain-modelera
   - [ ] **Výběr blueprintu / lokality na startu** (uživatel 2026-11-21):
-  - [ ] `doc-researcher` – `06-blueprints` (všechny Design Blueprints 9.1 + mapování na herní lokality) *(běží)*
-  - [ ] `domain-modeler` – sites/místnosti/AZ/linky v `physical.ts`, omezení návrhu podle lokality *(běží)*
+  - [x] `doc-researcher` – `06-blueprints` (45 zdrojů): 5 fleet blueprintů (Minimal Footprint/Basic 3 hosty,
+    Single Site/Basic 4, Multiple Sites in a Single Region/Site HA 4+4, Across Multiple Regions/DR 4+4,
+    Single Region plus Additional Region/Fault Domains+DR 4+4+4) – přiřazení modelů k blueprintům je přímo
+    v dokumentaci; Site HA: RTT < 5 ms, ≥ 10 GbE, stejný počet hostů v AZ, witness ve 3. lokalitě RTT ≤ 200 ms;
+    Edge/DR/Backup blueprinty; mapování na herní lokality (§7a)
+  - [x] `domain-modeler` – `model/sites.ts`: 5 lokalit (malá/velká místnost, 2 místnosti v budově, kampus, DR),
+    role místností AZ1/AZ2/witness/druhá instance, linky (herní RTT/propustnost) vs. limit 10 §3.3 (≥10 Gbps,
+    RTT < 5 ms = error), minima hostů na AZ, kabely mezi místnostmi jen switch–switch, návrh omezený lokalitou
+    s odemykacími akcemi; tabulka blueprint → lokalita čeká na `06`
+    - otevřené: Fault Domains+DR nedosažitelné (potřeba 4 místnosti), witness/DR v libovolné místnosti, RTT pro
+      witness/DR spec neuvádí → rozhodnout po `06-blueprints`
   - [ ] `ui-dev` C – startovní obrazovka s kartami blueprintů, místnosti malá/velká, budova, kampus, DR *(běží)*
   - [ ] `engine-dev` – napojení (volba blueprintu v session, místnosti, AZ)
 - [ ] (odloženo do funkčního milníku) `code-reviewer` + `ux-designer` review → `fact-checker`

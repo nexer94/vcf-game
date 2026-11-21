@@ -24,7 +24,7 @@ Sekce **Design** v TechDocs VCF 9.1 má tři části [D1]:
 - **Design Library for VMware Cloud Foundation** – detailní design. Obsahuje requirements (`…-REQD-…`) a
   recommendations (`…-RCMD-…` / `…-RECD-…`) pro každý model [D2][D3].
 - **Design Blueprints** – hotové kombinace modelů. Příklady: „VCF Fleet in a Single Site with Minimal Footprint“,
-  „VCF Fleet in a Single Site“, multi-site varianty [D34].
+  „VCF Fleet in a Single Site“, multi-site varianty [D34]. Kompletně zpracováno v `06-blueprints.md`.
 
 **Hlavní otázka: je management domain vyhrazená jen pro management, nebo v ní smějí běžet uživatelské workloady?**
 
@@ -162,6 +162,9 @@ the same cluster, and share the same subnet.“ [D5]
 | VCF Fleet in a Single Site with Minimal Footprint [D35] | „management domain of the first VCF Instance is deployed with a minimal footprint“ | ve stejném clusteru jako management |
 | VCF Fleet in a Single Site [D38] | „deployed with high availability for management components“ | „isolated to a separate workload domain“ |
 | VCF Fleet with Multiple Sites in a Single Region / Across Multiple Regions / Single Region plus Additional Region(s) | HA *(parafráze z indexu)* | v samostatné workload domain *(parafráze z indexu)* |
+
+> **Kompletní zpracování všech blueprintů 9.1** (topologie, AZ/regiony, hosty, IP, witness, inter-site požadavky,
+> Edge, DR, backup, mapování na fleet deployment modely a na herní lokality) je v **`06-blueprints.md`**.
 
 Výběr modelů v minimal-footprint blueprintu [D35][D36]:
 - VCF Installer: deployment model „Simple“, velikost „Small“.
@@ -535,8 +538,9 @@ Design určuje, **na které síti / VLAN** toky běží. To je pro vizualizaci p
 6. **Změna Simple → HA celé instance** (NSX 1→3 uzly, VCF Operations 1→3). Jednotlivé komponenty scale-out
    podporují [D17][D22][D27]. Celkový postup a změnu „deployment modelu“ instance ale dokumentace v design sekci
    neuvádí [D12].
-7. **Stránky layerů blueprintů** (Consumption / Operations / Security / Virtual / Physical Infrastructure Layer)
-   a blueprinty multi-site nebyly staženy jednotlivě. Tabulka 2.7 pro multi-site je parafráze indexu [D34].
+7. ~~**Stránky layerů blueprintů** a blueprinty multi-site nebyly staženy jednotlivě.~~ **Částečně vyřešeno
+   2026-11-21**: všechny blueprinty 9.1 a layer stránky potřebné pro topologii jsou v `06-blueprints.md`. Zbylé
+   nezpracované layer stránky viz `06-blueprints` Otevřené otázky 9.
 8. **Nezpracované modely**: vSphere Supervisor, Workload Connectivity, Load Balancer, VCF Recovery Options, NSX Edge
    Cluster, Virtual Network Appliance, Network Fabric, VCF Edge, Private AI, vDefend [D2]. Patří do `51-nsx`,
    `80-automation`, `90-operations`.
