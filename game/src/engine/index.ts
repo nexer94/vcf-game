@@ -5,3 +5,5 @@ export * from './events';
 export * from './snapshot';
 export * from './engine';
 export * from './tasks';
+export * from './freeze';
+export * from './loop';

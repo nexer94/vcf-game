@@ -324,4 +324,78 @@ describe('Sandbox – time', () => {
     expect(s.snapshot()).not.toBe(a);
     expect(s.snapshot().revision).toBe(a.revision + 1);
   });
+
+  it('snapshots and state are deep-frozen: nested mutation throws and cannot corrupt the session', () => {
+    const s = new SandboxSession({ initialChoices: MINIMAL_FOOTPRINT });
+    const snap = s.snapshot();
+    const nested: unknown[] = [snap.design, snap.design.choices, snap.design.decisions[0], snap.deploy.spec, snap.deploy.spec.general, snap.planning.depot, snap.phases[0], snap.illustrative.taskDurationsMs];
+    for (const o of nested) expect(Object.isFrozen(o)).toBe(true);
+    expect(() => {
+      (snap.deploy.spec.general as { instanceName: string }).instanceName = 'hacked';
+    }).toThrow(TypeError);
+    expect(() => {
+      (s.state.env.dns.forward as Record<string, string>)['evil.lab'] = '1.1.1.1';
+    }).toThrow(TypeError);
+    expect(() => {
+      (s.state.choices as Record<string, string>)['deployment-model'] = 'x';
+    }).toThrow(TypeError);
+    expect(s.state.spec.general.instanceName).not.toBe('hacked');
+    expect(s.state.env.dns.forward['evil.lab']).toBeUndefined();
+  });
+
+  it('idle ticks keep revision and snapshot identity (no new state, no events)', () => {
+    const engine = new GameEngine(16);
+    const s = new SandboxSession();
+    s.attachTo(engine);
+    const events: SandboxEvent[] = [];
+    s.subscribe((e) => events.push(e));
+    const st = s.state;
+    const snap = s.snapshot();
+    for (let i = 0; i < 100; i++) engine.tick(16);
+    expect(s.state).toBe(st);
+    expect(s.snapshot()).toBe(snap);
+    expect(s.snapshot().revision).toBe(snap.revision);
+    expect(events).toEqual([]);
+    expect(s.timeMs).toBe(100 * 16 * 16);
+    // The next command is stamped with the current game time.
+    s.selectDesignOption('deployment-model', 'simple');
+    expect(s.state.timeMs).toBe(100 * 16 * 16);
+    expect(s.snapshot().log.at(-1)?.atMs).toBe(100 * 16 * 16);
+  });
+
+  it('progress ticks keep the structural revision and heavy parts; progress events are coalesced', () => {
+    const engine = new GameEngine(1);
+    const s = new SandboxSession();
+    s.attachTo(engine);
+    completeDesign(s, MINIMAL_FOOTPRINT);
+    must(s, { type: 'configureDepot', connection: { kind: 'online', input: { activationCode: 'GAME-ACT-0001' } } });
+    must(s, { type: 'downloadBinaries', binaries: ['VMware vCenter'] });
+    const events: SandboxEvent[] = [];
+    s.subscribe((e) => events.push(e));
+    const a = s.snapshot();
+    const duration = a.tasks[0]!.durationMs;
+    const frames = 1000;
+    for (let i = 0; i < frames; i++) engine.tick(duration / 2 / frames);
+    const b = s.snapshot();
+    expect(b.revision).toBe(a.revision);
+    expect(b.progressRevision).toBeGreaterThan(a.progressRevision);
+    expect(b.tasks[0]!.progress).toBeCloseTo(0.5, 5);
+    expect(b.planning.depot.binaries.find((x) => x.binary === 'VMware vCenter')?.progress).toBeCloseTo(0.5, 5);
+    // Heavy, validation-based parts are reused by identity.
+    expect(b.design).toBe(a.design);
+    expect(b.phases).toBe(a.phases);
+    expect(b.planning.hosts).toBe(a.planning.hosts);
+    expect(b.deploy).toBe(a.deploy);
+    expect(s.snapshot()).toBe(b);
+    // No per-frame stateChanged; progress notifications at most once per whole percent.
+    expect(events.filter((e) => e.type === 'sandbox/stateChanged')).toEqual([]);
+    const progressed = events.filter((e) => e.type === 'sandbox/tasksProgressed');
+    expect(progressed.length).toBeGreaterThanOrEqual(49);
+    expect(progressed.length).toBeLessThanOrEqual(51);
+    // Completion is structural: revision bumps and stateChanged(tick) fires once.
+    engine.setSpeed(16);
+    for (let i = 0; i < 10; i++) engine.tick(60_000);
+    expect(s.snapshot().revision).toBeGreaterThan(a.revision);
+    expect(events.filter((e) => e.type === 'sandbox/stateChanged' && e.cause === 'tick').length).toBeGreaterThanOrEqual(1);
+  });
 });

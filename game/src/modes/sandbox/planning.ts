@@ -161,15 +161,9 @@ export function planningView(
     : [];
   const minimum = params ? minManagementDefaultClusterHosts(params.clusterModel, params.model, params.storage) : undefined;
   const binIssues = validateBinariesForDeployment(env.depot);
-  const progress = new Map<string, number>();
-  for (const t of tasks)
-    if (t.payload.kind === 'binary-download' || t.payload.kind === 'binary-validation') progress.set(t.payload.binary, Math.min(1, t.elapsedMs / t.durationMs));
-  const binaries = VCF_BINARIES.map((b): BinaryView => {
-    const p = progress.get(b);
-    return { binary: b, status: env.depot.binaries[b] ?? 'not-downloaded', ...(p !== undefined ? { progress: p } : {}) };
-  });
+  const binaries = VCF_BINARIES.map((b): BinaryView => ({ binary: b, status: env.depot.binaries[b] ?? 'not-downloaded' }));
   const installerIssues = validateInstallerCanDeploy(env.installer);
-  return {
+  const view: PlanningView = {
     installer: { state: env.installer, canDeployIssues: installerIssues },
     depot: {
       connection: env.depot.connection,
@@ -190,4 +184,22 @@ export function planningView(
     ...(env.physicalNetworkLagReady !== undefined ? { physicalNetworkLagReady: env.physicalNetworkLagReady } : {}),
     issues: groupIssues([...installerIssues, ...binIssues, ...countIssues, ...hosts.flatMap((h) => [...h.issues.errors, ...h.issues.warnings, ...h.issues.recommendations])]),
   };
+  return withBinaryProgress(view, tasks);
+}
+
+/**
+ * Overlays running binary task progress onto a planning view. Cheap (no validation), so the session
+ * can keep the heavy view cached while only progress changes. Returns `view` itself when no binary
+ * task runs.
+ */
+export function withBinaryProgress(view: PlanningView, tasks: readonly SandboxTask[]): PlanningView {
+  const progress = new Map<string, number>();
+  for (const t of tasks)
+    if (t.payload.kind === 'binary-download' || t.payload.kind === 'binary-validation') progress.set(t.payload.binary, Math.min(1, t.elapsedMs / t.durationMs));
+  if (progress.size === 0) return view;
+  const binaries = view.depot.binaries.map((b): BinaryView => {
+    const p = progress.get(b.binary);
+    return p === undefined ? b : { ...b, progress: p };
+  });
+  return { ...view, depot: { ...view.depot, binaries } };
 }

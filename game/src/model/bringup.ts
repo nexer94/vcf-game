@@ -26,13 +26,16 @@ import {
 import {
   type DnsRecords,
   type IpPool,
+  type Ipv4Interval,
   checkForwardReverse,
-  cidrContains,
-  expandPool,
+  firstBadAddressInCidr,
   formatIpv4,
-  isNetworkOrBroadcast,
+  intervalOverlapStart,
+  intervalsContain,
+  intervalsSize,
   parseCidr,
   parseIpv4,
+  poolToIntervals,
 } from './net';
 import { type TransitionResult, type ValidationCode, type ValidationIssue, hasErrors, issue, warningsOf } from './validation';
 
@@ -1313,7 +1316,10 @@ export function validateHostEntries(spec: BringupSpec, env: BringupEnvironment):
 
 interface PoolInfo {
   readonly name: string;
-  readonly addrs: readonly number[];
+  /** Entries in wizard order as numeric intervals (never materialised into address arrays). */
+  readonly intervals: readonly Ipv4Interval[];
+  /** Number of address entries (end − start + 1 per interval). */
+  readonly size: number;
 }
 
 function poolsOf(spec: BringupSpec): { pools: PoolInfo[]; issues: ValidationIssue[] } {
@@ -1321,9 +1327,9 @@ function poolsOf(spec: BringupSpec): { pools: PoolInfo[]; issues: ValidationIssu
   const issues: ValidationIssue[] = [];
   const add = (name: string, p: IpPool | undefined): void => {
     if (!p) return;
-    const a = expandPool(p);
-    if (!a) issues.push(issue('IP_POOL_INVALID', 'error', `${name}: invalid IP range or address list.`, '20 §4.2 step 11 [S14]', name));
-    else pools.push({ name, addrs: a });
+    const iv = poolToIntervals(p);
+    if (!iv) issues.push(issue('IP_POOL_INVALID', 'error', `${name}: invalid IP range or address list.`, '20 §4.2 step 11 [S14]', name));
+    else pools.push({ name, intervals: iv, size: intervalsSize(iv) });
   };
   const n = spec.networks;
   add('VCF Management Services IP Range', n.managementServicesIpPool);
@@ -1350,16 +1356,16 @@ export function validateIpPools(spec: BringupSpec, env: BringupEnvironment): Val
 
   const svc = pools.find((p) => p.name === 'VCF Management Services IP Range');
   if (svc) {
-    if (svc.addrs.length < SERVICES_RUNTIME_MIN_IPS)
+    if (svc.size < SERVICES_RUNTIME_MIN_IPS)
       out.push(issue('SERVICES_RUNTIME_IPS_TOO_FEW', 'error', `VCF services runtime requires at least ${SERVICES_RUNTIME_MIN_IPS} IP addresses.`, '20 §3.5, §6.4 [S19]', 'networks.managementServicesIpPool'));
     // Documentation only recommends 30 IPs; no installer warning is documented -> 'recommendation'
     // severity (non-blocking, not part of the Acknowledge flow of 20 §5.1).
-    else if (svc.addrs.length < SERVICES_RUNTIME_RECOMMENDED_IPS)
+    else if (svc.size < SERVICES_RUNTIME_RECOMMENDED_IPS)
       out.push(issue('SERVICES_RUNTIME_IPS_BELOW_RECOMMENDED', 'recommendation', `Recommendation from the documentation (not an installer warning): reserve ${SERVICES_RUNTIME_RECOMMENDED_IPS} IP addresses for the VCF services runtime (Day-N services consume IPs from this block).`, '20 §3.5, §6.4 [S19]', 'networks.managementServicesIpPool'));
   }
   if (isVcfAutomationDeployedNow(spec)) {
     const va = pools.find((p) => p.name === 'VCF Automation IP Range');
-    if (!n.vcfAutomationIpPool || (va && va.addrs.length < VCF_AUTOMATION_IPS))
+    if (!n.vcfAutomationIpPool || (va && va.size < VCF_AUTOMATION_IPS))
       out.push(issue('VCF_AUTOMATION_IPS_TOO_FEW', 'error', `VCF Automation requires ${VCF_AUTOMATION_IPS} IP addresses (3 for nodes, 2 buffer).`, '20 §3.5 [S19]', 'networks.vcfAutomationIpPool'));
   }
   if (!(SERVICES_RUNTIME_INTERNAL_CIDRS_IPV4 as readonly string[]).includes(spec.components.internalClusterCidrIpv4))
@@ -1381,18 +1387,19 @@ export function validateIpPools(spec: BringupSpec, env: BringupEnvironment): Val
       out.push(issue('NETWORK_CIDR_INVALID', 'error', `${name}: invalid subnet.`, '20 §4.2 step 11 [S14]', field));
       return;
     }
-    const addrs = net.inclusionRanges.flatMap((r) => expandPool(r) ?? []);
-    if (addrs.length < hostCount * perHost)
+    // Invalid pools are skipped here (reported by poolsOf as IP_POOL_INVALID).
+    const ivs = net.inclusionRanges.flatMap((r) => poolToIntervals(r) ?? []);
+    if (intervalsSize(ivs) < hostCount * perHost)
       out.push(issue('INCLUSION_RANGE_TOO_SMALL', 'error', `${name}: IP inclusion range must contain at least ${hostCount * perHost} addresses.`, '20 §5.1, §6.4 [S14][S19]', field));
-    for (const a of addrs) {
-      if (!cidrContains(cidr, a)) {
-        out.push(issue('INCLUSION_RANGE_OUTSIDE_SUBNET', 'error', `${name}: ${formatIpv4(a)} is outside ${net.cidr} (VLAN ${net.vlanId}).`, '20 §5.1 [S14][S34]', field));
-        break;
-      }
-      if (isNetworkOrBroadcast(cidr, a)) {
-        out.push(issue('INCLUSION_RANGE_NETWORK_OR_BROADCAST', 'error', `${name}: ${formatIpv4(a)} is a network or broadcast address.`, '20 §5.1 [S14][S34]', field));
-        break;
-      }
+    // First offending address in entry order (interval-wise, no per-address scan).
+    for (const iv of ivs) {
+      const bad = firstBadAddressInCidr(cidr, iv);
+      if (!bad) continue;
+      if (bad.reason === 'outside')
+        out.push(issue('INCLUSION_RANGE_OUTSIDE_SUBNET', 'error', `${name}: ${formatIpv4(bad.ip)} is outside ${net.cidr} (VLAN ${net.vlanId}).`, '20 §5.1 [S14][S34]', field));
+      else
+        out.push(issue('INCLUSION_RANGE_NETWORK_OR_BROADCAST', 'error', `${name}: ${formatIpv4(bad.ip)} is a network or broadcast address.`, '20 §5.1 [S14][S34]', field));
+      break;
     }
   };
   checkNet('vMotion', n.vmotion, 1, 'networks.vmotion');
@@ -1400,17 +1407,31 @@ export function validateIpPools(spec: BringupSpec, env: BringupEnvironment): Val
   if (spec.networkConfig.vpcNetwork === 'full-stack') checkNet('NSX Host Overlay', n.nsxHostOverlay, tepPerHost, 'networks.nsxHostOverlay');
 
   // Conflicts between pools and with host management IPs (20 §5.1 "bez konfliktů").
-  const owner = new Map<number, string>();
-  const hostIps = env.hosts.map((h) => ({ name: `ESX host ${h.id}`, ip: h.network ? parseIpv4(h.network.ipv4Address) : undefined }));
-  for (const h of hostIps) if (h.ip !== undefined) owner.set(h.ip, h.name);
+  // Interval-wise: owned segments of different owners never overlap (an address is only claimed
+  // when it is free or already owned by the same name), so the first conflict of an interval is
+  // the lowest overlap start with a segment of another owner. On conflict, only the addresses of
+  // the pool before the conflicting one are claimed (same as an address-by-address scan).
+  const hostOwner = new Map<number, string>();
+  for (const h of env.hosts) {
+    const ip = h.network ? parseIpv4(h.network.ipv4Address) : undefined;
+    if (ip !== undefined) hostOwner.set(ip, `ESX host ${h.id}`); // last host wins, as before
+  }
+  const owned: { readonly start: number; readonly end: number; readonly name: string }[] = [];
+  for (const [ip, name] of hostOwner) owned.push({ start: ip, end: ip, name });
   for (const p of pools) {
-    for (const a of p.addrs) {
-      const prev = owner.get(a);
-      if (prev !== undefined && prev !== p.name) {
-        out.push(issue('IP_CONFLICT', 'error', `${p.name}: ${formatIpv4(a)} conflicts with ${prev}.`, '20 §5.1 [S14]', p.name));
+    for (const iv of p.intervals) {
+      let hit: { ip: number; name: string } | undefined;
+      for (const seg of owned) {
+        if (seg.name === p.name) continue;
+        const at = intervalOverlapStart(iv, seg);
+        if (at !== undefined && (hit === undefined || at < hit.ip)) hit = { ip: at, name: seg.name };
+      }
+      if (hit) {
+        out.push(issue('IP_CONFLICT', 'error', `${p.name}: ${formatIpv4(hit.ip)} conflicts with ${hit.name}.`, '20 §5.1 [S14]', p.name));
+        if (hit.ip > iv.start) owned.push({ start: iv.start, end: hit.ip - 1, name: p.name });
         break;
       }
-      owner.set(a, p.name);
+      owned.push({ start: iv.start, end: iv.end, name: p.name });
     }
   }
   return out;
@@ -1440,7 +1461,7 @@ export function validateComponentFqdns(spec: BringupSpec, env: BringupEnvironmen
       out.push(issue('FQDN_IP_NOT_UNIQUE', 'error', `${r.field}: IP ${ip} is already assigned to ${prev}.`, '20 §3.5, §5.1 [S14][S19]', r.field));
     else ipOwner.set(ip, r.field);
     const n = parseIpv4(ip);
-    const inPool = n === undefined ? undefined : pools.find((p) => p.addrs.includes(n));
+    const inPool = n === undefined ? undefined : pools.find((p) => intervalsContain(p.intervals, n));
     if (inPool)
       out.push(issue('FQDN_IP_IN_RESERVED_RANGE', 'error', `${r.field}: IP ${ip} lies in ${inPool.name}.`, '20 §3.5, §5.1 [S14][S19]', r.field));
   }

@@ -12,7 +12,7 @@
  *  - prep actions on hosts of a deployed / deploying management domain are locked
  *    (Day 2 host operations are not modelled yet).
  */
-import { createTimedTask, advanceTimedTasks } from '../../engine';
+import { createTimedTask, advanceTimedTasks, taskProgress } from '../../engine';
 import {
   type BringupEnvironment,
   type BringupRules,
@@ -575,26 +575,43 @@ function describe(cmd: SandboxCommand): string {
 export interface AdvanceOutcome {
   readonly state: SandboxState;
   readonly events: readonly SandboxEvent[];
+  /**
+   * True when only task progress (elapsedMs) and `timeMs` changed – no task completed, nothing else in
+   * the state moved. The session uses it to keep the heavy snapshot parts cached.
+   */
+  readonly progressOnly: boolean;
 }
+
+/** Progress granularity for `sandbox/tasksProgressed` notifications (whole percent). */
+const PROGRESS_STEPS = 100;
+const progressStep = (t: SandboxTask): number => Math.floor(taskProgress(t) * PROGRESS_STEPS);
 
 /**
  * Advances timed tasks by a game-time delta. `nowMs` (engine game time) overrides the accumulated
- * session time when provided. Zero delta (paused) changes nothing.
+ * session time when provided.
+ *
+ * `state.timeMs` is the game time of the last state change, not a running clock: with no running task
+ * (or a zero delta while paused) the SAME state object is returned, so idle ticks never create new
+ * state. The clock owner (SandboxSession) syncs `timeMs` before applying the next command.
+ *
+ * Notifications are coalesced: `sandbox/tasksProgressed` only when some task crossed a whole percent,
+ * `sandbox/stateChanged` (cause 'tick') only when a task completed.
  */
 export function advanceSandbox(state: SandboxState, gameDeltaMs: number, nowMs?: number): AdvanceOutcome {
-  if (gameDeltaMs <= 0 || state.tasks.length === 0) {
-    const timeMs = nowMs ?? state.timeMs + Math.max(0, gameDeltaMs);
-    return { state: timeMs === state.timeMs ? state : { ...state, timeMs }, events: [] };
-  }
+  if (gameDeltaMs <= 0 || state.tasks.length === 0) return { state, events: [], progressOnly: true };
   const tx = new Tx({ ...state, timeMs: nowMs ?? state.timeMs + gameDeltaMs });
   const { running, completed } = advanceTimedTasks(tx.s.tasks, gameDeltaMs);
   tx.s = { ...tx.s, tasks: running };
+  const before = new Map(state.tasks.map((t) => [t.id, progressStep(t)]));
+  const moved = running.filter((t) => progressStep(t) !== before.get(t.id));
+  if (moved.length > 0)
+    tx.emit({ type: 'sandbox/tasksProgressed', atMs: tx.s.timeMs, tasks: moved.map((t) => ({ taskId: t.id, kind: t.kind, progress: taskProgress(t) })) });
   for (const t of completed) {
     tx.emit({ type: 'sandbox/taskCompleted', atMs: tx.s.timeMs, taskId: t.id, kind: t.kind, label: t.label });
     completeTask(tx, t);
   }
-  tx.emit({ type: 'sandbox/stateChanged', atMs: tx.s.timeMs, cause: 'tick' });
-  return { state: tx.s, events: tx.events };
+  if (completed.length > 0) tx.emit({ type: 'sandbox/stateChanged', atMs: tx.s.timeMs, cause: 'tick' });
+  return { state: tx.s, events: tx.events, progressOnly: completed.length === 0 };
 }
 
 function setBinary(tx: Tx, b: VcfBinary, next: 'validating' | 'downloaded'): boolean {

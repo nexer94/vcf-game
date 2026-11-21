@@ -1,5 +1,5 @@
 import { Application } from 'pixi.js';
-import type { GameEngine, GameSnapshot } from '../engine';
+import type { GameEngineView, GameSnapshot } from '../engine';
 import { fitRect, type Camera } from './camera';
 import { createDemoTopology } from './demo/demoTopology';
 import { DemoTrafficSource } from './demo/demoTraffic';
@@ -27,6 +27,9 @@ const BACKDROP_PERIOD_MS = 60_000;
 const BACKDROP_DRIFT_PX = 60;
 const BACKDROP_ZOOM = 1.25;
 
+/** Render only reads engine snapshots; ticking and speed belong to the engine loop (engine/loop.ts). */
+export type StageEngine = Pick<GameEngineView, 'snapshot'>;
+
 /**
  * Single PixiJS application shared by all screens (WebGL context is created once).
  * Currently hosts the illustrative datacenter traffic scene.
@@ -35,19 +38,22 @@ export class SceneStage {
   private mode: StageMode = 'off';
   private readonly hooks = new Set<FrameHook>();
   private backdropMs = 0;
+  /** Visual-only time of the menu backdrop (never touches game state / game speed). */
+  private backdropTick = 0;
+  private backdropTimeMs = 0;
   private active: StageScene = 'datacenter';
 
   private constructor(
     readonly app: Application,
     readonly scene: DatacenterScene,
     readonly room: RoomScene,
-    private readonly engine: GameEngine,
+    private readonly engine: StageEngine,
   ) {
     room.world.visible = false;
     app.ticker.add((ticker) => this.frame(ticker.deltaMS, ticker.FPS));
   }
 
-  static async create(host: HTMLElement, engine: GameEngine): Promise<SceneStage> {
+  static async create(host: HTMLElement, engine: StageEngine): Promise<SceneStage> {
     const dpr = window.devicePixelRatio || 1;
     const app = new Application();
     await app.init({
@@ -102,7 +108,6 @@ export class SceneStage {
       return;
     }
     this.scene.setDetailVisible(false);
-    if (mode === 'backdrop') this.engine.setSpeed(1);
     this.app.ticker.start();
   }
 
@@ -126,14 +131,20 @@ export class SceneStage {
   }
 
   private frame(realMs: number, fps: number): void {
-    // NOTE: the engine is ticked here only while a scene is visible. When the sandbox
-    // gets a live simulation, engine ticking moves to a render-independent loop.
-    this.engine.tick(Math.min(realMs, 100));
-    const snap = this.engine.snapshot();
+    // The engine is ticked by its own loop (engine/loop.ts, started in main.ts), so game time runs
+    // even while the stage is 'off'. The backdrop animates on its own visual clock at 1x and ignores
+    // the game speed (a paused game must stay paused behind the menu).
+    const snap = this.mode === 'backdrop' ? this.backdropSnapshot(realMs) : this.engine.snapshot();
     if (this.active === 'room') this.room.update(snap, realMs);
     else this.scene.update(snap, realMs);
     if (this.mode === 'backdrop') this.driftBackdrop(realMs);
     for (const h of this.hooks) h(snap, realMs, fps);
+  }
+
+  private backdropSnapshot(realMs: number): GameSnapshot {
+    this.backdropTick += 1;
+    this.backdropTimeMs += Math.min(realMs, 100);
+    return { tick: this.backdropTick, clock: { gameTimeMs: this.backdropTimeMs, speed: 1 } };
   }
 
   private driftBackdrop(realMs: number): void {

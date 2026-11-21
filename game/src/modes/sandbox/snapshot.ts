@@ -2,7 +2,7 @@
  * Read-only snapshot of a Sandbox session for the UI. Everything needed to render the three phases;
  * the UI never calls model validations itself.
  */
-import { taskProgress, taskRemainingMs } from '../../engine';
+import { deepFreeze, taskProgress, taskRemainingMs } from '../../engine';
 import {
   type BringupSpec,
   type DeploymentEvent,
@@ -22,7 +22,7 @@ import {
 } from '../../model';
 import { type DesignDecisionView, type DesignStepDataShape, type IssueGroups, EMPTY_ISSUE_GROUPS, decisionViews, designGate, designStepDataOf, groupIssues } from './design';
 import { ILLUSTRATIVE_DURATION_NOTE } from './durations';
-import { type PlanningView, planningView } from './planning';
+import { type PlanningView, planningView, withBinaryProgress } from './planning';
 import { bringupEnvOf, phaseGate } from './reducer';
 import { type SandboxLogEntry, type SandboxPhase, type SandboxState, type SandboxTask, type SandboxTaskKind, SANDBOX_PHASES } from './types';
 import { type DesignLockedField, type WizardStepReport, DESIGN_LOCKED_FIELDS, WIZARD_SECTION_STEP, issueKey, wizardStepReports } from './wizard';
@@ -93,7 +93,11 @@ export interface DeployPhaseView {
 }
 
 export interface SandboxSnapshot {
+  /** Structural revision: bumps on every state change except pure task progress. */
   readonly revision: number;
+  /** Bumps when only running task progress changed (heavy parts like `design` keep their identity). */
+  readonly progressRevision: number;
+  /** Game time of the last state change (the live clock is GameEngine.snapshot().clock). */
   readonly timeMs: number;
   readonly phase: SandboxPhase;
   readonly phases: readonly PhaseView[];
@@ -119,16 +123,43 @@ export function taskView(t: SandboxTask): TaskView {
   };
 }
 
-export function buildSandboxSnapshot(s: SandboxState, revision: number): SandboxSnapshot {
+/** Snapshot parts that do not depend on task progress (expensive: runs model validations). */
+export type SandboxSnapshotBase = Omit<SandboxSnapshot, 'progressRevision' | 'timeMs' | 'tasks'>;
+
+/**
+ * Full snapshot (deep-frozen). Equivalent to `withProgress(buildSnapshotBase(s, revision), s, progressRevision)`.
+ */
+export function buildSandboxSnapshot(s: SandboxState, revision: number, progressRevision = 0): SandboxSnapshot {
+  return withProgress(buildSnapshotBase(s, revision), s, progressRevision);
+}
+
+/**
+ * Cheap overlay of the light, per-tick data (time, task views, binary progress) onto a cached base.
+ * Returns a deep-frozen snapshot; base parts unaffected by running tasks keep their identity.
+ */
+export function withProgress(base: SandboxSnapshotBase, s: SandboxState, progressRevision: number): SandboxSnapshot {
+  const tasks = s.tasks.map(taskView);
+  const vTask = tasks.find((t) => t.kind === 'bringup-validation');
+  const dTask = tasks.find((t) => t.kind === 'bringup-deployment');
+  const deploy: DeployPhaseView = vTask || dTask ? { ...base.deploy, ...(vTask ? { validationTask: vTask } : {}), ...(dTask ? { deploymentTask: dTask } : {}) } : base.deploy;
+  return deepFreeze({
+    ...base,
+    progressRevision,
+    timeMs: s.timeMs,
+    planning: withBinaryProgress(base.planning, s.tasks),
+    deploy,
+    tasks,
+  });
+}
+
+/** Builds the progress-independent snapshot base (deep-frozen). */
+export function buildSnapshotBase(s: SandboxState, revision: number): SandboxSnapshotBase {
   const gate = designGate(s.choices, s.acknowledgedDesignWarnings, s.designContext);
   const ack = new Set(s.acknowledgedDesignWarnings);
   const decisions = decisionViews(s.choices, gate.issues, s.designContext, s.deployedChoices);
   const env = bringupEnvOf(s);
   const live = validateBringupSpec(s.spec, env);
   const deployedHosts = s.deployment.status === 'completed' || s.deployment.status === 'deploying' ? new Set(s.spec.esxHosts.map((h) => h.fqdn)) : new Set<string>();
-  const tasks = s.tasks.map(taskView);
-  const vTask = tasks.find((t) => t.kind === 'bringup-validation');
-  const dTask = tasks.find((t) => t.kind === 'bringup-deployment');
   const dc = s.deployedChoices;
   const diverged = dc ? [...new Set([...Object.keys(dc), ...Object.keys(s.choices)])].filter((k) => dc[k as DesignDecisionId] !== s.choices[k as DesignDecisionId]) : [];
 
@@ -144,9 +175,8 @@ export function buildSandboxSnapshot(s: SandboxState, revision: number): Sandbox
     };
   });
 
-  return Object.freeze({
+  return deepFreeze({
     revision,
-    timeMs: s.timeMs,
     phase: s.phase,
     phases,
     design: {
@@ -162,7 +192,7 @@ export function buildSandboxSnapshot(s: SandboxState, revision: number): Sandbox
       ...(dc ? { deployedChoices: dc } : {}),
       divergedFromDeployment: diverged as DesignDecisionId[],
     },
-    planning: planningView(s.env, env, s.derived, s.tasks, deployedHosts),
+    planning: planningView(s.env, env, s.derived, [], deployedHosts),
     deploy: {
       spec: s.spec,
       workflowType: workflowTypeOf(s.spec),
@@ -173,11 +203,8 @@ export function buildSandboxSnapshot(s: SandboxState, revision: number): Sandbox
       deployment: s.deployment,
       allowedEvents: DEPLOYMENT_TRANSITIONS[s.deployment.status],
       validationResult: groupIssues(s.deployment.issues),
-      ...(vTask ? { validationTask: vTask } : {}),
-      ...(dTask ? { deploymentTask: dTask } : {}),
     },
     ...(s.fleet ? { fleet: s.fleet } : {}),
-    tasks,
     log: s.log,
     illustrative: { taskDurationsMs: s.taskDurationsMs, note: ILLUSTRATIVE_DURATION_NOTE },
   });

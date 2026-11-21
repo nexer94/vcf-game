@@ -53,7 +53,10 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
   (MVP „první host online“); review: „Nerozhodnuto“ ≠ chyba, akordeon místo svitku, kontrast paketů na světlé podlaze
 - [x] `code-reviewer` – OK (0 blokujících); důležité: neomezený `expandPool` (IP pool /8 zamrzne), obejití gate
   přes hash, UI návrhu mimo `SandboxSession`, revision/snapshot cache se zahazuje každý tick
-- [ ] `engine-dev` + `domain-modeler` – opravy z code review (4 důležité + drobné)
+- [x] opravy z code review: IP pooly jako intervaly (`model/net.ts`, diferenciální test 400 scénářů); engine loop
+  nezávislý na Pixi (`engine/loop.ts`), deep-freeze stavu (`engine/freeze.ts`), revision se nemění při nečinnosti,
+  průběh úloh odděleně (`progressRevision`); render už nemění rychlost hry; chyba startu zobrazena
+- [ ] (z review, zbývá – řeší UI v2) gate fází přes hash a UI návrhu napojit na `SandboxSession`
 
 ### Sandbox v1 (původní tok Návrh → Příprava → Deploy)
 - [x] `ui-dev` – hash router, hlavní menu (Sandbox / Kariéra „Připravujeme“ / Ukázka provozu), úvod Sandboxu,

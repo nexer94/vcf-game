@@ -206,6 +206,12 @@ export type SandboxEvent =
   | { readonly type: 'sandbox/phaseChanged'; readonly atMs: number; readonly from: SandboxPhase; readonly to: SandboxPhase }
   | { readonly type: 'sandbox/commandRejected'; readonly atMs: number; readonly command: SandboxCommandType; readonly rejection: SandboxRejection }
   | { readonly type: 'sandbox/taskStarted'; readonly atMs: number; readonly taskId: string; readonly kind: SandboxTaskKind; readonly label: string }
+  /** Coalesced progress notification: emitted only when a running task crossed a whole percent. */
+  | {
+      readonly type: 'sandbox/tasksProgressed';
+      readonly atMs: number;
+      readonly tasks: readonly { readonly taskId: string; readonly kind: SandboxTaskKind; readonly progress: number }[];
+    }
   | { readonly type: 'sandbox/taskCompleted'; readonly atMs: number; readonly taskId: string; readonly kind: SandboxTaskKind; readonly label: string }
   | {
       readonly type: 'sandbox/deploymentStatusChanged';

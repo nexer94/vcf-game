@@ -30,6 +30,10 @@ Výjimka: drobné úpravy `docs/PROGRESS.md` a tohoto souboru děláš sám.
    https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later.html
 2. Pokud vyšla novější verze nebo patch → zapiš do `docs/PROGRESS.md` úkoly na aktualizaci dotčených spec souborů
    a herních modulů a nabídni je uživateli.
+3. Obnov data z Broadcom Compatibility Guide: `tools/bcg/fetch-readynodes.sh` (sám, přes Bash; BCG je JS aplikace,
+   agentův WebFetch ho nepřečte – skript volá stejné JSON API jako web, 1 dotaz/s). Při nové verzi ESXi předej
+   label release jako argument. Změny v `docs/spec/data/` zkontroluj (`git diff --stat`) a commitni; když se změní
+   modely/profily, zadej `doc-researcher` aktualizaci `15-hardware`.
 
 ## Postup pro každou oblast (např. „workload domain“)
 1. `doc-researcher` → `docs/spec/<NN>-<oblast>.md` (koncepty, prerekvizity, kroky, chybové stavy, limity, odkazy)
