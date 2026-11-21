@@ -61,6 +61,12 @@ Oba režimy sdílejí **stejný model a engine** (stejná pravidla VCF ze specu)
 - Žádné mise; peníze se zobrazují, ale jsou **neomezené** (ceny = fiktivní herní měna). Validace a chybové stavy
   přesně podle specu. Slouží i jako „laboratoř“ pro testování modelu.
 - Úvodní obrazovka vysvětlí, že jde o simulaci reálné architektury VCF podle dokumentace, s modelovanou verzí.
+- **Výběr na startu = oficiální Design Blueprints VCF 9.1** (`06-blueprints`); každý blueprint má herní lokalitu
+  (uživatel 2026-11-21): 1. malá místnost (pár racků) · 2. větší místnost ·
+  3. dvě místnosti v jedné budově · 4. dvě budovy (kampus) · 5. vzdálená lokalita pro DR. Rozvržení, vzdálenosti
+  a latence mezi místnostmi/budovami jsou herní hodnoty (ilustrativní); **co z nich plyne pro VCF** (AZ, stretched
+  cluster, požadavky na latenci/propustnost mezi AZ, witness, DR instance) jen podle specu (`00`, `05`, `10`).
+  Volba lokality omezuje návrh (např. Site HA potřebuje 2 AZ, DR druhou lokalitu).
 - **Začátek: panáček (avatar) v prázdné serverovně.** Postup kopíruje realitu a odemyká se postupně:
   1. **Fyzická stavba** – koupit servery (vendor + certifikovaná konfigurace z BCG: CPU, RAM, disky, NIC),
      koupit generické switche, zarackovat, zapojit kabely. Začíná se jednoduše (základní komponenty),

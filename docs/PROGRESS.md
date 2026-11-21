@@ -90,7 +90,12 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
   - [x] `domain-modeler` – `dell-r670-sm` v modelu správně HCI-SM (chyba v UI obchodu → ui-dev A); regresní test
     všech 25 řádků B.3 přímo ze specu; `USE_CASE_NOT_MODELLED`; `hostPortRequirements`; `loadHardwareCatalog()`
   - [ ] přepnout session/UI na líné načítání katalogu (bundle) – postup v reportu domain-modelera
-  - [ ] (odloženo do funkčního milníku) `code-reviewer` + `ux-designer` review → `fact-checker`
+  - [ ] **Výběr blueprintu / lokality na startu** (uživatel 2026-11-21):
+  - [ ] `doc-researcher` – `06-blueprints` (všechny Design Blueprints 9.1 + mapování na herní lokality) *(běží)*
+  - [ ] `domain-modeler` – sites/místnosti/AZ/linky v `physical.ts`, omezení návrhu podle lokality *(běží)*
+  - [ ] `ui-dev` C – startovní obrazovka s kartami blueprintů, místnosti malá/velká, budova, kampus, DR *(běží)*
+  - [ ] `engine-dev` – napojení (volba blueprintu v session, místnosti, AZ)
+- [ ] (odloženo do funkčního milníku) `code-reviewer` + `ux-designer` review → `fact-checker`
 
 ### Sandbox v1 (původní tok Návrh → Příprava → Deploy)
 - [x] `ui-dev` – hash router, hlavní menu (Sandbox / Kariéra „Připravujeme“ / Ukázka provozu), úvod Sandboxu,
