@@ -66,8 +66,10 @@ Přechody mezi úrovněmi plynulým zoomem (jako přelet nad mapou).
     až v čelním pohledu racku. Tečky letí mezi zařízeními po trase svazku.
   - **Tvar tečky podle typu** (kvůli barvosleposti): Management ◆, vMotion ▲, vSAN ■, NFS ●, NSX overlay ⬟,
     VM ○ (prázdný kruh). Jeden atlas tvarů, tint barvou, tmavý obrys.
-  - **OOB / BMC**: rezervovaný tvar ✚ a barva (návrh růžovo-purpurová, např. `#d9579b`, finální odstín ověří
-    ui-dev kontrastem) – **použije se až po doplnění specu** (doc-researcher, `25`).
+  - **BMC (mimo VCF scope – herní)**: BMC nenese provoz VCF (`25` §10), proto nemá barvu typu provozu. Jen při
+    vzdálené instalaci ESX jede po kabelu BMC **šedá čárkovaná animace se symbolem ✚** („přenos ISO, herní“).
+    V legendě je ve zvláštní skupině „Mimo VCF (herní)“. BMC LED na serveru svítí i při vypnutém hostu.
+    V UI nikdy holé „OOB“ (kolize s „out-of-band operations“ = config drift), viz `UX.md` 15.1.
   - Legenda je „vždy viditelná“ jako **čip vlevo dole** s aktivními typy; plná legenda po rozbalení.
   - Kosmetické barvy kabelů (volba hráče v racku) se nesmí plést s barvami provozu: černá, bílá, žlutá,
     růžová, hnědá (odstíny ui-dev).

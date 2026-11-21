@@ -1,7 +1,7 @@
 # UX návrh – VCF Game (Sandbox v2)
 
-Stav: návrh 2026-11-21 (ux-designer); doplněna **Část II – interakce v serverovně** (kap. 7–14: tracker, rack, tabule,
-počítač, provoz v2, backlog v3). Implementují `ui-dev` (render/UI) a `engine-dev` (příkazy, validace, snapshot).
+Stav: návrh 2026-11-21 (ux-designer); doplněna **Část II – interakce v serverovně** (kap. 7–15: tracker, rack, tabule,
+počítač, provoz v2, backlog v3, BMC mimo VCF scope + ESX management). Implementují `ui-dev` (render/UI) a `engine-dev` (příkazy, validace, snapshot).
 Navazuje na `CLAUDE.md` (herní režimy, tok Sandboxu) a `docs/design/GRAPHICS.md` (útulná kreslená izometrie,
 rozložení obrazovky).
 
@@ -415,7 +415,8 @@ To je nejdůležitější pravidlo věrnosti v UI. Hráč musí na první pohled
 - `parafráze` – český převod textu dokumentace,
 - `neověřeno` – otevřená otázka ve specu,
 - `Nevratné` – nevratné i podle dokumentace,
-- `Day 2` – podle dokumentace až po nasazení.
+- `Day 2` – podle dokumentace až po nasazení,
+- `mimo VCF scope – herní` – krok z reálné serverovny, který dokumentace VCF vyřazuje ze svého rozsahu (BMC, kap. 15).
 
 Pravidla:
 - Hlášky od modelu se ukazují **u objektu** (bublina nad serverem / switchem) a zároveň v **seznamu
@@ -595,8 +596,13 @@ Stav podkladů ve specu, ze kterých část II čerpá:
 - fyzická síť, ToR, MTU, VLAN: `10-planning §3.3`; výchozí síť ESX (vmnic0, vSwitch0, vmk0, MTU 1500), hlášky
   validace MTU / uplinků: `25-usecases-and-physical §3.5, §5.3, §5.4, §6.3, §7`;
 - toky provozu: `10-planning §7`, `20-deployment §7`, `25 §7`, NIC a rychlosti: `15-hardware §7`;
-- **OOB management (BMC)**: **čeká na spec** (doc-researcher, `25`). Všude níže je OOB označené
-  `⏳ čeká na spec`. Do doplnění specu se OOB ve hře kreslí jen jako fyzický port bez jakéhokoli tvrzení o VCF.
+- **OOB management (BMC)**: `25 §10` (výzkum 2026-11-21). Verdikt: switche a konektivita pro OOB jsou podle
+  designu VCF **mimo scope** („switches utilized for out-of-band connectivity to the ESX host are out of scope“,
+  `25 §10.1` [U55]); OOB není v žádném seznamu sítí VCF (`§10.2.2`). Ve hře je proto BMC **volitelný herní krok
+  „mimo VCF scope – herní“**, který nic neblokuje a nenese provoz VCF. Podrobně **kap. 15**. První dokumentovaná
+  síť VCF je **ESX management (vmk0)**.
+- **Pozor na termín**: ve VCF 9.1 znamená „out-of-band (OOB) operations“ i **změny mimo SDDC Manager** (config
+  drift, `25 §10` úvod [U82]). Pravidla pojmenování v UI viz 15.1.
 
 ## 7. Společný rámec: režimy pohledu a přechody
 
@@ -698,12 +704,16 @@ Rozbalený (výchozí při prvním vstupu)          Sbalený (po dokončení T7 
 | hotovo | `✓` | splněno ze stavu hry | predikát splněn |
 | problém | `⚠` | bylo hotovo, teď ne (např. prodaný host, odpojený kabel) – jen u úkolů typu `doc-required` | predikát se vrátil na false po dřívějším ✓ |
 | přeskočeno | `⤼` (šedě, přeškrtnuté) | hráč ho odklikl | akce hráče; **automaticky se změní na ✓**, když ho stav později splní |
-| čeká na spec | `⏳` | obsah se připravuje (např. OOB) | `featureFlag` – v buildu pro hráče se vůbec nezobrazí |
+| mimo VCF (herní) | `◇` | volitelný herní krok mimo scope VCF (BMC, kap. 15) – nepočítá se do průběhu fáze | druh `game-optional` |
+| čeká na spec | `⏳` | obsah se připravuje | `featureFlag` – v buildu pro hráče se vůbec nezobrazí |
 
 - Úkol má **druh** (zobrazený štítkem, sjednoceno s 3.2):
   - `doc-required` – požadavek dokumentace (červená tečka u ikony, „Proč?“ s ID pravidla),
   - `doc-recommended` – doporučení dokumentace (★, stejné pravidlo jako ★ v 2.7),
   - `game-step` – herní krok bez faktu VCF (např. „Postav rack“), bez „Proč?“ s citací, jen herní tip.
+  - `game-optional` – volitelný herní krok **mimo scope VCF** (BMC, kap. 15): štítek „mimo VCF scope – herní“,
+    nepočítá se do `n/N` skupiny, „Další krok“ na něj nikdy neukáže jako na jediný povinný; „Proč?“ vysvětlí,
+    proč je mimo VCF (s odkazem `25 §10.1`).
 - **Přeskočit** nikdy nemění stav hry ani nevypíná validace. Jen přestane vést. U `doc-required` úkolu se
   potvrzuje jednou větou: „Přeskočit vedení? Validace VCF tě na tohle později stejně upozorní.“
 
@@ -741,7 +751,7 @@ interface ObjectiveGroup { id: 'A'|'B'|'C'|'D'|'E'|'F'|'G'; title: string; objec
 interface Objective {
   id: string;                      // 'cabling.each-host-to-switch'
   title: string;                   // imperativ, ≤ 48 znaků, česky
-  kind: 'doc-required' | 'doc-recommended' | 'game-step';
+  kind: 'doc-required' | 'doc-recommended' | 'game-step' | 'game-optional';
   why?: { paraphrase: string; ref: SpecRef; ruleId?: string; quote?: string }; // povinné u doc-*
   done: PredicateRef;              // { sel: 'hostsConnectedToSwitch', min: 'allHosts' }
   progress?: CounterRef;           // { sel: 'hostsWithEsx', target: 'allHosts' | { fromModel: 'minHosts' } }
@@ -770,8 +780,9 @@ interface Objective {
 | A | Připoj switch do sítě firmy (uplink na stěně, 10.2) | game-step (zjednodušení) | proč: hosty potřebují gateway a DNS – DCUI test sítě, `25 §6.3` [U34]; `20-deployment §4.1.2` |
 | B | Zapoj každý host do switche `n/N` (T5) | doc-required | VCF-NET-REQD-TOR-001 |
 | B | ★ Uplinky hosta na dva různé switche | doc-recommended | VCF-NET-RCMD-TOR-001; každý uplink samostatně, ne LAG: VCF-NET-REQD-LAG-001 (`10-planning §3.3`) |
-| B | ⏳ Management port serveru (BMC / OOB) | ⏳ | **čeká na spec** (`25`, doc-researcher) |
-| C | Nainstaluj ESX `n/N` (T6), sub-steps ISO → disk → heslo → reboot | doc-required | `20-deployment §4.1.1` |
+| B | ◇ Zapoj a nastav BMC (vzdálená správa serveru) – volitelné, kap. 15 | game-optional, „mimo VCF scope – herní“ | `25 §10.1` (OOB mimo scope), `§10.2.1` (vlastní NIC a IP BMC) |
+| C | Nainstaluj ESX `n/N` (T6), sub-steps ISO → disk → heslo → reboot; dvě cesty: u serveru (fyzické médium) / vzdáleně přes BMC (kap. 15.3) | doc-required | `20-deployment §4.1.1`, `25 §10.4.1` |
+| C | **ESX management (vmk0)** – první síť VCF: VLAN v DCUI, statická IPv4, vmk0 na vSwitch0 s vmnic0 → začne management provoz | doc-required | `25 §3.5`, `§6.3`, `§10.2.2`; `20-deployment §4.1.2` |
 | C | Nastav síť v DCUI (VLAN, IPv4, DNS, FQDN, bez custom sufixů) | doc-required | `20-deployment §4.1.2`, `§3.2` |
 | C | Otestuj management síť (gateway, DNS, hostname) → **první provoz** | game-step s odkazem (spec test nepopisuje jako povinný) | `25 §6.3` [U34], tok N2 `25 §7` |
 | C | NTP na hostech | doc-required | `20-deployment §4.1.3` |
@@ -813,7 +824,7 @@ zůstává jako přístupná (klávesnice / čtečka) varianta téhož pohledu (
 │  │ 9┆┌───────────────────────────┐ ┆  │                                                     │
 │  │ 8┆│ ▮Vendor B  esx-02  ● ●●◌◌ ▢│═╪══╪══════════╗                                       │
 │  │ 7┆└───────────────────────────┘ ┆  │           ║                                       │
-│  │ …┆   ● LED stavu   ◌ NIC port   ▢ BMC (⏳)      ║                                       │
+│  │ …┆   ● LED stavu   ◌ NIC port   ▢ BMC (herní)   ║                                       │
 │  └──────────────────────────────────┘             ╚═► sw-A p2                             │
 │ ┌ Kabely ─────────────────────────────────────────────────────────────────────────────────┐ │
 │ │ [Zapojit doporučeně]  barva: ◯ neutrální ● ● ● ●   ☐ popisky   Odpojit vše   ⟲ ⟳         │ │
@@ -834,9 +845,10 @@ zůstává jako přístupná (klávesnice / čtečka) varianta téhož pohledu (
   - Počet a rychlost NIC portů z konfigurace serveru (katalog z BCG, `15-hardware` B.1–B.3). Pořadí a názvy
     `vmnicN` jsou z ESX (`vmnic0` = výchozí management NIC, `25 §6.3` [U32]); před instalací ESX se porty
     jmenují neutrálně „NIC 1…“ (herní zjednodušení) a po instalaci dostanou `vmnic` jména.
-  - **BMC / OOB port**: samostatný port odlišného tvaru (čtvercový, šedý) se štítkem „BMC“. ⏳ **Co přes něj
-    teče, zda ho VCF potřebuje a do jaké sítě patří, čeká na spec.** Do té doby: port jde zapojit (fyzicky),
-    ale nenese provoz a nemá žádnou VCF hlášku; tooltip „Správa serveru mimo OS – zatím jen fyzicky (hra)“.
+  - **BMC port**: samostatný port odlišného tvaru (čtvercový, šedý) se štítkem „BMC“ a odznakem
+    `mimo VCF scope – herní`. BMC má vlastní NIC a IP, odlišnou od IP hosta, a je napájený i při vypnutém hostu
+    (`25 §10.2.1` [U74]). Kam ho zapojit, VCF nepopisuje (`25 §10.1`, §10.2.3), proto hra dovolí **jakýkoli**
+    port switche a nic nehlásí. Podrobně kap. 15.
 - Switch: řada portů (generický, herní), číslování p1…pN, LED linku a aktivity, jeden **uplink port** odlišený
   barvou rámečku (pro připojení do sítě firmy, 10.2).
 - LED aktivity bliká podle provozu (alpha toggle, max 4 Hz, bez nových textur). Reduced motion: LED svítí trvale.
@@ -880,7 +892,7 @@ Tři vrstvy, aby hráč poznal, kdo co říká (3.2):
 
 | Vrstva | Příklad | Kdy | Blokuje? | Opora |
 |---|---|---|---|---|
-| **Fyzika hry** (herní pravidla) | port obsazený; kabel do vlastního portu; typ portu neodpovídá (BMC ↔ uplink switche, pokud to hra rozliší) | při vedení kabelu (port ztmavne + důvod v tooltipu) | ano (nejde zapojit) | herní, štítek `herní pravidlo` |
+| **Fyzika hry** (herní pravidla) | port obsazený; kabel do vlastního portu; kabel z BMC do NIC jiného serveru (server–server) | při vedení kabelu (port ztmavne + důvod v tooltipu) | ano (nejde zapojit) | herní, štítek `herní pravidlo` |
 | **Chyba / varování VCF** – topologie | host bez switche; jen 1 switch; oba uplinky hosta do stejného switche | po zapojení, jako odznak `⚠` / `⛔` u hosta + položka v Problémy + úkol v trackeru | ne při kabeláži; blokuje až validace, kde to říká spec | `10-planning §3.3` (REQD-TOR-001, RCMD-TOR-001, REQD-LAG-001) |
 | **Chyba / varování VCF** – konfigurace portu (později) | MTU portu menší než potřebuje provoz (TEP ≥ 1700, ostatní ≥ 1500, dop. 9000); port není trunk 802.1Q; VLAN chybí na portu | jen když je hodnota relevantní (návrh zvolil overlay / jumbo; host má vmk na VLAN) – „nerozhodnuto ≠ chyba“ | ne; validace installeru hlásí doslovné hlášky | `10-planning §3.3`, `25 §5.4`, `25 §3.5` |
 
@@ -1091,6 +1103,7 @@ nesmí být **jen** v počítači, kromě čistě přehledových (mřížka, shr
 ### 11.5 Další aplikace (postupně)
 | Aplikace | Kdy se odemkne | Obsah | Opora |
 |---|---|---|---|
+| Vzdálená konzole (BMC) ◇ | BMC hosta je zapojený a nastavený | obrazovka serveru, zapnout / vypnout, instalace ESX přes virtual media; štítek „mimo VCF scope – herní“ | `25 §10.1`, `§10.4.1`, `§10.6`; kap. 15 |
 | Use case | hned | katalog use cases jako karty (nová fleet, nová instance, VVF, konvergence …), nemodelované s 🧩; vybraný ukáže pořadí kroků a prerekvizity | `25 §2.1–2.3`, `§4`; `20-deployment §4.2` kroky 3–4 |
 | Knihovna | hned | odkazy na dokumentaci, které hráč viděl (1.6), glosář | – |
 | Obchod (volitelně) | hned | stejný katalog jako inventář, ale široký: filtry, porovnání 3 položek (backlog #17) | `15-hardware` |
@@ -1132,13 +1145,14 @@ Zamčená aplikace: ikona s 🔒 a **důvodem z modelu / specu** („Nejdřív n
 ### 12.3 Co poběží jako první (pořadí podle specu)
 | Moment | Tok (co hráč uvidí) | Opora |
 |---|---|---|
+| **První síť VCF = ESX management (vmk0)** | vše níže jede po vmk0 → vSwitch0 → vmnic0 → port switche | `25 §10.2.2`, `§3.5`, `§6.3` |
 | Host po instalaci ESX, bez statické IP | tečky Management host → síť firmy (DHCP) – „host si říká o adresu“ | `25 §6.3` (výchozí DHCP), `§7` N1 |
 | DCUI „Test Management Network“ | krátká vlna: host → gateway, DNS (ping, resolve) | `25 §6.3` [U34], `§7` N2 |
 | Admin u počítače otevře Host Client | počítač → host, HTTPS | `20-deployment §7` řádek 3 |
 | NTP na hostu | host → síť firmy (NTP) | `20-deployment §4.1.3`, `§7` řádek 7 |
 | VCF Installer validace | installer → hosty (ping, kontrola obsazené IP), → DNS; vmkping vMotion / vSAN / TEP mezi hosty | `20-deployment §7` řádky 5, 6; `25 §7` N3–N6 |
 | Po bring-upu | vCenter ↔ hosty (443 / 902), heartbeats, vMotion, vSAN, overlay … | `20-deployment §7` řádky 18–20, `10-planning §7` |
-| **OOB / BMC** | ⏳ **čeká na spec** – barva a tvar rezervované (GRAPHICS), tok se zapne až s oporou v `25` | doc-researcher |
+| **BMC (mimo VCF)** | žádný provoz VCF. Jen během vzdálené instalace ESX šedá čárkovaná „herní“ animace přenosu ISO po kabelu BMC (kap. 15.4), v legendě ve skupině „Mimo VCF (herní)“ | `25 §10.1`, `§10.4.1` |
 
 Před bring-upem jde management provoz přes **jednu** pNIC na vSwitch0 (`vmnic0`), ostatní NIC jsou bez provozu
 (`25 §3.5`, `§7` „Fyzicky“). Vizualizace to musí respektovat: v detailu hosta svítí jen vmnic0.
@@ -1183,7 +1197,7 @@ Otevírá se z racku (9.6). Pixi pohled + DOM tabulka jako alternativa.
 
 ### 12.5 Tečky – tvary a legenda
 - Tvar podle typu (čitelné i pro barvoslepé a v šedi): Management `◆`, vMotion `▲`, vSAN `■`, NFS `●`,
-  NSX overlay `⬟` (pětiúhelník), VM `○` (prázdný kruh), OOB `✚` (⏳ rezervováno). Velikost 5–7 px + obrys.
+  NSX overlay `⬟` (pětiúhelník), VM `○` (prázdný kruh); mimo VCF (herní, BMC) `✚` šedý, jen v legendě „Mimo VCF (herní)“. Velikost 5–7 px + obrys.
   Jedna sdílená textura (atlas 7 tvarů), tint barvou.
 - **Legenda v2**: místo velkého panelu vlevo nahoře (dnes ~350×290 px přes scénu) **čip vlevo dole** „Provoz ▾“,
   který ukazuje jen **právě aktivní** typy (tvar + barva + název). Klik = rozbalí plnou legendu (typy, vytížení,
@@ -1241,11 +1255,11 @@ kapitoly 5 platí dál.
 | A1 | **View stack + přechody** (7.1–7.2): režimy Místnost / Rack / Tabule / PC, hash routy, `Esc`/Zpět, uložená kamera, hover obrys + lupa + tooltip u interaktivních objektů, reduced motion, skrytí místnosti při celoobrazovkovém pohledu | UI | M | – |
 | A2 | **Objective tracker** (8): schéma + registr selektorů nad snapshotem + `evaluateObjectives` (čistá funkce, testy) | EN | M | room state v engine (#2 z kap. 5) |
 | A3 | Tracker UI (8.2–8.5): 3 stavy, Ukaž mi, Proč?, Přeskočit + undo, `T`/`Shift+T`, HUD čip, aria-live; ⚙ dva přepínače (tracker / bubliny) | UI | M | A2 |
-| A4 | Obsah úkolů skupin A–C v JSON s `SpecRef` (8.7), T1–T7 jako první úkoly; OOB položka za `featureFlag` | SD | S | A2 |
+| A4 | Obsah úkolů skupin A–C v JSON s `SpecRef` (8.7), T1–T7 jako první úkoly; BMC jako `game-optional` (kap. 15) | SD | S | A2 |
 | A5 | **Rack pohled** (9.1–9.3): elevace se zkomprimovanými prázdnými U, server / switch s porty a LED, kabeláž drag + click-click, popover kabelu, odpojit / přepojit, Zapojit doporučeně | UI | L | A1 |
 | A6 | Auto-trasa kabelů v racku (`rackRoute.ts`, lanes, čistá funkce + testy) | UI | M | A5 |
 | A7 | DOM vrstva cílů portů + seznam zapojení (9.7) | UI | M | A5 |
-| A8 | Model portů v engine: NIC porty z HW konfigurace (`15-hardware` B), porty switche, uplink port, BMC port bez VCF pravidel; příkazy `connect / disconnect / recolor / label` | EN + MO | M | – |
+| A8 | Model portů v engine: NIC porty z HW konfigurace (`15-hardware` B), porty switche, uplink port, BMC port (vlastní IP, napájení nezávislé na hostu, žádná VCF pravidla, `25 §10.2.1`); příkazy `connect / disconnect / recolor / label` | EN + MO | M | – |
 | A9 | Topologické validace kabeláže jako odznaky + Problémy (REQD-TOR-001, RCMD-TOR-001, REQD-LAG-001; 9.5) | MO + UI | S | A8 |
 
 ### MVP-B „Vidím, co se děje“
@@ -1272,10 +1286,109 @@ kapitoly 5 platí dál.
 |---|---|---|---|
 | D1 | Konfigurace portu switche (trunk / VLAN / MTU) + MTU řetěz s hláškami installeru (`25 §5.4`) | MO + EN + UI | M |
 | D2 | PC: Prohlížeč → Host Client (NTP, certifikát), VCF Installer jako aplikace | UI + EN | L |
-| D3 | **OOB / BMC**: provoz, síť, úkoly, barva – **až po doplnění specu** `25` | RES → MO → UI | M |
+| D3 | **BMC krok** (kap. 15): BMC IP, vzdálená konzole, virtual media instalace ESX s varováním a fallbackem, past vSwitchBMC; tooltip vendorů BMC z `25 §10.2.1` | EN + UI | M |
 | D4 | PC: Obchod s porovnáním; Uložit tabuli jako PNG | UI | S |
 | D5 | Kariéra: tracker s body (stejná komponenta, bez Přeskočit) | SD + UI | M |
 
 **Doporučené pořadí pro první sprint**: A1 → A8 → A2 → A3 + A4 → A5 → A6 → A7 → A9 → B1 → B3. Tím vznikne
 hratelná smyčka „úkol → otevřu rack → zapojím → úkol hotový → kabely v místnosti čisté“. B2/B4 navazují hned po
 instalaci ESX (#7 z kap. 5).
+
+---
+
+## 15. BMC (mimo VCF scope) a ESX management (vmk0) – dva kroky fáze Hosty
+
+Podklad: `25-usecases-and-physical §10` (OOB management) a `§3.5`, `§6.3`, `§7` (výchozí síť ESX).
+
+### 15.1 Terminologie v UI (závazné)
+Ve VCF 9.1 má „out-of-band“ dva různé významy (`25 §10` úvod):
+1. **OOB management** = vzdálená správa hardwaru přes BMC (iDRAC, iLO, XCC, Cisco IMC). Ve VCF design mimo scope.
+2. **Out-of-band (OOB) operations** = změny provedené přímo ve vCenteru nebo NSX Manageru mimo workflow SDDC
+   Manageru (config drift) [U82]. Patří do provozu (`90-operations`, později).
+
+Pravidla:
+- V UI **nikdy holé „OOB“**. Pro hardware vždy **„BMC (vzdálená správa serveru)“**, případně „síť pro BMC“.
+  Pro drift vždy **„Změny mimo SDDC Manager (out-of-band operations)“**.
+- Glosář (1.4) má dvě oddělená hesla s křížovým odkazem „Nezaměňovat s …“.
+- Identifikátory v kódu: `bmc*` pro hardware, `configDrift*` / `outOfBandOperation*` pro drift. Nikdy `oob*`.
+- Štítek kroku BMC: **`mimo VCF scope – herní`** (nový štítek v systému 3.2, fialově-šedý jako omezení hry,
+  ikona `◇`). Tooltip: „Dokumentace VCF považuje síť pro BMC za mimo svůj rozsah. Ve hře je to volitelný krok
+  z reálné serverovny, který nic neblokuje.“ + Proč? (citace „switches utilized for out-of-band connectivity
+  to the ESX host are out of scope“, `25 §10.1` [U55]).
+
+### 15.2 Tok (fáze Hosty)
+```
+ Kabeláž ──► [◇ krok 1: BMC – volitelný, mimo VCF scope – herní] ──► krok 2: ESX management (vmk0) ──► NTP, certifikát …
+                 │  zapojit BMC port, BMC IP + účet                     │  instalace ESX (u serveru NEBO přes BMC)
+                 │  vzdálená konzole, zapnout/vypnout host              │  DCUI: VLAN, statická IPv4, DNS, FQDN
+                 └► umožní „vzdálenou“ instalaci ESX (virtual media)    └► vmk0 na vSwitch0 + vmnic0 → MANAGEMENT PROVOZ
+```
+- **Krok 1 (BMC) je volitelný.** Přeskočení nemá žádný důsledek ve validacích VCF ani v trackeru (druh
+  `game-optional`, 8.3). Bez BMC se ESX instaluje „u serveru“ (avatar dojde k racku = fyzické médium).
+- **Krok 2 (ESX management) je první dokumentovaná síť VCF** (`25 §10.2.2`): vmk0, VLAN nastavená v DCUI,
+  vmk0 na vSwitch0 s jedním uplinkem vmnic0 (`25 §3.5`, `§6.3`). Až tady se rozběhne management provoz (12.3).
+- BMC nenese **žádný** provoz VCF a nikdy se nezobrazí jako management síť.
+
+### 15.3 Krok 1 – BMC (UI)
+**Zapojení**: BMC port na serveru (9.2) do libovolného portu switche. Hra nic nevaliduje, protože VCF kabeláž
+BMC nepopisuje (`25 §10.1`, `§10.2.3`). LED BMC svítí, i když je host vypnutý („The BMC is powered-on even when the
+host itself is powered-off“, `25 §10.2.1` [U74]) – na serveru je to malá LED zvlášť od LED stavu hosta.
+
+**Nastavení BMC** (popover na BMC portu nebo záložka „BMC“ v panelu hosta):
+```
+┌ esx-01 · BMC (vzdálená správa serveru)  ◇ mimo VCF scope – herní ┐
+│ Typ BMC        iDRAC (Dell)                ⓘ 25 §10.2.1          │
+│ IP BMC         10.0.99.11   herní výchozí  ≠ IP hosta ⓘ          │
+│ Účet           admin / ••••  herní                                │
+│ [Otevřít vzdálenou konzoli]  [Zapnout host] [Vypnout host]        │
+└───────────────────────────────────────────────────────────────────┘
+```
+- Typ BMC podle vendora jen z tabulky `25 §10.2.1` (Dell iDRAC, HPE iLO, Lenovo XCC, Cisco IMC). **Supermicro**:
+  dokumentace BMC neuvádí → zobrazit jen „BMC“ bez názvu.
+- IP BMC je **jiná** než IP hosta (`25 §10.2.1` [U74]). Hodnota je `herní výchozí`. Hra neříká, zda má být ve
+  stejné VLAN jako vmk0, protože to VCF neurčuje (`25 §10.2.3`).
+- **Vzdálená konzole** = okno v počítači (aplikace „Vzdálená konzole“, 11.5) s obrazovkou serveru. Odtud jde
+  host zapnout / vypnout a instalovat ESX.
+
+**Instalace ESX – volba cesty** (panel hosta → Instalovat ESX):
+```
+Jak nainstalovat ESX 9?
+ (•) U serveru – fyzické médium               (vždy dostupné)
+ ( ) Vzdáleně přes BMC – virtual media  ◇ mimo VCF scope – herní
+     ⓘ Vzdálenou instalaci popisuje dokumentace vSphere (25 §10.4.1).
+     ⚠ „the virtual CD might encounter corruption problems with systems or networks operating at peak capacity“
+       → při selhání dokonči instalaci z fyzického média.
+```
+- Vzdálená cesta je **aktivní jen tehdy**, když je BMC zapojený a nastavený **a** typ BMC je v tabulce podporovaných
+  aplikací pro vzdálenou instalaci (`25 §10.6`: Dell DRAC, HPE iLO, Lenovo XCC). Cisco IMC a Supermicro v tabulce
+  nejsou → volba je šedá s důvodem „Dokumentace pro tento BMC vzdálenou instalaci ESX neuvádí (25 §10.6)“.
+  Minimální firmware z tabulky hra zatím nemodeluje (🧩).
+- Kroky instalace jsou v obou cestách **stejné** (`20-deployment §4.1.1`). Rozdíl je jen v tom, kde je hráč:
+  u racku (avatar) nebo u počítače (konzole). Pořadí „BMC → virtual media → instalace → DCUI“ dokumentace jako
+  postup VCF nepopisuje (`25 §10.4.1`), proto má štítek `herní zjednodušení`.
+- **Poškození virtual CD**: v Sandboxu se **nesimuluje náhodně** (laboratoř bez náhody). Ukáže se jen jako varování
+  výše. V Kariéře může být incidentem mise (scenario-designer), vždy s podmínkou ze specu (systém / síť na
+  špičce) a řešením „dokonči z fyzického média“.
+
+### 15.4 Vizualizace
+- Kabel BMC je neutrální jako ostatní. **Žádné tečky v barvách provozu VCF.**
+- Během vzdálené instalace jede po kabelu BMC šedá čárkovaná animace se symbolem `✚` „přenos ISO (herní)“.
+  V legendě je ve zvláštní skupině **„Mimo VCF (herní)“**, oddělené od typů provozu VCF.
+- V detailu hosta (12.4) BMC **není** mezi kartami vmnic. Pod nimi je jen řádek „BMC: zapojeno do sw-A p9 ·
+  vlastní IP · mimo VCF scope – herní“. BMC není vmnic a ESX ho jako síťovou kartu hosta nevidí.
+- Tabule (10.2): BMC jen na stránce **Fyzicky** jako čárkovaný šedý blok „BMC (mimo VCF)“. Na stránce **Síť**,
+  kde jsou sítě VCF, BMC není.
+
+### 15.5 Past z dokumentace (později, k ověření)
+- KB [U78][U79]: zapnuté USB-NIC rozhraní mezi OS a BMC způsobí, že ESX vytvoří `vSwitchBMC` s uplinkem `vusb0`.
+  KB uvádí, že to „might cause the VMware Cloud Foundation Bring-Up process to fail“. Jde o **VCF důsledek** (bring-up),
+  takže by šel ukázat jako varování validace s řešením „vypnout USB rozhraní v BMC před instalací“. KB ale uvádí
+  vSphere 8.0 / 8.0.3. Pro 9.1 **neověřeno**: před implementací rozhodne fact-checker, do té doby se nezobrazuje.
+
+### 15.6 Tracker, klávesnice, přístupnost
+- Úkol „◇ Zapoj a nastav BMC“ (8.7, skupina B) je `game-optional`. Nezvyšuje `n/N`, má tlačítko Přeskočit a po
+  přeskočení se už znovu nenabízí.
+- Úkol „ESX management (vmk0)“ (skupina C) je první `doc-required` úkol sítě. Jeho splnění spustí moment
+  „První host online“ (3.3).
+- BMC popover i volba cesty instalace jsou DOM formuláře (fokus, popisky, `aria-describedby` pro štítek mimo
+  scope). Vzdálená konzole má textovou alternativu (stav instalace jako text).
