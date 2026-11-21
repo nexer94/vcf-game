@@ -72,7 +72,13 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
   doloženo: BMC má vlastní NIC/IP, zapnutí hostů přes iLO/iDRAC, vzdálená instalace ESX (tabulka firmwaru),
   firmware přes vLCM HSM; KB 376173 (vSwitchBMC) jako možná příčina selhání bring-upu. → ve hře OOB volitelný
   krok „mimo VCF scope – herní“, první dokumentovaná síť = ESX management (vmk0)
-- [ ] `ui-dev` + `engine-dev` – implementace podle UX (po návrhu)
+- [ ] **Sprint 1** (2026-11-21):
+  - [ ] `engine-dev` – SandboxSession v2: příkazy nákup/umístění/montáž/kabeláž/porty/konfigurace/instalace ESX/DCUI,
+    herní ceny (`modes/economy`), snapshot `physical`/`flows`/`hw`/`objectives`, engine úkolů, `vite.config` fs.allow *(běží)*
+  - [ ] `ui-dev` – zásobník pohledů + lupa, 2D rack + kabeláž, obchod z katalogu, provoz v2 (svazky, tvary teček),
+    úpravy místnosti z UX review *(běží)*
+  - [ ] `scenario-designer` – obsah úkolů Sandboxu (skupiny A–G) po engine úkolů
+  - [ ] `code-reviewer` + `ux-designer` review → `fact-checker` (Sandbox v2: HW, fyzická síť, toky)
 
 ### Sandbox v1 (původní tok Návrh → Příprava → Deploy)
 - [x] `ui-dev` – hash router, hlavní menu (Sandbox / Kariéra „Připravujeme“ / Ukázka provozu), úvod Sandboxu,
