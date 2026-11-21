@@ -116,8 +116,10 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
     ulička, zákaz racku před jiným, řady se stejnou orientací, dveře/vybavení, kapacita; `suggestRackTiles` pro náhled
     - otevřené (herní): průchod od dveří ke každé uličce, širší uličky, 48U větší půdorys
   - [ ] `engine-dev` + `ui-dev` – napojit `validateRackPlacement` do `placeRack` a ghost náhledu (po doběhnutí engine-dev)
-  - [ ] `doc-researcher` – `50-vsan`: vSAN fault domains / rack awareness, sítě Single-Rack vs Multi-Rack L2/L3 *(běží)*
-  - [ ] `domain-modeler` – odvodit cluster model z rozmístění hostů v rackách (po `50-vsan`)
+  - [x] `doc-researcher` – `50-vsan` (37 zdrojů): fault domain = rack; multi-rack min. 3 racky (REQD), doporučeno 4;
+    FTT=n → 2n+1 FD; ESA RAID minima, Auto-RAID 9.1 (RAID-6 default); FD ručně ve vCenter, vypnout auto-policy,
+    bez Reserved Capacity; L2 vs L3 (per-rack VLAN/subnet/TEP pool/uplink profile/sub-TNP); výpadek racku
+  - [ ] `domain-modeler` – rack awareness: cluster model z rozmístění hostů, fault domains, FTT/RAID, výpadek racku *(běží)*
   - [ ] `ui-dev` – náhled umístění racku s důvody, 3 velikosti v obchodě a scéně + nové téma (GRAPHICS.md T0–T11)
 - [x] `ux-designer` – téma inspirované Broadcom/VCF (GRAPHICS.md T0–T11): brand červená jen pro CTA, navy/grafit,
   enterprise panely, téma `console` pro PC, AA kontrasty, úprava barev Management/NFS kvůli barvosleposti,
