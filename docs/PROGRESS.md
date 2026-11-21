@@ -37,7 +37,10 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
   bcg-vsan-esa-readynodes-esxi91.json` (247 ESA ReadyNodes pro ESXi 9.1: Dell 32, HPE 26, Lenovo 76, Cisco 31,
   Supermicro 82 – profily, CPU, RAM, certifikované disky, NIC, boot) + `bcg-vsan-esa-readynode-hardware-guidance.md`
   (definice profilů HCI/SC/CR SM/MED/LRG); obnova dat: `tools/bcg/fetch-readynodes.sh`
-- [ ] `doc-researcher` – přepsat `15-hardware` na ověřená data z `docs/spec/data/` (místo [BCG-idx])
+- [x] `doc-researcher` – `15-hardware` přepsán na ověřená data BCG: profily HCI/SC/CR doslovně, třídy REQ/DEV/RCMD,
+  Příloha A (aktuální generace 5 vendorů), Příloha B.3 startovní katalog 25 konfigurací (vč. pastí)
+  - otevřené: kapacity disků v BOM (rozšířit `tools/bcg` o `program=ssd`), 10GbE na MED/LRG (BCG = odchylka,
+    Design Library = REQD), rychlost NIC bez údaje v názvu
 - [x] `doc-researcher` – `25-usecases-and-physical`: 10 use cases (UC-1 nová fleet … UC-9 vSphere 8 → 9.1 bez
   installeru) s pořadím kroků; cesta „nejdřív vSphere“ = UC-4/UC-9 + konvergence (VDS 8+, vLCM image, DRS FA…);
   výchozí síť ESX (vSwitch0, vmk0, MTU 1500), jumbo frames, MTU validace installeru s doslovnými hláškami; 13 otázek
