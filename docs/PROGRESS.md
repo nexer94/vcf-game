@@ -42,7 +42,7 @@
 - [x] `doc-researcher` – `26-esx-install.md` (41 zdrojů): obrazovky instalátoru I-1…I-14 (Welcome Enter, EULA Enter,
   Select a Disk F1/Enter, Keyboard, Root password, Confirm Install F11, Installation Complete), DCUI klávesy a kroky
   (Configure Management Network, Restart/Test), HW minima, CPU deprecated/discontinued, hesla 9.0 vs 9.1
-- [ ] `doc-researcher` – výška serverů v U z datasheetů výrobců (povoleno uživatelem 2026-11-22) *(běží)*
+- [x] `doc-researcher` – výška serverů v U (30 modelů, vše 10 z B.3) → `docs/spec/data/server-rack-units.json`, 15 Příloha C
 - [ ] `engine-dev` – Sandbox v3 E1–E8 (ToR v racku, addNic, U výšky, ESX konzole, aktivní krok, registr zdrojů,
   Kariéra level 1) *(běží)*
 - [ ] `ui-dev` – Sandbox v3 U1–U10 (rozložení, checklist, bubliny, obchod podle vendora, svislý rack, konzole ESX,

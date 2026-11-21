@@ -1,0 +1,261 @@
+{
+  "meta": {
+    "source": "vendor datasheets (U height only)",
+    "fetchedAt": "2026-11-21",
+    "rule": "Only the rack height (U) is taken from vendor sources. All other server attributes come from the Broadcom Compatibility Guide (docs/spec/15-hardware.md, Appendix A).",
+    "bcgFile": "docs/spec/data/bcg-vsan-esa-readynodes-esxi91.json"
+  },
+  "models": [
+    {
+      "vendor": "Dell",
+      "model": "Dell PowerEdge R470",
+      "bcgProductIds": [63908],
+      "rackUnits": 1,
+      "quote": "The PowerEdge R470 system is a 1U server that supports:",
+      "url": "https://www.dell.com/support/manuals/en-us/poweredge-r470/r470_ism/poweredge-r470-system-configurations-and-features?guid=guid-446b9ab8-12a3-47f3-9c36-afe3578c5183&lang=en-us"
+    },
+    {
+      "vendor": "Dell",
+      "model": "Dell PowerEdge R570",
+      "bcgProductIds": [63907],
+      "rackUnits": 2,
+      "quote": "The PowerEdge R570 system is a 2U server that supports:",
+      "url": "https://www.dell.com/support/manuals/en-us/poweredge-r570/r570_ism_pub/poweredge-r570-system-configurations-and-features?guid=guid-ed44effc-50f1-44d2-99d3-5cda6a624b05&lang=en-us"
+    },
+    {
+      "vendor": "Dell",
+      "model": "Dell PowerEdge R670",
+      "bcgProductIds": [63567],
+      "rackUnits": 1,
+      "quote": "The PowerEdge R670 system is a 1U server that supports:",
+      "url": "https://www.dell.com/support/manuals/en-us/poweredge-r670/r670_ism_pub/poweredge-r670-system-configurations-and-features?guid=guid-9e3e2ff9-5ef3-4526-96ec-293a36f5735f&lang=en-us"
+    },
+    {
+      "vendor": "Dell",
+      "model": "Dell PowerEdge R770",
+      "bcgProductIds": [63566],
+      "rackUnits": 2,
+      "quote": "The PowerEdge R770 system is a 2U server that supports:",
+      "url": "https://www.dell.com/support/manuals/en-us/poweredge-r770/r770_ism_pub/poweredge-r770-system-configurations-and-features?guid=guid-01a358f4-bfc5-4207-ad85-51052333bdce&lang=en-us"
+    },
+    {
+      "vendor": "Dell",
+      "model": "Dell PowerEdge R6715",
+      "bcgProductIds": [63414],
+      "rackUnits": 1,
+      "quote": "The PowerEdge R6715 system is a 1U server that supports:",
+      "url": "https://www.dell.com/support/manuals/en-us/poweredge-r6715/per6715_ism_pub/poweredge-r6715-system-configurations-and-features?guid=guid-acb30e42-9d10-4089-94c4-8da377f0c19b&lang=en-us"
+    },
+    {
+      "vendor": "Dell",
+      "model": "Dell PowerEdge R7715",
+      "bcgProductIds": [63413],
+      "rackUnits": 2,
+      "quote": "The PowerEdge R7715 system is a 2U server that supports:",
+      "url": "https://www.dell.com/support/manuals/en-us/poweredge-r7715/r7715_ism_pub/poweredge-r7715-system-configurations-and-features?guid=guid-9221c3b4-1346-4fe6-8a8d-5cd85038219b&lang=en-us"
+    },
+    {
+      "vendor": "Dell",
+      "model": "Dell PowerEdge R6725",
+      "bcgProductIds": [63648],
+      "rackUnits": 1,
+      "quote": "The PowerEdge R6725 system is a 1U server that supports:",
+      "url": "https://www.dell.com/support/manuals/en-us/oth-xlr6725/r6725_ism/poweredge-r6725-system-configurations-and-features?guid=guid-6ad52ba4-ba51-4ad8-acac-f56a394a91e4&lang=en-us"
+    },
+    {
+      "vendor": "Dell",
+      "model": "Dell PowerEdge R7725",
+      "bcgProductIds": [63559],
+      "rackUnits": 2,
+      "quote": "The PowerEdge R7725 system is a 2U server that supports:",
+      "url": "https://www.dell.com/support/manuals/en-us/poweredge-r7725/per7725_ism/poweredge-r7725-system-configurations-and-features?guid=guid-e1fb7b4d-d967-4667-9b8f-44cbc387277c&lang=en-us"
+    },
+    {
+      "vendor": "HPE",
+      "model": "HPE ProLiant DL320 Gen12",
+      "bcgProductIds": [63564],
+      "rackUnits": 1,
+      "quote": "Do you need a 1U single-socket rackmount server, ...",
+      "url": "https://buy.hpe.com/us/en/compute/rack-servers/proliant-dl300-servers/hpe-proliant-compute-dl320-gen12/p/1014835186"
+    },
+    {
+      "vendor": "HPE",
+      "model": "HPE ProLiant DL340 Gen12",
+      "bcgProductIds": [63563],
+      "rackUnits": 2,
+      "quote": "The HPE ProLiant Compute DL340 Gen12 is a 2U 1P server ...",
+      "url": "https://buy.hpe.com/us/en/compute/rack-servers/proliant-dl300-servers/hpe-proliant-compute-dl340-gen12/p/1014835192"
+    },
+    {
+      "vendor": "HPE",
+      "model": "HPE ProLiant DL360 Gen12",
+      "bcgProductIds": [63562],
+      "rackUnits": 1,
+      "quote": "a compact 1U 2P server",
+      "url": "https://buy.hpe.com/us/en/compute/rack-servers/proliant-dl300-servers/hpe-proliant-compute-dl360-gen12/p/1014865649"
+    },
+    {
+      "vendor": "HPE",
+      "model": "HPE ProLiant DL380 Gen12",
+      "bcgProductIds": [63561],
+      "rackUnits": 2,
+      "quote": "The HPE ProLiant Compute DL380 Gen12 is a scalable 2U 2P server.",
+      "url": "https://buy.hpe.com/us/en/compute/rack-servers/proliant-dl300-servers/hpe-proliant-compute-dl380-gen12/p/1014865653"
+    },
+    {
+      "vendor": "HPE",
+      "model": "HPE ProLiant DL365 Gen11",
+      "bcgProductIds": [63148, 62977],
+      "rackUnits": 1,
+      "quote": "The HPE ProLiant DL365 Gen11 server is a rack-optimized 1U 2P dense solution.",
+      "url": "https://buy.hpe.com/us/en/compute/rack-servers/proliant-dl300-servers/proliant-dl365-server/hpe-proliant-dl365-gen11/p/1014689131"
+    },
+    {
+      "vendor": "HPE",
+      "model": "HPE ProLiant DL385 Gen11",
+      "bcgProductIds": [63146, 62981],
+      "rackUnits": 2,
+      "quote": "The HPE ProLiant DL385 Gen11 server is a 2U 2P solution.",
+      "url": "https://buy.hpe.com/us/en/compute/rack-servers/proliant-dl300-servers/hpe-proliant-dl385-gen11/p/1014689137"
+    },
+    {
+      "vendor": "Lenovo",
+      "model": "Lenovo ThinkSystem SR630 V4",
+      "bcgProductIds": [63600],
+      "rackUnits": 1,
+      "quote": "Form factor: 1U rack",
+      "url": "https://lenovopress.lenovo.com/lp1971-thinksystem-sr630-v4-server"
+    },
+    {
+      "vendor": "Lenovo",
+      "model": "Lenovo ThinkSystem SR650 V4",
+      "bcgProductIds": [63599],
+      "rackUnits": 2,
+      "quote": "Form factor: 2U rack",
+      "url": "https://lenovopress.lenovo.com/lp2127-thinksystem-sr650-v4-server"
+    },
+    {
+      "vendor": "Lenovo",
+      "model": "Lenovo ThinkSystem SR650a V4",
+      "bcgProductIds": [63624],
+      "rackUnits": 2,
+      "quote": "Form factor: 2U rack",
+      "url": "https://lenovopress.lenovo.com/lp2128-thinksystem-sr650a-v4-server"
+    },
+    {
+      "vendor": "Lenovo",
+      "model": "Lenovo ThinkSystem SR635 V3",
+      "bcgProductIds": [63179, 62913],
+      "rackUnits": 1,
+      "quote": "Form factor: 1U rack",
+      "url": "https://lenovopress.lenovo.com/lp1609-thinksystem-sr635-v3-server"
+    },
+    {
+      "vendor": "Lenovo",
+      "model": "Lenovo ThinkSystem SR655 V3",
+      "bcgProductIds": [63180, 62920],
+      "rackUnits": 2,
+      "quote": "Form factor: 2U rack",
+      "url": "https://lenovopress.lenovo.com/lp1610-thinksystem-sr655-v3-server"
+    },
+    {
+      "vendor": "Cisco",
+      "model": "Cisco UCSC-C220-M8S",
+      "bcgProductIds": [64247],
+      "rackUnits": 1,
+      "quote": "UCSC-C220-M8S C220 M8 1RU standard server with up to 10x SFF drive bays",
+      "url": "https://www.cisco.com/c/en/us/products/collateral/servers-unified-computing/ucs-c-series-rack-servers/ucs-c220-m8-rack-server-ds.html"
+    },
+    {
+      "vendor": "Cisco",
+      "model": "Cisco UCSC-C220-M8E3S",
+      "bcgProductIds": [64134],
+      "rackUnits": 1,
+      "quote": "UCSC-C220-M8E3S C220 M8 1RU NVMe optimized server with up to 16x E3.S NVMe drive bays",
+      "url": "https://www.cisco.com/c/en/us/products/collateral/servers-unified-computing/ucs-c-series-rack-servers/ucs-c220-m8-rack-server-ds.html"
+    },
+    {
+      "vendor": "Cisco",
+      "model": "Cisco UCSC-C240-M8SX, HCIVS240C-M8SN",
+      "bcgProductIds": [64136],
+      "rackUnits": 2,
+      "quote": "UCSC-C240-M8SX C240 M8 2RU standard server with up to 28x SFF drive bays",
+      "url": "https://www.cisco.com/c/en/us/products/collateral/servers-unified-computing/ucs-c-series-rack-servers/ucs-c240-m8-rack-server-ds.html",
+      "note": "The datasheet covers the UCSC-C240-M8SX part number; the HCIVS240C-M8SN part number in the same BCG entry was not verified separately."
+    },
+    {
+      "vendor": "Cisco",
+      "model": "Cisco UCSC-C240-M8E3S",
+      "bcgProductIds": [63932],
+      "rackUnits": 2,
+      "quote": "UCSC-C240-M8E3S C240 M8 2RU NVMe optimized server with up to 36x E3.S NVMe drive bays",
+      "url": "https://www.cisco.com/c/en/us/products/collateral/servers-unified-computing/ucs-c-series-rack-servers/ucs-c240-m8-rack-server-ds.html"
+    },
+    {
+      "vendor": "Cisco",
+      "model": "Cisco UCSC-C225-M8N",
+      "bcgProductIds": [63601, 63221],
+      "rackUnits": 1,
+      "quote": "C225 M8 1RU NVMe optimized server with up to 10x NVMe drive capability",
+      "url": "https://www.cisco.com/c/en/us/products/collateral/servers-unified-computing/ucs-c-series-rack-servers/ucs-c225-m8-rack-server-ds.html"
+    },
+    {
+      "vendor": "Cisco",
+      "model": "Cisco UCSC-C245-M8SX",
+      "bcgProductIds": [63625, 63415],
+      "rackUnits": 2,
+      "quote": "C245 M8 2RU standard server with up to 28x SFF drive bays",
+      "url": "https://www.cisco.com/c/en/us/products/collateral/servers-unified-computing/ucs-c-series-rack-servers/ucs-c245-m8-rack-server-ds.html"
+    },
+    {
+      "vendor": "Supermicro",
+      "model": "Supermicro SYS-122H-TN",
+      "bcgProductIds": [64010],
+      "rackUnits": 1,
+      "quote": "Form Factor: 1U Rackmount",
+      "url": "https://www.supermicro.com/en/products/system/hyper/1u/sys-122h-tn"
+    },
+    {
+      "vendor": "Supermicro",
+      "model": "Supermicro SYS-222H-TN",
+      "bcgProductIds": [63933],
+      "rackUnits": 2,
+      "quote": "Form Factor: 2U Rackmount",
+      "url": "https://www.supermicro.com/en/products/system/hyper/2u/sys-222h-tn"
+    },
+    {
+      "vendor": "Supermicro",
+      "model": "Supermicro SYS-122C-TN",
+      "bcgProductIds": [64009],
+      "rackUnits": 1,
+      "quote": "Form Factor: 1U Rackmount",
+      "url": "https://www.supermicro.com/en/products/system/cloudcomputing/1u/sys-122c-tn"
+    },
+    {
+      "vendor": "Supermicro",
+      "model": "Supermicro SYS-222BT-DNR",
+      "bcgProductIds": [63934],
+      "rackUnits": 2,
+      "rackUnitsRefersTo": "chassis",
+      "quote": "Form Factor: 2U Rackmount; \"A 2U 2-node BigTwin® server\"; \"Two hot-pluggable systems (nodes) in a 2U form factor\"",
+      "url": "https://www.supermicro.com/en/products/system/bigtwin/2u/sys-222bt-dnr",
+      "note": "Multi-node chassis: 2U is the height of the whole chassis, which holds 2 nodes (the vendor page says so). How the game should model it (one BCG entry = one node?) is open, see 15-hardware.md OQ."
+    },
+    {
+      "vendor": "Supermicro",
+      "model": "Supermicro AS-2126HS-TN",
+      "bcgProductIds": [63173],
+      "rackUnits": 2,
+      "quote": "Form Factor: 2U Rackmount",
+      "url": "https://www.supermicro.com/en/products/system/hyper/2u/as-2126hs-tn"
+    }
+  ],
+  "unresolved": [
+    {
+      "vendor": "Cisco",
+      "model": "UCSX-215c-M8",
+      "bcgProductIds": [63602],
+      "reason": "Cisco UCS X-Series compute node (it goes into a chassis, not directly into a rack); it has no rack height of its own. Not researched."
+    }
+  ]
+}

@@ -19,6 +19,7 @@ třetí strana):
 |---|---|---|
 | `docs/spec/data/bcg-vsan-esa-readynodes-esxi91.json` [H9] | **247 vSAN ESA ReadyNode** záznamů s filtrem Supported Release = „ESXi 9.1 (vSAN 9.1)“ pro Dell (32), HPE (26), Lenovo (76), Cisco (31), Supermicro (82); v BCG je pro 9.1 celkem 350 ESA ReadyNode všech vendorů (`meta.totalReadyNodesAllVendors`). Per záznam: `productId`, `model`, `cpuGeneration`, `supportedReleases`, `profiles`, `maxCoresPerSocket`, `maxSockets`, `maxMemoryGB`, `esaDrives` (názvy certifikovaných disků s DWPD), `cyberRecoveryDrives`, `maxDrives`, `nics`, `bootDevice`, `pcieSwitch`, `notes`, `bcgUrl`. `meta.fetchedAt` 2026-11-21T00:29Z. | `POST …/compguide/programs/viewResults` (seznam) + `POST …/viewDetails?programId=vsanesa&id=<productId>` (detail); obnova: `tools/bcg/fetch-readynodes.sh` |
 | `docs/spec/data/bcg-vsan-esa-readynode-hardware-guidance.md` [H2] | doslovný text stránky BCG „vSAN ESA ReadyNode Hardware Guidance“ (tabulky profilů HCI / SC / Cyber Recovery, požadavky na disky, poznámky) | headless prohlížeč, 2026-11-21T00:29Z |
+| `docs/spec/data/server-rack-units.json` [VEND] | výška v U pro 30 modelů z Přílohy A (`vendor`, `model`, `bcgProductIds`, `rackUnits`, doslovná citace, `url`) + `unresolved` | WebFetch vendorských stránek, 2026-11-21 (Příloha C) |
 | (mimo repo) `all.json` [H22] | oficiální export vSAN HCL (komponenty: controller / hdd / ssd / nic), `jsonUpdatedTime` 17. 11. 2026 | stažen orchestrátorem dříve; v tomto specu jen výřezy v Příloze B.2 |
 
 Úrovně důvěry. **Model a engine smí jako pravidla použít [T] a [BCG]; jako katalog dílů [BCG] a [BCG-data].**
@@ -28,6 +29,7 @@ třetí strana):
 | **[T]** | Ověřeno přímým čtením stránky techdocs.broadcom.com nebo knowledge.broadcom.com. |
 | **[BCG]** | Ověřeno z oficiálního webu BCG – z dat jeho API (ReadyNode záznam, cituje se `bcgUrl` modelu) nebo z doslovného textu stránky Hardware Guidance [H2]. |
 | **[BCG-data]** | Ověřeno z oficiálního datového exportu vSAN HCL `all.json` [H22] (stav 17. 11. 2026); u položky je její `vcglink`. Export obsahuje jen komponenty (ne ReadyNode ani servery). |
+| **[VEND]** | **Jen výška serveru v U**, z oficiálního datasheetu / produktové stránky vendora (dell.com, hpe.com, lenovo.com / Lenovo Press, cisco.com, supermicro.com), s odkazem. Žádný jiný atribut se z vendorských zdrojů nepřebírá (Příloha C). |
 | **[SIMPL]** | Herní zjednodušení / herní hodnota (výběr konkrétní hodnoty v mezích dokumentace, mapování názvů mezi datasety). Není to fakt z dokumentace. |
 
 Dřívější úroveň **[BCG-idx]** (text BCG jen z indexu vyhledávače) je **zrušena** – všechna tvrzení byla buď
@@ -396,6 +398,14 @@ Jen fyzická vrstva hosta; logické toky (vmk, VLAN, MTU) jsou v `10-planning` �
 10. **KB 393469 a VCF 9.0**: KB popisuje VCF 5.2 a opravu ve VCF 9.1; dopad na 9.0 neuveden.
 11. Přesná hláška validace installeru pro ESA host pod minimem jader / RAM / kapacity uzlu není v dokumentaci →
     hra použije obecnou herní hlášku označenou jako herní.
+12. **Výška v U – nedohledané / neověřené modely** (Příloha C): Cisco UCSX-215c-M8 (63602) je compute node
+    X-Series, který se zasouvá do šasi, ne přímo do racku, takže vlastní výšku v U nemá. Výška šasi nebyla
+    dohledána. Pro ostatní „další aktuální záznamy“ z A.2–A.5 (např. DL325/DL345 Gen11/Gen12, SR645/SR665/SR675 V3,
+    ThinkAgile VX/FX, HCIVS*/HCIX*, další Supermicro) výška zatím dohledaná není. U Cisco 64136 je ověřen jen part
+    number UCSC-C240-M8SX, ne HCIVS240C-M8SN.
+13. **Multi-node šasi** (Supermicro SYS-222BT-DNR, BigTwin): vendor uvádí „A 2U 2-node BigTwin® server“. Jeden BCG
+    záznam tedy zřejmě odpovídá jednomu nodu, ale dokumentace BCG to výslovně neříká. Otevřené je, jak to má
+    hra modelovat (2 nody v jednom 2U šasi, nebo model vynechat) – v B.3 se nepoužívá.
 
 **Uzavřené (zodpovězeno daty [BCG])**
 - ~~ReadyNode / servery jen z indexu~~ → 247 záznamů z BCG API [H9].
@@ -446,6 +456,13 @@ Oficiální datový export BCG [BCG-data]:
   (controller / hdd / ssd / nic), staženo orchestrátorem: https://vvs.broadcom.com/service/vsan/all.json –
   na tento soubor odkazuje KB 427591 → KB 412606 (aktualizace vSAN HCL DB pro VCF Installer). U každé položky
   v katalogu je uveden její `vcglink` (BCG detail).
+
+Vendorské datasheety [VEND] (jen výška v U; odkaz per model v Příloze C a v `docs/spec/data/server-rack-units.json`):
+- [V1] Dell – PowerEdge Installation and Service Manual, kapitola „system configurations and features“ (dell.com/support)
+- [V2] HPE – produktové stránky HPE Store (buy.hpe.com); stránky QuickSpecs na hpe.com při čtení vypršely (timeout)
+- [V3] Lenovo – Lenovo Press Product Guides (lenovopress.lenovo.com), tabulka specifikací, řádek „Form factor“
+- [V4] Cisco – UCS C-Series Data Sheets (cisco.com), „Form factor“ a „Ordering information“
+- [V5] Supermicro – produktové stránky (supermicro.com), Chassis → „Form Factor“
 
 ---
 
@@ -737,3 +754,49 @@ Poznámky:
   použití odmítne (REQ) nebo varuje (DEV) – s hláškou ze sekce 5, kde existuje, jinak s herní hláškou označenou jako
   herní.
 - Žádné ceny – fiktivní měna se doplní v ekonomice Kariéry.
+
+---
+
+## Příloha C – Výška serverů (U) [VEND]
+
+**Pravidlo:** z vendorských zdrojů (oficiální datasheet / spec sheet / produktová stránka / manuál vendora) se
+přebírá **jen výška serveru v U**, vždy s odkazem. Všechny ostatní atributy (CPU, RAM, disky, NIC, boot, profily)
+platí jen z BCG (Příloha A). Data: `docs/spec/data/server-rack-units.json` (stav 2026-11-21, u každého modelu
+doslovná citace). Modely ze startovního katalogu (B.3) jsou **tučně**.
+
+| Vendor | Model (BCG productId) | U | Zdroj (citace) |
+|---|---|---|---|
+| Dell | PowerEdge R470 (63908) | 1 | [ISM: „The PowerEdge R470 system is a 1U server“](https://www.dell.com/support/manuals/en-us/poweredge-r470/r470_ism/poweredge-r470-system-configurations-and-features?guid=guid-446b9ab8-12a3-47f3-9c36-afe3578c5183&lang=en-us) |
+| Dell | PowerEdge R570 (63907) | 2 | [ISM: „… is a 2U server“](https://www.dell.com/support/manuals/en-us/poweredge-r570/r570_ism_pub/poweredge-r570-system-configurations-and-features?guid=guid-ed44effc-50f1-44d2-99d3-5cda6a624b05&lang=en-us) |
+| Dell | **PowerEdge R670** (63567) | 1 | [ISM: „… is a 1U server“](https://www.dell.com/support/manuals/en-us/poweredge-r670/r670_ism_pub/poweredge-r670-system-configurations-and-features?guid=guid-9e3e2ff9-5ef3-4526-96ec-293a36f5735f&lang=en-us) |
+| Dell | **PowerEdge R770** (63566) | 2 | [ISM: „… is a 2U server“](https://www.dell.com/support/manuals/en-us/poweredge-r770/r770_ism_pub/poweredge-r770-system-configurations-and-features?guid=guid-01a358f4-bfc5-4207-ad85-51052333bdce&lang=en-us) |
+| Dell | PowerEdge R6715 (63414) | 1 | [ISM: „… is a 1U server“](https://www.dell.com/support/manuals/en-us/poweredge-r6715/per6715_ism_pub/poweredge-r6715-system-configurations-and-features?guid=guid-acb30e42-9d10-4089-94c4-8da377f0c19b&lang=en-us) |
+| Dell | PowerEdge R7715 (63413) | 2 | [ISM: „… is a 2U server“](https://www.dell.com/support/manuals/en-us/poweredge-r7715/r7715_ism_pub/poweredge-r7715-system-configurations-and-features?guid=guid-9221c3b4-1346-4fe6-8a8d-5cd85038219b&lang=en-us) |
+| Dell | PowerEdge R6725 (63648) | 1 | [ISM: „… is a 1U server“](https://www.dell.com/support/manuals/en-us/oth-xlr6725/r6725_ism/poweredge-r6725-system-configurations-and-features?guid=guid-6ad52ba4-ba51-4ad8-acac-f56a394a91e4&lang=en-us) |
+| Dell | PowerEdge R7725 (63559) | 2 | [ISM: „… is a 2U server“](https://www.dell.com/support/manuals/en-us/poweredge-r7725/per7725_ism/poweredge-r7725-system-configurations-and-features?guid=guid-e1fb7b4d-d967-4667-9b8f-44cbc387277c&lang=en-us) |
+| HPE | ProLiant DL320 Gen12 (63564) | 1 | [HPE Store: „1U single-socket rackmount server“](https://buy.hpe.com/us/en/compute/rack-servers/proliant-dl300-servers/hpe-proliant-compute-dl320-gen12/p/1014835186) |
+| HPE | ProLiant DL340 Gen12 (63563) | 2 | [HPE Store: „a 2U 1P server“](https://buy.hpe.com/us/en/compute/rack-servers/proliant-dl300-servers/hpe-proliant-compute-dl340-gen12/p/1014835192) |
+| HPE | **ProLiant DL360 Gen12** (63562) | 1 | [HPE Store: „a compact 1U 2P server“](https://buy.hpe.com/us/en/compute/rack-servers/proliant-dl300-servers/hpe-proliant-compute-dl360-gen12/p/1014865649) |
+| HPE | **ProLiant DL380 Gen12** (63561) | 2 | [HPE Store: „a scalable 2U 2P server“](https://buy.hpe.com/us/en/compute/rack-servers/proliant-dl300-servers/hpe-proliant-compute-dl380-gen12/p/1014865653) |
+| HPE | ProLiant DL365 Gen11 (63148, 62977) | 1 | [HPE Store: „rack-optimized 1U 2P“](https://buy.hpe.com/us/en/compute/rack-servers/proliant-dl300-servers/proliant-dl365-server/hpe-proliant-dl365-gen11/p/1014689131) |
+| HPE | ProLiant DL385 Gen11 (63146, 62981) | 2 | [HPE Store: „a 2U 2P solution“](https://buy.hpe.com/us/en/compute/rack-servers/proliant-dl300-servers/hpe-proliant-dl385-gen11/p/1014689137) |
+| Lenovo | **ThinkSystem SR630 V4** (63600) | 1 | [Lenovo Press LP1971: „Form factor 1U rack“](https://lenovopress.lenovo.com/lp1971-thinksystem-sr630-v4-server) |
+| Lenovo | **ThinkSystem SR650 V4** (63599) | 2 | [Lenovo Press LP2127: „2U rack“](https://lenovopress.lenovo.com/lp2127-thinksystem-sr650-v4-server) |
+| Lenovo | ThinkSystem SR650a V4 (63624) | 2 | [Lenovo Press LP2128: „2U rack“](https://lenovopress.lenovo.com/lp2128-thinksystem-sr650a-v4-server) |
+| Lenovo | ThinkSystem SR635 V3 (63179, 62913) | 1 | [Lenovo Press LP1609: „1U rack“](https://lenovopress.lenovo.com/lp1609-thinksystem-sr635-v3-server) |
+| Lenovo | ThinkSystem SR655 V3 (63180, 62920) | 2 | [Lenovo Press LP1610: „2U rack“](https://lenovopress.lenovo.com/lp1610-thinksystem-sr655-v3-server) |
+| Cisco | **UCSC-C220-M8S** (64247) | 1 | [C220 M8 Data Sheet: „C220 M8 1RU standard server“](https://www.cisco.com/c/en/us/products/collateral/servers-unified-computing/ucs-c-series-rack-servers/ucs-c220-m8-rack-server-ds.html) |
+| Cisco | UCSC-C220-M8E3S (64134) | 1 | [C220 M8 Data Sheet: „C220 M8 1RU NVMe optimized server“](https://www.cisco.com/c/en/us/products/collateral/servers-unified-computing/ucs-c-series-rack-servers/ucs-c220-m8-rack-server-ds.html) |
+| Cisco | UCSC-C240-M8SX, HCIVS240C-M8SN (64136) | 2 | [C240 M8 Data Sheet: „C240 M8 2RU standard server“](https://www.cisco.com/c/en/us/products/collateral/servers-unified-computing/ucs-c-series-rack-servers/ucs-c240-m8-rack-server-ds.html) (ověřen jen UCSC-C240-M8SX, OQ 12) |
+| Cisco | **UCSC-C240-M8E3S** (63932) | 2 | [C240 M8 Data Sheet: „C240 M8 2RU NVMe optimized server“](https://www.cisco.com/c/en/us/products/collateral/servers-unified-computing/ucs-c-series-rack-servers/ucs-c240-m8-rack-server-ds.html) |
+| Cisco | UCSC-C225-M8N (63601, 63221) | 1 | [C225 M8 Data Sheet: „C225 M8 1RU NVMe optimized server“](https://www.cisco.com/c/en/us/products/collateral/servers-unified-computing/ucs-c-series-rack-servers/ucs-c225-m8-rack-server-ds.html) |
+| Cisco | UCSC-C245-M8SX (63625, 63415) | 2 | [C245 M8 Data Sheet: „C245 M8 2RU standard server“](https://www.cisco.com/c/en/us/products/collateral/servers-unified-computing/ucs-c-series-rack-servers/ucs-c245-m8-rack-server-ds.html) |
+| Supermicro | **SYS-122H-TN** (64010) | 1 | [supermicro.com: „Form Factor 1U Rackmount“](https://www.supermicro.com/en/products/system/hyper/1u/sys-122h-tn) |
+| Supermicro | **SYS-222H-TN** (63933) | 2 | [supermicro.com: „Form Factor 2U Rackmount“](https://www.supermicro.com/en/products/system/hyper/2u/sys-222h-tn) |
+| Supermicro | SYS-122C-TN (64009) | 1 | [supermicro.com: „1U Rackmount“](https://www.supermicro.com/en/products/system/cloudcomputing/1u/sys-122c-tn) |
+| Supermicro | SYS-222BT-DNR (63934) | 2 (šasi, 2 nody) | [supermicro.com: „A 2U 2-node BigTwin® server“](https://www.supermicro.com/en/products/system/bigtwin/2u/sys-222bt-dnr) (OQ 13) |
+| Supermicro | AS-2126HS-TN (63173) | 2 | [supermicro.com: „2U Rackmount“](https://www.supermicro.com/en/products/system/hyper/2u/as-2126hs-tn) |
+
+- **Startovní katalog B.3** pokrývá všech 10 modelů: R670 = 1U, R770 = 2U, DL360 Gen12 = 1U, DL380 Gen12 = 2U,
+  SR630 V4 = 1U, SR650 V4 = 2U, C220-M8S = 1U, C240-M8E3S = 2U, SYS-122H-TN = 1U, SYS-222H-TN = 2U.
+- Nedohledáno: Cisco UCSX-215c-M8 (63602) – compute node X-Series do šasi, ne rack server (OQ 12).
