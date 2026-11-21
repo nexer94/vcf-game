@@ -36,6 +36,7 @@ import type {
   ValidationIssue,
   VcfBinary,
 } from '../../model';
+import type { UseCaseChoice, UseCaseId } from './useCases';
 
 export const SANDBOX_PHASES = ['design', 'planning', 'deploy'] as const;
 export type SandboxPhase = (typeof SANDBOX_PHASES)[number];
@@ -201,6 +202,8 @@ export interface SandboxState {
   readonly room: SandboxRoomState;
   readonly roomHistory: RoomHistory;
   readonly objectives: ObjectivesPrefs;
+  /** Chosen use case / path (25 §2.1, §4.9): id + spec reference only, no VCF rule depends on it yet. */
+  readonly useCase?: UseCaseChoice;
   readonly log: readonly SandboxLogEntry[];
   readonly seq: {
     readonly host: number;
@@ -339,7 +342,10 @@ export type SandboxCommand =
   // --- objectives tracker (UX §8) ---
   | { readonly type: 'skipObjective'; readonly id: string }
   | { readonly type: 'unskipObjective'; readonly id: string }
-  | { readonly type: 'setObjectivesHidden'; readonly hidden: boolean };
+  | { readonly type: 'setObjectivesHidden'; readonly hidden: boolean }
+  // --- use case / path (25 §2.1, §4.9) ---
+  /** Record the chosen use case (UC-1 … UC-10); null clears the choice. */
+  | { readonly type: 'chooseUseCase'; readonly useCaseId: UseCaseId | null };
 
 export type SandboxCommandType = SandboxCommand['type'];
 

@@ -3,7 +3,7 @@ import { bmcTransfersOf, elevationRacks, linkTrafficOf, roomContentsOf } from '.
 import { LocalRoomPort } from './sessionFallback';
 import type { RoomState } from './sessionPort';
 
-function built(): { port: LocalRoomPort; ids: Record<string, string> } {
+function built(): { port: LocalRoomPort; ids: { r1: string; r2: string; s1: string; sw: string } } {
   const port = new LocalRoomPort();
   const id = (r: { ok: boolean; id?: string }): string => (r as { id: string }).id;
   const r1 = id(port.buyItem('rack-generic-42u'));
@@ -31,7 +31,7 @@ describe('room sync', () => {
 
   it('puts the selected rack first and linked racks next', () => {
     const { port, ids } = built();
-    const cols = elevationRacks(port.state(), ids.r2);
+    const cols = elevationRacks(port.state(), ids.r2!);
     expect(cols.map((c) => c.id)).toEqual([ids.r2, ids.r1]);
     expect(cols[1]!.devices[0]).toMatchObject({ nicPorts: 2, bmc: true });
     expect(elevationRacks(port.state(), 'nope')).toEqual([]);

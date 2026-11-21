@@ -28,6 +28,7 @@ import {
   type NicPart,
   type OptionAvailabilityWithHardware,
   type PhysicalServer,
+  type PhysicalState,
   type PlannedHostNetworks,
   type PortRef,
   type RackModel,
@@ -276,6 +277,14 @@ export interface EconomyView {
 }
 
 export interface PhysicalView {
+  /** Raw model PhysicalState (with the derived endpoints) – for adapters that reuse model helpers. */
+  readonly state: PhysicalState;
+  /** Rack id -> floor tile (placed racks only). Same data as racks[].tile. */
+  readonly placements: Readonly<Record<string, RoomTile>>;
+  /** Spent game currency (= economy.spent). */
+  readonly spent: number;
+  /** Cable id -> cosmetic colour / label. Same data as cables[].color / label. */
+  readonly cableMeta: Readonly<Record<string, CableMeta>>;
   readonly racks: readonly RackView[];
   readonly servers: readonly ServerView[];
   readonly switches: readonly SwitchView[];
@@ -503,6 +512,10 @@ export function physicalView(s: SandboxState, ctx: SandboxContext): PhysicalView
   const bringup = specServerIds(s).length ? physicalBringupIssues(s, ctx) : undefined;
 
   return {
+    state: net.state,
+    placements: room.rackTiles,
+    spent: room.economy.spent,
+    cableMeta: room.cableMeta,
     racks,
     servers,
     switches,

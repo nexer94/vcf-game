@@ -73,11 +73,15 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
   firmware přes vLCM HSM; KB 376173 (vSwitchBMC) jako možná příčina selhání bring-upu. → ve hře OOB volitelný
   krok „mimo VCF scope – herní“, první dokumentovaná síť = ESX management (vmk0)
 - [ ] **Sprint 1** (2026-11-21):
-  - [ ] `engine-dev` – SandboxSession v2: příkazy nákup/umístění/montáž/kabeláž/porty/konfigurace/instalace ESX/DCUI,
-    herní ceny (`modes/economy`), snapshot `physical`/`flows`/`hw`/`objectives`, engine úkolů, `vite.config` fs.allow *(běží)*
-  - [ ] `ui-dev` – zásobník pohledů + lupa, 2D rack + kabeláž, obchod z katalogu, provoz v2 (svazky, tvary teček),
-    úpravy místnosti z UX review *(běží)*
-  - [ ] `scenario-designer` – obsah úkolů Sandboxu (skupiny A–G) po engine úkolů
+  - [x] `engine-dev` – SandboxSession v2: nákup (herní měna, ∞), umístění/montáž, kabeláž, porty (VLAN/MTU), síť firmy,
+    instalace ESX (fyzicky / BMC Dell-HPE-Lenovo), DCUI + test, undo/redo, snapshot physical/flows/hw/objectives,
+    engine úkolů (32 selektorů), use cases UC-1…UC-10 (hratelný jen UC-1)
+  - [x] `ui-dev` – zásobník pohledů (Místnost → Rack → Host, zoom+crossfade), lupa/hover, 2D rack s kabeláží
+    (auto-trasa, a11y vrstva), obchod z BCG katalogu (filtry, porovnání, batoh), provoz v2 (svazky, tvary teček, čip
+    Provoz), tracker v HUD
+  - [x] `scenario-designer` + `engine-dev` – obsah úkolů A–G (≈40 úkolů s „Proč?“ odkazy)
+  - [ ] další: UI pro instalaci ESX/DCUI/síť firmy/use case (API hotové, UI chybí), karty vmnic (host view),
+    tabule, počítač; profil `dell-r670-sm` hlásí „pod SM“ (ověřit); bundle 930 kB (dynamický import datasetu)
   - [ ] (odloženo do funkčního milníku) `code-reviewer` + `ux-designer` review → `fact-checker`
 
 ### Sandbox v1 (původní tok Návrh → Příprava → Deploy)

@@ -10,6 +10,7 @@
  *
  * Pure TypeScript: no DOM, no PixiJS.
  */
+import { type DistributedSwitchModelId, type DnsRecords, type SwitchPortConfig, MTU_LIMITS, carriesVlan, nicRequirementForVdsModel, validateDnsRecords } from '../../model';
 import sandboxObjectivesJson from '../../scenarios/objectives/sandbox.json';
 import type { SandboxSnapshotBase } from './snapshot';
 import type { ObjectivesPrefs, SandboxPhase } from './types';
@@ -91,7 +92,13 @@ export interface SelectorResult {
   readonly target?: number;
 }
 
-type ParamKind = 'count' | 'phase' | 'decision';
+/**
+ * - `count`: positive integer | 'all' | 'design' (see targetOf),
+ * - `nics`: positive integer | 'design' (= pNIC count of the chosen Distributed Switch model, model
+ *   nicRequirementForVdsModel; 1 without a choice or for models without a documented count – VCF-NET-REQD-TOR-001),
+ * - `flag`: boolean.
+ */
+type ParamKind = 'count' | 'phase' | 'decision' | 'nics' | 'flag';
 
 export interface SelectorDef {
   readonly description: string;
@@ -118,6 +125,94 @@ function countServers(pred: (srv: ObjectiveInput['physical']['servers'][number])
 const flag = (done: boolean): SelectorResult => ({ done });
 
 const PHASE_ORDER: readonly SandboxPhase[] = ['design', 'planning', 'deploy'];
+
+type ServerIn = ObjectiveInput['physical']['servers'][number];
+
+/** Switch port configs the server's NICs are cabled to (host-facing ports, 10 §3.3). */
+function hostFacingConfigs(snap: ObjectiveInput, srv: ServerIn): SwitchPortConfig[] {
+  const out: SwitchPortConfig[] = [];
+  for (const n of srv.nicPorts) {
+    if (n.peer?.kind !== 'switch') continue;
+    const { switchId, port } = n.peer;
+    const cfg = snap.physical.switches.find((x) => x.id === switchId)?.ports[port]?.config;
+    if (cfg) out.push(cfg);
+  }
+  return out;
+}
+
+interface TrafficNet {
+  readonly vlanId: number;
+  readonly mtu: number;
+  readonly tep: boolean;
+}
+
+/**
+ * Traffic types KNOWN so far for a host (snapshot data only):
+ *  - ESX management: the host's DCUI VLAN (tagged; untagged = no VLAN to carry), else the wizard's ESX management VLAN,
+ *    MTU 1500 (default, 25 §6.3 [U43]);
+ *  - vMotion, vSAN / NFS (not for VMFS on FC) and Host TEP: from the wizard plan (Network details, 20 §4.2 step 11)
+ *    once entered.
+ * Before the plan exists only management is known – the objective can be done early and regress (UX §8.3 "problém")
+ * when the plan adds VLANs the switch does not carry yet.
+ */
+function trafficNets(snap: ObjectiveInput, srv: ServerIn): TrafficNet[] {
+  const plan = snap.physical.plan;
+  const out: TrafficNet[] = [];
+  const mgmtVlan = srv.esx.network ? srv.esx.network.vlanId : plan?.esxManagement.vlanId;
+  if (mgmtVlan !== undefined) out.push({ vlanId: mgmtVlan, mtu: MTU_LIMITS.minHostPort, tep: false });
+  if (!plan) return out;
+  out.push({ ...plan.vmotion, tep: false });
+  if (plan.storage && snap.deploy.spec.storage.type !== 'vmfs-fc') out.push({ ...plan.storage, tep: false });
+  if (plan.nsxHostOverlay) out.push({ ...plan.nsxHostOverlay, tep: true });
+  return out;
+}
+
+/** Host ports trunk (VCF-NET-RCMD-SWT-001) and carry every known traffic VLAN (model carriesVlan). */
+function trunksTrafficVlans(snap: ObjectiveInput, srv: ServerIn): boolean {
+  const ports = hostFacingConfigs(snap, srv);
+  const nets = trafficNets(snap, srv);
+  return ports.length > 0 && ports.every((cfg) => cfg.mode === 'trunk' && nets.every((n) => carriesVlan(cfg, n.vlanId)));
+}
+
+/**
+ * Required MTU of a host-facing port (10 §3.3 [P19]): the largest MTU of the traffic types it carries, minimum 1500
+ * (VCF-NET-REQD-SWT-003); a port carrying the Host TEP VLAN minimum 1700 (VCF-NET-REQD-SWT-002). With `recommended`
+ * at least 9000 (VCF-NET-RCMD-SWT-004). Numbers: model MTU_LIMITS.
+ */
+function requiredPortMtu(cfg: SwitchPortConfig, nets: readonly TrafficNet[], recommended: boolean): number {
+  let need: number = MTU_LIMITS.minHostPort;
+  for (const n of nets) {
+    if (!carriesVlan(cfg, n.vlanId)) continue;
+    need = Math.max(need, n.mtu, n.tep ? MTU_LIMITS.tepMinSwitchPort : 0);
+  }
+  return recommended ? Math.max(need, MTU_LIMITS.recommended) : need;
+}
+
+function portsMtuOk(snap: ObjectiveInput, srv: ServerIn, recommended: boolean): boolean {
+  const ports = hostFacingConfigs(snap, srv);
+  const nets = trafficNets(snap, srv);
+  return ports.length > 0 && ports.every((cfg) => cfg.mtu >= requiredPortMtu(cfg, nets, recommended));
+}
+
+/** pNIC uplinks a host needs: number, or 'design' = Distributed Switch model requirement (model), else 1. */
+function nicsTarget(snap: ObjectiveInput, nics: ObjectiveParamValue | undefined): number {
+  if (typeof nics === 'number' && Number.isInteger(nics) && nics > 0) return nics;
+  const model = snap.design.choices['distributed-switch-model'] as DistributedSwitchModelId | undefined;
+  return (model ? nicRequirementForVdsModel(model)?.minPorts : undefined) ?? 1;
+}
+
+const uplinkCount = (srv: ServerIn): number => srv.nicPorts.filter((n) => n.link?.up === true && n.peer?.kind === 'switch').length;
+
+/** DNS server content rebuilt from the snapshot's DNS view (planning.dns). */
+function dnsOf(snap: ObjectiveInput): DnsRecords {
+  return {
+    forward: Object.fromEntries(snap.planning.dns.a.map((r) => [r.fqdn, r.ip])),
+    reverse: Object.fromEntries(snap.planning.dns.ptr.map((r) => [r.ip, r.fqdn])),
+  };
+}
+
+/** Model codes of the initial management cluster homogeneity rules (10 §3.4 [P28], 20 §3.2 [S7]). */
+const HOMOGENEITY_CODES: readonly string[] = ['ESX_MULTIPLE_VENDORS', 'HW_CLUSTER_HETEROGENEOUS'];
 
 export const SELECTORS: Readonly<Record<string, SelectorDef>> = {
   hasRack: {
@@ -215,6 +310,45 @@ export const SELECTORS: Readonly<Record<string, SelectorDef>> = {
     params: { min: 'count' },
     evaluate: countServers((x) => x.esx.network !== undefined && x.esx.certificateCn === x.esx.network.hostnameFqdn),
   },
+  hostDnsRecordsValid: {
+    description: 'Hosts whose DCUI FQDN has a forward (A) record to the vmk0 IP and a matching reverse (PTR) record ≥ min (model validateDnsRecords; 10 §3.1, 20 §3.5).',
+    params: { min: 'count' },
+    evaluate: (snap, p) => {
+      const dns = dnsOf(snap);
+      return counter(
+        snap.physical.servers.filter((x) => x.esx.network !== undefined && validateDnsRecords(dns, x.esx.network.hostnameFqdn, x.id, x.esx.network.ipv4Address).length === 0).length,
+        targetOf(snap, p['min']),
+      );
+    },
+  },
+  switchPortsTrunkVlans: {
+    description: 'Hosts whose every cabled switch port is an 802.1Q trunk carrying the VLANs of all known traffic types (management from DCUI; vMotion / vSAN / NFS / Host TEP from the wizard plan) ≥ min.',
+    params: { min: 'count' },
+    evaluate: (snap, p) => counter(snap.physical.servers.filter((x) => trunksTrafficVlans(snap, x)).length, targetOf(snap, p['min'])),
+  },
+  switchMtuForTraffic: {
+    description: 'Hosts whose every cabled switch port has MTU ≥ the largest MTU of the traffic it carries, min. 1500, Host TEP min. 1700 (10 §3.3); `recommended`: ≥ 9000 ≥ min.',
+    params: { min: 'count', recommended: 'flag' },
+    evaluate: (snap, p) => counter(snap.physical.servers.filter((x) => portsMtuOk(snap, x, p['recommended'] === true)).length, targetOf(snap, p['min'])),
+  },
+  hostsWithUplinks: {
+    description: 'Hosts with ≥ `nics` NIC uplinks cabled to a switch (link up) ≥ min; nics "design" = pNIC count of the chosen Distributed Switch model (model; 1 without a choice).',
+    params: { min: 'count', nics: 'nics' },
+    evaluate: (snap, p) => {
+      const need = nicsTarget(snap, p['nics']);
+      return counter(snap.physical.servers.filter((x) => uplinkCount(x) >= need).length, targetOf(snap, p['min']));
+    },
+  },
+  serversHomogeneous: {
+    description: 'At least one server and no homogeneity finding of the initial management cluster (one vendor, same configuration – model validateClusterHardware).',
+    params: {},
+    evaluate: (snap) => flag(snap.physical.servers.length > 0 && !snap.physical.clusterIssues.findings.some((f) => HOMOGENEITY_CODES.includes(f.code))),
+  },
+  useCaseChosen: {
+    description: 'A use case / path (25 §2.1: UC-1 … UC-10) is chosen.',
+    params: {},
+    evaluate: (snap) => flag(snap.useCase !== undefined),
+  },
   designDecided: {
     description: 'With `decision`: that design decision is chosen; without: the design gate passes (no errors, warnings acknowledged).',
     params: { decision: 'decision' },
@@ -266,12 +400,8 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object
 const isStr = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '';
 
 function checkUrl(url: string): boolean {
-  try {
-    const u = new URL(url);
-    return u.protocol === 'https:' && ALLOWED_DOC_HOSTS.includes(u.hostname);
-  } catch {
-    return false;
-  }
+  const m = /^https:\/\/([^/?#:]+)(?:[/?#]|$)/.exec(url);
+  return m?.[1] !== undefined && ALLOWED_DOC_HOSTS.includes(m[1].toLowerCase());
 }
 
 function checkParams(errs: string[], where: string, selector: string, params: unknown): void {
@@ -291,6 +421,8 @@ function checkParams(errs: string[], where: string, selector: string, params: un
       errs.push(`${where}: param ${k} must be a positive integer, "all" or "design"`);
     if (kind === 'phase' && !PHASE_ORDER.includes(v as SandboxPhase)) errs.push(`${where}: param ${k} must be one of ${PHASE_ORDER.join(', ')}`);
     if (kind === 'decision' && !isStr(v)) errs.push(`${where}: param ${k} must be a design decision id`);
+    if (kind === 'nics' && !(v === 'design' || (typeof v === 'number' && Number.isInteger(v) && v > 0))) errs.push(`${where}: param ${k} must be a positive integer or "design"`);
+    if (kind === 'flag' && typeof v !== 'boolean') errs.push(`${where}: param ${k} must be true or false`);
   }
 }
 

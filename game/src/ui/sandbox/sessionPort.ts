@@ -16,6 +16,7 @@
  */
 import type { FlowTrafficClass, HwVendor, EsaProfileId, ValidationIssue } from '../../model';
 import type { Tile } from '../../render/room/roomGrid';
+import { roomStateFromSnapshot } from './sessionMapper';
 
 // ---------------------------------------------------------------------------
 // View types consumed by the UI
@@ -160,6 +161,9 @@ export interface ObjectiveView {
   readonly status: ObjectiveStatus;
   readonly progress?: { readonly done: number; readonly total: number };
   readonly specRef?: string;
+  readonly docUrl?: string;
+  /** Tracker group title (engine objectives). */
+  readonly group?: string;
 }
 
 export interface InventoryEntry {
@@ -183,6 +187,8 @@ export interface RoomState {
   readonly issues: readonly ValidationIssue[];
   readonly traffic: readonly CableTraffic[];
   readonly objectives: readonly ObjectiveView[];
+  /** "Další krok" chosen by the tracker (engine); undefined = first unfinished objective. */
+  readonly nextObjectiveId?: string;
   readonly objectivesHidden: boolean;
   /** Game currency spent (Sandbox money is unlimited). */
   readonly spent: number;
@@ -245,23 +251,36 @@ export function sessionHasPhysical(session: unknown): session is SessionLike {
   if (!session || typeof session !== 'object') return false;
   const s = session as Partial<SessionLike>;
   if (typeof s.snapshot !== 'function' || typeof s.dispatch !== 'function') return false;
-  const snap = s.snapshot.call(session) as Record<string, unknown> | null;
-  return !!snap && typeof snap === 'object' && 'physical' in snap;
+  try {
+    const snap = s.snapshot.call(session) as Record<string, unknown> | null;
+    return !!snap && typeof snap === 'object' && 'physical' in snap && !!snap['physical'];
+  } catch {
+    return false;
+  }
 }
 
 let shared: Promise<RoomPort> | null = null;
 
 /**
- * One room port for the whole Sandbox run. Loads the hardware catalog lazily (BCG dataset ~360 kB,
- * only needed in the room).
+ * One room port for the whole Sandbox run. Creates a SandboxSession (attached to the shared engine clock) and uses
+ * it when it exposes the physical layer; otherwise the local fallback. Both load the hardware catalog lazily
+ * (BCG dataset ~360 kB, only needed in the room).
  */
-export function sharedRoomPort(session?: unknown): Promise<RoomPort> {
-  if (!shared) {
-    shared = sessionHasPhysical(session)
-      ? Promise.resolve(sessionBackend(session))
-      : import('./sessionFallback').then((m) => m.createLocalRoomPort());
-  }
+export function sharedRoomPort(engine?: { attach(system: never): () => void }): Promise<RoomPort> {
+  shared ??= import('../../modes/sandbox')
+    .then((m) => {
+      const session = new m.SandboxSession();
+      if (!sessionHasPhysical(session)) throw new Error('session without physical layer');
+      if (engine) session.attachTo(engine as never);
+      return sessionBackend(session);
+    })
+    .catch(() => import('./sessionFallback').then((m) => m.createLocalRoomPort()));
   return shared;
+}
+
+/** Fresh isolated port for the illustrative demo room (never mixes with the player's state). */
+export function createDemoRoomPort(): Promise<RoomPort> {
+  return import('./sessionFallback').then((m) => m.createLocalRoomPort());
 }
 
 /** Tests / "new sandbox": drop the shared port. */
@@ -284,10 +303,6 @@ function sessionBackend(session: SessionLike): RoomPort {
   };
   const toPortRef = (p: PortKey): Record<string, unknown> => ({ deviceId: p.deviceId, port: p.port });
   const memo: { snap?: unknown; state?: RoomState } = {};
-  let mapper: ((snap: unknown) => RoomState) | null = null;
-  void import('./sessionFallback').then((m) => {
-    mapper = m.roomStateFromSessionSnapshot;
-  });
   const empty: RoomState = {
     revision: 0, source: 'session',
     catalog: { servers: [], switches: [], racks: [], drives: [], nics: [], datasetFetchedAt: '', datasetRelease: '' },
@@ -297,17 +312,16 @@ function sessionBackend(session: SessionLike): RoomPort {
     source: 'session',
     state() {
       const snap = session.snapshot();
-      if (!mapper) return empty;
       if (memo.state && memo.snap === snap) return memo.state;
-      const state = mapper(snap);
+      const state = roomStateFromSnapshot(snap) ?? empty;
       memo.snap = snap;
       memo.state = state;
       return state;
     },
     subscribe: (fn) => session.subscribe(() => fn()),
     buyItem: (itemId) => run({ type: 'buyItem', itemId }),
-    placeRack: (rackId, tile) => run({ type: 'placeRack', rackId, tile: { gx: tile.gx, gy: tile.gy } }),
-    mountDevice: (deviceId, rackId, positionU) => run({ type: 'mountDevice', deviceId, rackId, ...(positionU !== undefined ? { positionU } : {}) }),
+    placeRack: (rackId, tile) => run({ type: 'placeRack', inventoryId: rackId, tile: { gx: tile.gx, gy: tile.gy } }),
+    mountDevice: (deviceId, rackId, positionU) => run({ type: 'mountDevice', inventoryId: deviceId, rackId, ...(positionU !== undefined ? { positionU } : {}) }),
     unmountDevice: (deviceId) => run({ type: 'unmountDevice', deviceId }),
     removeItem: (id) => run({ type: 'removeItem', id }),
     connectCable: (from, to) => run({ type: 'connectCable', from: toPortRef(from), to: toPortRef(to) }),

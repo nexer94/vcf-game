@@ -271,7 +271,7 @@ export class RackElevationView {
       g.roundRect(x, y, w, h, 4).fill(DEVICE.serverFace).stroke({ color: OUTLINE, width: 2 });
       g.roundRect(x + 3, y + 3, 10, h - 6, 2).fill(d.tagColor ?? 0x3d8bfd);
       // Drive bays.
-      for (let bx = x + 150; bx < x + 240; bx += 11) g.roundRect(bx, y + 5, 8, h - 10, 1.5);
+      for (let bx = x + 238; bx < x + 318; bx += 11) g.roundRect(bx, y + 5, 8, h - 10, 1.5);
       g.fill(DEVICE.serverShade).stroke({ color: DEVICE.bay, width: 1 });
       const t = txt(d.label, 13, OUTLINE, '800');
       t.position.set(x + 18, y + 4);
@@ -288,7 +288,7 @@ export class RackElevationView {
       g.roundRect(x + 3, y + 3, 8, h - 6, 2).fill(d.tagColor ?? DEVICE.ledAct);
       const t = txt(d.label, 12, 0xffffff, '800');
       t.position.set(x + 15, y + 3);
-      const sub = txt('generický', 9, 0xdfe8ff, '700');
+      const sub = txt(d.sublabel ? `${d.sublabel.slice(0, 14)}` : 'generický', 8, 0xdfe8ff, '700');
       sub.position.set(x + 15, y + 19);
       layer.addChild(t, sub);
     }

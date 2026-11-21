@@ -6,7 +6,9 @@
  * reported as `{ kind: 'flow' }` rejections and are listed here:
  *  - design choices can be changed only in the design phase and not while a bring-up validation or
  *    deployment task runs;
- *  - planning / environment actions are available in the planning and deploy phases;
+ *  - planning actions are available in the planning and deploy phases; DNS records (company DNS server, an
+ *    environment action) in every phase – the room flow v2 prepares hosts (incl. A + PTR, 10 §3.1) before the design;
+ *  - the use case choice (25 §2.1) is only recorded; it cannot change while a bring-up validation / deployment runs;
  *  - wizard and deployment actions only in the deploy phase;
  *  - the wizard cannot change design-derived fields (DESIGN_LOCKED_FIELDS) – change the design;
  *  - prep actions on hosts of a deployed / deploying management domain are locked
@@ -83,6 +85,7 @@ import {
   type SandboxTaskKind,
   SANDBOX_PHASES,
 } from './types';
+import { isUseCaseId, useCaseDef } from './useCases';
 import { applyDesignToSpec, changedLockedFields, initialSpecDraft, issueKey } from './wizard';
 
 export { deployedHostFqdns } from './room';
@@ -96,6 +99,8 @@ export interface SandboxOptions {
   readonly installerVersion?: string;
   /** Override the ILLUSTRATIVE task durations (tests, accessibility). */
   readonly taskDurationsMs?: Partial<Record<SandboxTaskKind, number>>;
+  /** Session context overrides (hardware catalog, game price table, objectives). Not part of the state. */
+  readonly context?: Partial<SandboxContext>;
 }
 
 export function initialSandboxState(opts: SandboxOptions = {}): SandboxState {
@@ -240,6 +245,22 @@ function apply(tx: Tx, cmd: SandboxCommand, ctx: SandboxContext): CommandResult 
       return ok();
     }
 
+    // --------------------------------------------------------------- use case
+    case 'chooseUseCase': {
+      if (BUSY.includes(s.deployment.status)) return no(flow('task-in-progress', 'Během validace nebo nasazení nelze měnit use case.'));
+      if (cmd.useCaseId === null) {
+        if (!s.useCase) return no(flow('nothing-to-do', 'Use case není vybraný.'));
+        const { useCase: _old, ...rest } = s;
+        void _old;
+        tx.s = rest;
+        return ok();
+      }
+      if (!isUseCaseId(cmd.useCaseId)) return no(flow('invalid-input', `Neznámý use case ${String(cmd.useCaseId)}.`));
+      if (s.useCase?.id === cmd.useCaseId) return no(flow('nothing-to-do', `Use case ${cmd.useCaseId} už je vybraný.`));
+      tx.s = { ...s, useCase: { id: cmd.useCaseId, specRef: useCaseDef(cmd.useCaseId).specRef } };
+      return ok();
+    }
+
     // ----------------------------------------------------------------- design
     case 'selectDesignOption':
     case 'clearDesignOption': {
@@ -332,16 +353,12 @@ function apply(tx: Tx, cmd: SandboxCommand, ctx: SandboxContext): CommandResult 
 
     // ------------------------------------------------------------ environment
     case 'addDnsRecord': {
-      const bad = inPhase('planning', 'deploy');
-      if (bad) return bad;
       if (parseIpv4(cmd.ip) === undefined || cmd.fqdn.trim() === '') return no(flow('invalid-input', 'Záznam DNS potřebuje jméno a platnou IPv4 adresu.'));
       tx.s = { ...s, env: { ...s.env, dns: addDnsRecord(s.env.dns, cmd.fqdn.trim(), cmd.ip, cmd.records) } };
       tx.invalidateValidation();
       return ok();
     }
     case 'removeDnsRecord': {
-      const bad = inPhase('planning', 'deploy');
-      if (bad) return bad;
       const dns = removeDnsRecord(s.env.dns, cmd.fqdn.trim(), cmd.records);
       if (JSON.stringify(dns) === JSON.stringify(s.env.dns)) return no(flow('nothing-to-do', `Pro ${cmd.fqdn} není co odebrat.`));
       tx.s = { ...s, env: { ...s.env, dns } };
@@ -520,6 +537,8 @@ function describe(cmd: SandboxCommand): string {
       return `Úkol obnoven: ${cmd.id}`;
     case 'setObjectivesHidden':
       return cmd.hidden ? 'Tracker úkolů skryt' : 'Tracker úkolů zobrazen';
+    case 'chooseUseCase':
+      return cmd.useCaseId === null ? 'Use case zrušen' : `Use case: ${cmd.useCaseId} – ${isUseCaseId(cmd.useCaseId) ? useCaseDef(cmd.useCaseId).title : '?'}`;
     case 'selectDesignOption':
       return `Návrh: ${cmd.decision} = ${cmd.option}`;
     case 'clearDesignOption':

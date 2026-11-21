@@ -33,6 +33,7 @@ import {
   validatePhysicalNetworkForBringup,
 } from '../../model';
 import { buildHardwareCatalog, type HardwareCatalog, type StarterServer } from '../../model/hardwareCatalog';
+import { itemPrice } from '../../modes/economy';
 import type { Tile } from '../../render/room/roomGrid';
 import { isCableColorId, type CableColorId } from './sessionPort';
 import type {
@@ -103,6 +104,13 @@ function serverItem(catalog: HardwareCatalog, s: StarterServer): ShopServerItem 
 }
 
 export function shopCatalogOf(catalog: HardwareCatalog): ShopCatalog {
+  // Game prices from the economy layer (modes/economy); local formula only if the item has no price there.
+  const priced = <T extends { id: string; price: number }>(x: T): T => ({ ...x, price: itemPrice(catalog, x.id) ?? x.price });
+  const c = shopCatalogOfRaw(catalog);
+  return { ...c, servers: c.servers.map(priced), switches: c.switches.map(priced), racks: c.racks.map(priced), drives: c.drives.map(priced), nics: c.nics.map(priced) };
+}
+
+function shopCatalogOfRaw(catalog: HardwareCatalog): ShopCatalog {
   return {
     servers: catalog.starterServers.map((s) => serverItem(catalog, s)),
     switches: [...catalog.switches.values()].map((m) => ({
@@ -268,37 +276,6 @@ function fallbackObjectives(state: PhysicalState, racks: readonly RoomRack[], sk
     status: d.done ? 'done' : skipped.has(d.id) ? 'skipped' : d.progress && d.progress.done > 0 ? 'progress' : 'todo',
     ...(d.progress ? { progress: d.progress } : {}),
   }));
-}
-
-/**
- * Session snapshot -> RoomState. ASSUMED engine shape (Sprint 1 announcement):
- *   snapshot.physical = { state: PhysicalState, placements?: Record<rackId, Tile>, spent?: number,
- *                         labels?: Record<id, string> }
- *   snapshot.objectives = { items: ObjectiveView[], hidden: boolean } | ObjectiveView[]
- * Adjust here (only) when engine-dev's names differ.
- */
-export function roomStateFromSessionSnapshot(snap: unknown): RoomState {
-  const s = snap as {
-    revision?: number;
-    physical?: { state?: PhysicalState; placements?: Record<string, Tile>; spent?: number; labels?: Record<string, string>; cableMeta?: Record<string, { color?: string; label?: string }> };
-    objectives?: { items?: readonly ObjectiveView[]; hidden?: boolean } | readonly ObjectiveView[];
-  };
-  const catalog = sharedCatalog();
-  const phys = s.physical?.state ?? emptyPhysicalState();
-  const obj = s.objectives;
-  const base = roomStateFromPhysical(phys, catalog, shopCatalogOf(catalog), {
-    tiles: new Map(Object.entries(s.physical?.placements ?? {})),
-    itemOf: new Map(),
-    labels: new Map(Object.entries(s.physical?.labels ?? {})),
-    skipped: new Set(),
-    cableMeta: new Map(Object.entries(s.physical?.cableMeta ?? {})),
-    objectivesHidden: Array.isArray(obj) ? false : (obj as { hidden?: boolean } | undefined)?.hidden ?? false,
-    spent: s.physical?.spent ?? 0,
-    revision: s.revision ?? 0,
-    source: 'session',
-  });
-  const items = Array.isArray(obj) ? (obj as readonly ObjectiveView[]) : (obj as { items?: readonly ObjectiveView[] } | undefined)?.items;
-  return items ? { ...base, objectives: items } : base;
 }
 
 let catalogCache: HardwareCatalog | null = null;

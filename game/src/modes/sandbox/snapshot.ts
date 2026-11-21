@@ -22,8 +22,12 @@ import {
 } from '../../model';
 import { type DesignDecisionView, type DesignStepDataShape, type IssueGroups, EMPTY_ISSUE_GROUPS, decisionViews, designGate, designStepDataOf, groupIssues } from './design';
 import { ILLUSTRATIVE_DURATION_NOTE } from './durations';
+import { type ObjectivesView, evaluateObjectives } from './objectives';
 import { type PlanningView, planningView, withBinaryProgress } from './planning';
-import { bringupEnvOf, phaseGate } from './reducer';
+import { allHostsOf, bringupEnvOf, phaseGate } from './reducer';
+import { type FlowsView, type HwDesignView, type PhysicalView, flowsView, hwDesignView, physicalView } from './roomView';
+import { type SandboxContext, defaultSandboxContext } from './tx';
+import { type UseCaseView, useCaseView } from './useCases';
 import { type SandboxLogEntry, type SandboxPhase, type SandboxState, type SandboxTask, type SandboxTaskKind, SANDBOX_PHASES } from './types';
 import { type DesignLockedField, type WizardStepReport, DESIGN_LOCKED_FIELDS, WIZARD_SECTION_STEP, issueKey, wizardStepReports } from './wizard';
 
@@ -47,6 +51,8 @@ export interface TaskView {
   readonly durationMs: number;
   /** Always true in the Sandbox: durations are not documented. UI label "ilustrativní". */
   readonly illustrativeDuration: boolean;
+  /** Server the task works on (ESX install, DCUI test). */
+  readonly serverId?: string;
 }
 
 export interface DesignWarningView {
@@ -105,6 +111,16 @@ export interface SandboxSnapshot {
   readonly planning: PlanningView;
   readonly deploy: DeployPhaseView;
   readonly fleet?: Fleet;
+  /** Server room: racks, devices, ports, cables, inventory, catalog with game prices, HW findings. */
+  readonly physical: PhysicalView;
+  /** Traffic flows of the room (model computeTrafficFlows) + per-uplink / per-cable / per-pair aggregates. */
+  readonly flows: FlowsView;
+  /** Hardware context of the design (optionAvailabilityWithHardware per option, unlock actions). */
+  readonly hw: HwDesignView;
+  /** Objectives tracker (UX §8). */
+  readonly objectives: ObjectivesView;
+  /** Chosen use case / path (25 §2.1); undefined = not chosen yet. Catalog: USE_CASES. */
+  readonly useCase?: UseCaseView;
   readonly tasks: readonly TaskView[];
   readonly log: readonly SandboxLogEntry[];
   readonly illustrative: { readonly taskDurationsMs: Readonly<Record<SandboxTaskKind, number>>; readonly note: string };
@@ -120,6 +136,7 @@ export function taskView(t: SandboxTask): TaskView {
     remainingMs: taskRemainingMs(t),
     durationMs: t.durationMs,
     illustrativeDuration: t.illustrativeDuration,
+    ...(t.payload.kind === 'esx-install' || t.payload.kind === 'mgmt-network-test' ? { serverId: t.payload.serverId } : {}),
   };
 }
 
@@ -129,8 +146,8 @@ export type SandboxSnapshotBase = Omit<SandboxSnapshot, 'progressRevision' | 'ti
 /**
  * Full snapshot (deep-frozen). Equivalent to `withProgress(buildSnapshotBase(s, revision), s, progressRevision)`.
  */
-export function buildSandboxSnapshot(s: SandboxState, revision: number, progressRevision = 0): SandboxSnapshot {
-  return withProgress(buildSnapshotBase(s, revision), s, progressRevision);
+export function buildSandboxSnapshot(s: SandboxState, revision: number, progressRevision = 0, ctx: SandboxContext = defaultSandboxContext()): SandboxSnapshot {
+  return withProgress(buildSnapshotBase(s, revision, ctx), s, progressRevision);
 }
 
 /**
@@ -153,7 +170,7 @@ export function withProgress(base: SandboxSnapshotBase, s: SandboxState, progres
 }
 
 /** Builds the progress-independent snapshot base (deep-frozen). */
-export function buildSnapshotBase(s: SandboxState, revision: number): SandboxSnapshotBase {
+export function buildSnapshotBase(s: SandboxState, revision: number, ctx: SandboxContext = defaultSandboxContext()): SandboxSnapshotBase {
   const gate = designGate(s.choices, s.acknowledgedDesignWarnings, s.designContext);
   const ack = new Set(s.acknowledgedDesignWarnings);
   const decisions = decisionViews(s.choices, gate.issues, s.designContext, s.deployedChoices);
@@ -175,7 +192,7 @@ export function buildSnapshotBase(s: SandboxState, revision: number): SandboxSna
     };
   });
 
-  return deepFreeze({
+  const rest: Omit<SandboxSnapshotBase, 'objectives'> = {
     revision,
     phase: s.phase,
     phases,
@@ -192,7 +209,7 @@ export function buildSnapshotBase(s: SandboxState, revision: number): SandboxSna
       ...(dc ? { deployedChoices: dc } : {}),
       divergedFromDeployment: diverged as DesignDecisionId[],
     },
-    planning: planningView(s.env, env, s.derived, [], deployedHosts),
+    planning: planningView({ ...s.env, hosts: allHostsOf(s) }, env, s.derived, [], deployedHosts),
     deploy: {
       spec: s.spec,
       workflowType: workflowTypeOf(s.spec),
@@ -205,7 +222,12 @@ export function buildSnapshotBase(s: SandboxState, revision: number): SandboxSna
       validationResult: groupIssues(s.deployment.issues),
     },
     ...(s.fleet ? { fleet: s.fleet } : {}),
+    ...(s.useCase ? { useCase: useCaseView(s.useCase, s.spec) } : {}),
+    physical: physicalView(s, ctx),
+    flows: flowsView(s, ctx.catalog),
+    hw: hwDesignView(s, ctx.catalog, decisions),
     log: s.log,
     illustrative: { taskDurationsMs: s.taskDurationsMs, note: ILLUSTRATIVE_DURATION_NOTE },
-  });
+  };
+  return deepFreeze({ ...rest, objectives: evaluateObjectives(rest, ctx.objectives, s.objectives) });
 }
