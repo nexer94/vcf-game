@@ -14,6 +14,11 @@
  *  - pNIC count per Distributed Switch model (05 §4.6 [D15], 10 §3.3 [P17]),
  *  - homogeneity / single vendor of the initial management cluster (10 §3.4, 20 §3.2).
  *
+ * Site limits (sites.ts, `site` part of the result) for the fleet deployment model and the Stretched cluster model:
+ *  - Site HA / Fault Domains and DR / Stretched: AZ1 + AZ2 meeting the stretched inter-AZ requirements (RTT < 5 ms,
+ *    ≥ 10 Gbps, 10 §3.3 [P13]), witness in a third fault domain ([P13]; [D11]), hosts per AZ (10 §6.1 [P13][P35]),
+ *  - Disaster Recovery / Fault Domains and DR: location of a second VCF Instance (00 §6 [S16]; 05 §4.1 [D11]).
+ *
  * Pure TypeScript: no DOM, no PixiJS.
  */
 import type { ClusterModel } from './architecture';
@@ -32,6 +37,26 @@ import {
 } from './hardware';
 import type { HardwareCatalog } from './hardwareCatalog';
 import { type PhysicalServer, type PhysicalState, serverNicPorts, serverNodeSpeed } from './physical';
+import {
+  type AzRole,
+  type AzSummary,
+  type InterAzLinkCheck,
+  type SiteLayoutId,
+  type SiteState,
+  availabilityZones,
+  az2CandidateRooms,
+  checkHostsPerAz,
+  checkInterAzLink,
+  checkSecondaryInstanceLocation,
+  checkWitnessFaultDomain,
+  layoutsSupporting,
+  minStretchedHosts,
+  STRETCHED_INTER_AZ_REQUIREMENTS,
+  STRETCHED_VSAN_BLUEPRINT_MINIMUMS,
+  WITNESS_LINK_REQUIREMENTS,
+  sitesOf,
+  unassignedRooms,
+} from './sites';
 import { type ValidationIssue, issue } from './validation';
 
 // ===========================================================================
@@ -71,6 +96,23 @@ export interface HardwareContext {
   readonly esaEligibleHostIds: readonly string[];
   readonly minNicPorts: number;
   readonly fcHbaHostIds: readonly string[];
+  /** Site layout summary (sites.ts). */
+  readonly sites: SitesContext;
+}
+
+export interface SitesContext {
+  readonly layoutId: SiteLayoutId;
+  readonly state: SiteState;
+  readonly siteCount: number;
+  readonly roomCount: number;
+  /** AZ / fault-domain roles in use, with the hosts mounted in their rooms. */
+  readonly azs: readonly AzSummary[];
+  readonly interAz: InterAzLinkCheck;
+}
+
+export function sitesContext(state: PhysicalState, serverIds?: readonly string[]): SitesContext {
+  const s = sitesOf(state);
+  return { layoutId: s.layoutId, state: s, siteCount: s.sites.length, roomCount: s.rooms.length, azs: availabilityZones(state, serverIds), interAz: checkInterAzLink(s) };
 }
 
 export function hardwareContext(state: PhysicalState, catalog: HardwareCatalog, serverIds?: readonly string[]): HardwareContext {
@@ -95,6 +137,7 @@ export function hardwareContext(state: PhysicalState, catalog: HardwareCatalog, 
     esaEligibleHostIds: hosts.filter((h) => h.esaEligible).map((h) => h.serverId),
     minNicPorts: hosts.length ? Math.min(...hosts.map((h) => h.nicPorts)) : 0,
     fcHbaHostIds: hosts.filter((h) => h.fcHba).map((h) => h.serverId),
+    sites: sitesContext(state, serverIds),
   };
 }
 
@@ -116,7 +159,13 @@ export type UnlockAction =
   | { readonly kind: 'add-nic-ports'; readonly hostIds: readonly string[]; readonly minPortsPerHost: number }
   | { readonly kind: 'fix-host-config'; readonly hostIds: readonly string[]; readonly codes: readonly string[] }
   | { readonly kind: 'add-fc-hba'; readonly hostIds: readonly string[] }
-  | { readonly kind: 'use-single-vendor'; readonly vendors: readonly string[] };
+  | { readonly kind: 'use-single-vendor'; readonly vendors: readonly string[] }
+  /** Choose a site layout that allows the option (UI: „zvol lokalitu se dvěma místnostmi“). */
+  | { readonly kind: 'choose-site-layout'; readonly layoutIds: readonly SiteLayoutId[] }
+  /** Assign one of the rooms to an AZ / fault-domain role (UI: „přiřaď místnost do AZ2“). */
+  | { readonly kind: 'assign-room-role'; readonly role: AzRole; readonly roomIds: readonly string[] }
+  /** Buy / mount hosts into racks of the rooms of an AZ. */
+  | { readonly kind: 'add-hosts-to-az'; readonly role: AzRole; readonly roomIds: readonly string[]; readonly count: number };
 
 export interface HwReason {
   readonly issue: ValidationIssue;
@@ -137,9 +186,93 @@ export interface HardwareAvailability {
   readonly requirements: readonly ValidationIssue[];
 }
 
+export interface SiteAvailability {
+  /**
+   * - 'not-site-dependent': the option has no site limits,
+   * - 'ok': the layout and AZ assignment allow the option, 'blocked': at least one error reason.
+   * Layout reasons block even before any hardware is bought; hosts-per-AZ reasons only once hosts exist.
+   */
+  readonly status: 'not-site-dependent' | 'ok' | 'blocked';
+  readonly errors: readonly HwReason[];
+  readonly warnings: readonly HwReason[];
+  /** Documented requirements the option puts on the sites (shown also when satisfied). */
+  readonly requirements: readonly ValidationIssue[];
+}
+
 export interface OptionAvailabilityWithHardware extends OptionAvailability {
   readonly hardware: HardwareAvailability;
+  readonly site: SiteAvailability;
 }
+
+const NOT_SITE_DEPENDENT: SiteAvailability = { status: 'not-site-dependent', errors: [], warnings: [], requirements: [] };
+
+/** Site limits of a design option (see header). */
+export function siteAvailability(decision: DesignDecisionId, option: string, choices: DesignChoices, hw: HardwareContext): SiteAvailability {
+  const next: DesignChoices = { ...choices, [decision]: option };
+  const fleet = decision === 'fleet-deployment-model' ? option : undefined;
+  const stretched =
+    fleet === 'site-high-availability' || fleet === 'fault-domains-and-dr' || ((decision === 'mgmt-cluster-model' || decision === 'wld-cluster-model') && option === 'stretched');
+  const secondary = fleet === 'disaster-recovery' || fleet === 'fault-domains-and-dr';
+  if (!stretched && !secondary) return NOT_SITE_DEPENDENT;
+  const sc = hw.sites;
+  const s = sc.state;
+  const errors: HwReason[] = [];
+  const warnings: HwReason[] = [];
+  const requirements: ValidationIssue[] = [];
+  const free = unassignedRooms(s);
+  const layoutUnlock = (cap: Parameters<typeof layoutsSupporting>[0]): UnlockAction | undefined => {
+    const ids = layoutsSupporting(cap).filter((id) => id !== sc.layoutId);
+    return ids.length ? { kind: 'choose-site-layout', layoutIds: ids } : undefined;
+  };
+  const stretchedCap = fleet === 'fault-domains-and-dr' ? 'fault-domains-and-dr' : 'stretched';
+
+  if (stretched) {
+    for (const i of checkInterAzLink(s).issues) {
+      const cands = az2CandidateRooms(s);
+      const unlock: UnlockAction | undefined = cands.length ? { kind: 'assign-room-role', role: 'az2', roomIds: cands } : layoutUnlock(stretchedCap);
+      errors.push(unlock ? { issue: i, unlock } : { issue: i });
+    }
+    for (const i of checkWitnessFaultDomain(s)) {
+      // a third room is needed (AZ1, AZ2, witness)
+      const unlock: UnlockAction | undefined = free.length && roomsCount(s) >= 3 ? { kind: 'assign-room-role', role: 'witness', roomIds: free } : layoutUnlock(stretchedCap);
+      const r = unlock ? { issue: i, unlock } : { issue: i };
+      (i.severity === 'error' ? errors : warnings).push(r);
+    }
+    const wld = decision === 'wld-cluster-model';
+    const min = minStretchedHosts(next['deployment-model'], next['principal-storage']);
+    const R = STRETCHED_INTER_AZ_REQUIREMENTS;
+    requirements.push(issue('SITE_INTER_AZ_RTT_TOO_HIGH', 'error', `Stretched: RTT between availability zones must be below ${R.maxRttMsExclusive} ms ("under 5ms RTT").`, R.specRef, 'inter-az-link'));
+    requirements.push(issue('SITE_INTER_AZ_BANDWIDTH_TOO_LOW', 'error', `Stretched: at least ${R.minBandwidthGbps} Gbps between availability zones.`, R.specRef, 'inter-az-link'));
+    requirements.push(issue('SITE_WITNESS_RTT_TOO_HIGH', 'error', `vSAN witness in a third site independent of both AZs; RTT from the data sites at most ${WITNESS_LINK_REQUIREMENTS.maxRttMs} ms.`, WITNESS_LINK_REQUIREMENTS.specRef, 'witness'));
+    requirements.push(issue('SITE_AZ_HOST_COUNT_UNEQUAL', 'error', 'Both availability zones must have an equal number of ESX hosts (VCF-VSAN-SC-REQD-CFG-001).', '06 §5 [B11]', decision));
+    const W = STRETCHED_VSAN_BLUEPRINT_MINIMUMS.workloadDomainCluster;
+    requirements.push(
+      wld
+        ? issue('SITE_AZ_TOO_FEW_HOSTS', 'error', `Stretched workload domain cluster (vSAN): minimum of ${W.total} nodes, ${W.perAz} per site.`, STRETCHED_VSAN_BLUEPRINT_MINIMUMS.specRef, decision)
+        : issue('SITE_AZ_TOO_FEW_HOSTS', 'error', `Stretched cluster: at least ${min.total} ESX hosts, ${min.perAz} per availability zone${min.assumed ? ' (lowest documented value, model / storage not decided)' : ''}; the management cluster is stretched on Day 2.`, min.specRef, decision),
+    );
+    // Hosts per AZ of the management cluster only once hardware exists (UX §3.1). The stretch of the management
+    // cluster is Day 2 (06 §2.3 [B11]) -> warnings, not blocking the Day-0 design. WLD hosts are not modelled here.
+    if (!wld && hw.hostCount > 0 && sc.azs.some((a) => a.role === 'az1') && sc.azs.some((a) => a.role === 'az2'))
+      for (const i of checkHostsPerAz(sc.azs, min, 'warning')) {
+        const role = i.subject === 'az2' ? 'az2' : 'az1';
+        const az = sc.azs.find((a) => a.role === role);
+        const other = sc.azs.find((a) => a.role !== role && (a.role === 'az1' || a.role === 'az2'));
+        const have = az?.hostIds.length ?? 0;
+        const target = Math.max(min.perAz, other?.hostIds.length ?? 0);
+        warnings.push({ issue: i, unlock: { kind: 'add-hosts-to-az', role, roomIds: az?.roomIds ?? [], count: Math.max(1, target - have) } });
+      }
+  }
+  if (secondary)
+    for (const i of checkSecondaryInstanceLocation(s)) {
+      const reserved = stretched ? 3 : 1; // rooms needed for AZ1 (+ AZ2 + witness)
+      const unlock: UnlockAction | undefined = free.length && roomsCount(s) > reserved ? { kind: 'assign-room-role', role: 'secondary-instance', roomIds: free } : layoutUnlock(stretched ? 'fault-domains-and-dr' : 'secondary-instance');
+      errors.push(unlock ? { issue: i, unlock } : { issue: i });
+    }
+  return { status: errors.length ? 'blocked' : 'ok', errors, warnings, requirements };
+}
+
+const roomsCount = (s: SiteState): number => s.rooms.length;
 
 const INSTALLER_STORAGES: readonly string[] = ['vsan-esa', 'vsan-osa', 'vmfs-fc', 'nfs-v3'];
 
@@ -258,8 +391,10 @@ export function optionAvailabilityWithHardware(
 
   const status: HardwareAvailability['status'] = !hwDependent ? 'not-hw-dependent' : hw.hostCount === 0 ? 'no-hardware-yet' : errors.length ? 'insufficient' : 'ok';
   const blocking = status === 'insufficient';
+  const site = siteAvailability(decision, option, choices, hw);
   return {
-    available: base.available && !blocking,
+    available: base.available && !blocking && site.status !== 'blocked',
+    site,
     errors: base.errors,
     warnings: base.warnings,
     hardware: { status, errors: status === 'no-hardware-yet' ? [] : errors, warnings: status === 'no-hardware-yet' ? [] : warnings, requirements },

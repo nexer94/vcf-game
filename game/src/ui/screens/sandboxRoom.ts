@@ -28,10 +28,15 @@ import { createDemoRoomPort, sharedRoomPort, type InventoryEntry, type Objective
 import { createShop, formatPrice } from '../sandbox/shop';
 import { createTrafficChip } from '../sandbox/trafficChip';
 import { createTimeControls } from '../timeControls';
+// Multi-room sites ("Výběr lokality"): layout adapter, overview, door.
+import { roomDoor } from '../../render/room/roomStatic';
+import { createSiteOverview } from '../sandbox/siteOverview';
+import { AZ_CYCLE, azText, doorTarget, roomOf, sharedSitePort, type SiteRoomView } from '../sandbox/siteLayout';
 import { VCF_VERSION } from '../version';
 import type { Route } from '../router';
 import type { ScreenDef } from './screen';
 import './room.css';
+import './site.css';
 
 const ROOM_KEYS: readonly [string, string][] = [
   ['Mezerník / P', 'pauza'],
@@ -77,8 +82,14 @@ export const sandboxRoomScreen: ScreenDef = {
     const { stage, engine } = ctx;
     const room = stage.room;
     const canvas = stage.canvas;
-    const startTile: Tile = { gx: Math.floor(room.size.cols / 2), gy: room.size.rows - 2 };
+    // Site layout (adapter; engine integration later): which room of the site this screen shows.
+    const site = sharedSitePort();
+    let roomId = roomOf(site.layout(), route.name === 'sandbox-room' ? route.roomId : undefined).id;
+    const multiRoom = (): boolean => site.layout().rooms.length > 1;
+    const curRoom = (): SiteRoomView => roomOf(site.layout(), roomId);
     room.clear();
+    room.setSize(curRoom().size);
+    const startTile: Tile = { gx: Math.floor(room.size.cols / 2), gy: room.size.rows - 2 };
     room.resetAvatar(startTile);
     room.world.alpha = 1;
     room.world.visible = true;
@@ -117,14 +128,38 @@ export const sandboxRoomScreen: ScreenDef = {
         h('label', { class: 'set-row', for: 'room-motion' }, motionToggle, ' Omezit pohyb (bez přeletů kamery)'),
         h('label', { class: 'set-row', for: 'room-demo', title: 'Rozmístí ukázkové racky, servery, switche a kabely s ilustrativním provozem' }, demoToggle, ' Ukázka ', h('span', { class: 'ui-badge' }, 'ilustrativní')),
         button('Úkoly zobrazit / skrýt (Shift+T)', () => setHidden(!(state?.objectivesHidden ?? false)), { class: 'btn btn-small' }),
+        button('Změnit blueprint / lokalitu…', () => ctx.navigate({ name: 'sandbox-site' }), { class: 'btn btn-small', title: `Teď: ${site.layout().label}` }),
       ),
     );
     const undoBtn = button('⟲', () => undoRedo('undo'), { class: 'btn btn-small', title: 'Vrátit změnu místnosti (Ctrl+Z)', 'aria-label': 'Vrátit změnu místnosti (Ctrl+Z)', disabled: true });
     const redoBtn = button('⟳', () => undoRedo('redo'), { class: 'btn btn-small', title: 'Zopakovat změnu (Ctrl+Y)', 'aria-label': 'Zopakovat změnu místnosti (Ctrl+Y)', disabled: true });
     const dnsBtn = button('DNS', () => panels.openDns(), { class: 'btn btn-small', title: 'DNS server firmy (mimo VCF)' });
+    // Site widget: room name, AZ badge (UI only, via the site adapter), room switcher + site overview.
+    const roomTitle = h('strong', null, 'Serverovna');
+    const azBtn = button('AZ —', () => site.setAz(roomId, AZ_CYCLE[(AZ_CYCLE.indexOf(curRoom().az) + 1) % AZ_CYCLE.length]!), {
+      class: 'az-badge',
+      title: 'Role místnosti: AZ1 / AZ2 / witness / druhá VCF Instance (co znamená pro VCF, vyhodnocuje model podle dokumentace)',
+    });
+    const roomSelect = h('select', { 'aria-label': 'Přejít do místnosti', title: 'Přejít do místnosti' }) as HTMLSelectElement;
+    roomSelect.addEventListener('change', () => goRoom(roomSelect.value));
+    const overviewBtn = button('Areál', () => goOverview(), { class: 'btn btn-small', title: 'Přehled lokality (Esc v místnosti)' });
+    const siteWidget = h('span', { class: 'room-site' }, azBtn, roomSelect, overviewBtn);
+    const renderSiteHud = (): void => {
+      const layout = site.layout();
+      const r = curRoom();
+      roomTitle.textContent = r.label;
+      azBtn.textContent = azText(r.az);
+      azBtn.dataset['az'] = r.az ?? 'none';
+      azBtn.setAttribute('aria-label', `Role místnosti: ${azText(r.az)} – změnit`);
+      roomSelect.replaceChildren(...layout.rooms.map((x) => h('option', { value: x.id }, `→ ${x.label}`)));
+      roomSelect.value = roomId;
+      roomSelect.hidden = layout.rooms.length < 2;
+      overviewBtn.hidden = layout.rooms.length < 2;
+    };
     const hud = h('header', { class: 'room-hud' },
       button('← Sandbox', () => ctx.navigate({ name: 'sandbox-intro' }), { class: 'btn btn-small', title: 'Odejít ze serverovny' }),
-      h('div', { class: 'room-title' }, h('strong', null, 'Serverovna'), h('span', { class: 'muted' }, ` · ${VCF_VERSION}`)),
+      h('div', { class: 'room-title' }, roomTitle, h('span', { class: 'muted' }, ` · ${VCF_VERSION}`)),
+      siteWidget,
       h('div', { class: 'hud-chip', title: 'Herní měna – v Sandboxu neomezená. Ceny jsou herní, nejsou z dokumentace.' }, h('span', { class: 'coin', 'aria-hidden': 'true' }), '∞ ', spentEl),
       nextChip,
       h('span', { class: 'hud-group' }, undoBtn, redoBtn, dnsBtn),
@@ -308,7 +343,7 @@ export const sandboxRoomScreen: ScreenDef = {
           h('span', { class: 'obj-title' }, o.title, o.progress ? ` ${o.progress.done}/${o.progress.total}` : '', o.kind === 'doc-recommended' ? ' ★' : ''),
           o.kind === 'game-optional' ? h('span', { class: 'ui-badge badge-outscope' }, 'mimo VCF scope – herní') : null,
           o.showMe && o.status !== 'done' ? button('Ukaž mi', () => showMe(o), { class: 'btn btn-small btn-showme', 'aria-label': `Ukaž mi: ${o.title}` }) : null,
-          o.docUrl ? h('a', { href: o.docUrl, target: '_blank', rel: 'noopener noreferrer', class: 'doc-link', title: o.specRef ?? '' }, 'Proč? ↗') : null,
+          o.docUrl ? h('a', { href: o.docUrl, target: '_blank', rel: 'noopener noreferrer', class: 'doc-link', title: o.specRef ?? '' }, 'Proč?') : null,
           o.status !== 'done' && o.status !== 'skipped' ? button('⤼', () => port?.skipObjective(o.id), { class: 'btn btn-small', title: 'Přeskočit vedení (nic nemění ve hře ani ve validacích)', 'aria-label': `Přeskočit: ${o.title}` }) : null,
         ))),
         h('p', { class: 'muted small' }, 'Úkoly jen vedou – nic nezamykají.'),
@@ -366,6 +401,7 @@ export const sandboxRoomScreen: ScreenDef = {
           if (!tile) return say('Mimo místnost.', true);
           const chk = room.checkPlace('rack', tile);
           if (!chk.ok) return say(chk.reason === 'occupied' ? 'Dlaždice je obsazená.' : chk.reason === 'avatar' ? 'Tady stojí panáček.' : 'Mimo místnost.', true);
+          site.assignRack(sel.id, roomId); // before placing: the rack belongs to this room of the site
           const r = port.placeRack(sel.id, tile);
           if (!r.ok) return say(r.message, true);
           pick(null);
@@ -382,6 +418,7 @@ export const sandboxRoomScreen: ScreenDef = {
         return;
       }
       if (cab) return openRack(cab.id);
+      if (multiRoom() && onDoor(pos.wx, pos.wy, tile)) return leaveByDoor();
       const fx = objHooks.fixtureAt(pos.wx, pos.wy); // Sprint 2B hook
       if (fx) return goTo(objHooks.viewOf(fx));
       if (tile && !room.walkTo(tile)) say('Tam se nedá dojít.', true);
@@ -392,7 +429,90 @@ export const sandboxRoomScreen: ScreenDef = {
       goTo({ kind: 'rack', rackId: id });
     }
 
-    const goTo = (v: RoomView): void => ctx.navigate({ name: 'sandbox-room', demo, ...(v.kind === 'room' ? {} : { view: v }) });
+    const goTo = (v: RoomView): void => ctx.navigate({ name: 'sandbox-room', demo, ...(multiRoom() ? { roomId } : {}), ...(v.kind === 'room' ? {} : { view: v }) });
+
+    // ------------------------------------------------------------ multi-room site (rooms, door, overview)
+    const goRoom = (id: string): void => ctx.navigate({ name: 'sandbox-room', demo, roomId: id });
+    const goOverview = (): void => ctx.navigate({ name: 'sandbox-room', demo, overview: true });
+    /** Racks of the adapter state that stand in the shown room (racks not yet placed stay everywhere). */
+    const inThisRoom = (rackId: string, placed: boolean): boolean => !placed || site.roomOfRack(rackId) === roomId;
+    function onDoor(wx: number, wy: number, tile: Tile | null): boolean {
+      const d = roomDoor(room.size);
+      const r = d.rect;
+      return (wx >= r.x && wx <= r.x + r.width && wy >= r.y && wy <= r.y + r.height) || (!!tile && tile.gx === d.tile.gx && tile.gy === d.tile.gy);
+    }
+    let offDoorWalk: (() => void) | null = null;
+    function leaveByDoor(): void {
+      const target = doorTarget(site.layout(), roomId);
+      const d = roomDoor(room.size).tile;
+      offDoorWalk?.();
+      const go = (): void => {
+        offDoorWalk?.();
+        offDoorWalk = null;
+        if (target) goRoom(target);
+        else goOverview();
+      };
+      const reached = room.walkTo(d);
+      if (!reached || reachedTile(reached, d)) return go();
+      say(`Jdu ke dveřím → ${target ? roomOf(site.layout(), target).label : 'přehled lokality'}.`);
+      offDoorWalk = room.onAvatarArrive((t) => (reachedTile(t, d) ? go() : undefined));
+    }
+    const reachedTile = (a: Tile, b: Tile): boolean => a.gx === b.gx && a.gy === b.gy;
+    let fadeMs = -1;
+    function switchRoom(id: string, viaDoor: boolean): void {
+      if (id === roomId) return;
+      offDoorWalk?.();
+      offDoorWalk = null;
+      pick(null);
+      roomId = roomOf(site.layout(), id).id;
+      room.clear();
+      room.setSize(curRoom().size);
+      room.resetAvatar(viaDoor ? roomDoor(room.size).tile : { gx: Math.floor(room.size.cols / 2), gy: room.size.rows - 2 });
+      renderSiteHud();
+      applyState();
+      if (camera) camera.set(fitRoom());
+      if (!reducedMotion) {
+        fadeMs = 0;
+        room.world.alpha = 0;
+      }
+      say(`${curRoom().label}${curRoom().az ? ` (${curRoom().az})` : ''}.`);
+    }
+    const racksOfRoom = (id: string): { gx: number; gy: number }[] =>
+      (state?.racks ?? []).filter((r) => r.tile && site.roomOfRack(r.id) === id).map((r) => r.tile!);
+    const overview = createSiteOverview({
+      stage, ui, site, racksOf: racksOfRoom, topH: TOP_H, reducedMotion: () => reducedMotion, currentRoom: () => roomId,
+      onEnterRoom: (id) => goRoom(id), announce: (t) => say(t),
+    });
+    const setRoomUiHidden = (hidden: boolean): void => {
+      shop.el.hidden = hidden;
+      chip.el.hidden = hidden;
+      side.hidden = hidden;
+      tracker.hidden = hidden || !trackerOpen || !!state?.objectivesHidden;
+    };
+    function showOverview(): void {
+      if (overview.active) return;
+      if (view.kind !== 'room') enterView(ROOM_VIEW, false);
+      pick(null);
+      camera?.dispose();
+      camera = null;
+      tip.hidden = true;
+      setRoomUiHidden(true);
+      overview.show();
+    }
+    function hideOverview(): void {
+      if (!overview.active) return;
+      overview.hide();
+      setRoomUiHidden(false);
+      room.world.visible = true;
+      room.world.alpha = 1;
+      attachRoomControls(fitRoom());
+    }
+    const offSite = site.subscribe(() => {
+      renderSiteHud();
+      applyState();
+      overview.refresh();
+    });
+    renderSiteHud();
 
     // ------------------------------------------------------------ view stack + transitions (UX §7)
     let rackPanel = null as RackPanel | null;
@@ -483,7 +603,7 @@ export const sandboxRoomScreen: ScreenDef = {
           onOpenHost: openHost,
           toolbarExtra: rackTools(),
         });
-        if (next.kind === 'host') say('Detail hosta je jen v tvé serverovně (ne v ukázce).', true);
+        if (next.kind === 'host' && !hostDetail) say('Detail hosta je jen v tvé serverovně (ne v ukázce).', true);
       } else if (!objHooks.open(next)) {
         showPlaceholder(next);
       }
@@ -565,7 +685,8 @@ export const sandboxRoomScreen: ScreenDef = {
     const applyState = (): void => {
       if (!port || disposed) return;
       state = port.state();
-      room.syncContents(roomContentsOf(state));
+      const full = state;
+      room.syncContents(roomContentsOf({ ...full, racks: full.racks.filter((r) => inThisRoom(r.id, !!r.tile)) }));
       if (!demoTraffic) room.setTrafficSource(new StaticTrafficSource(linkTrafficOf(state)));
       if (!demoTraffic) room.setBmcTransfers(bmcTransfersOf(state));
       shop.update(state, picked?.id ?? null);
@@ -582,7 +703,7 @@ export const sandboxRoomScreen: ScreenDef = {
         hostDetail.update(snap, snap.revision !== hostRev);
         hostRev = snap.revision;
       }
-      objList.replaceChildren(...state.racks.filter((r) => r.tile).map((r) =>
+      objList.replaceChildren(...state.racks.filter((r) => r.tile && inThisRoom(r.id, true)).map((r) =>
         h('li', null, button(`Otevřít rack ${r.label}`, () => openRack(r.id), { 'data-rack': r.id, class: 'sr-focusable' })),
       ));
       for (const b of objList.querySelectorAll<HTMLButtonElement>('button')) {
@@ -610,6 +731,7 @@ export const sandboxRoomScreen: ScreenDef = {
       applyState();
       if (view.kind === 'room') camera?.set(fitRoom());
       if (view.kind !== 'room') enterView(view, false);
+      overview.refresh();
     };
     const loadPort = (): void => {
       room.clear();
@@ -621,6 +743,7 @@ export const sandboxRoomScreen: ScreenDef = {
       camera?.dispose();
       camera = null;
     }
+    if (route.name === 'sandbox-room' && route.overview) showOverview();
     say('Kup rack v obchodě dole a postav ho. Klik na rack = otevřít kabeláž.');
 
     demoToggle.addEventListener('change', () => {
@@ -635,13 +758,18 @@ export const sandboxRoomScreen: ScreenDef = {
     let chipMs = 0;
     const offFrame = stage.onFrame((snap, real) => {
       time.update(snap);
+      if (fadeMs >= 0 && !transition) {
+        fadeMs += real;
+        room.world.alpha = Math.min(1, fadeMs / 220);
+        if (fadeMs >= 220) fadeMs = -1;
+      }
       if (transition) applyTransition(real);
       chipMs += real;
       if (chipMs > 250) {
         chipMs = 0;
         chip.update(room.activeTypes, room.bmcTransferActive);
       }
-      if (view.kind !== 'room' || transition || !camera) return;
+      if (view.kind !== 'room' || transition || !camera || overview.active) return;
       const tile = hover ? room.tileAtWorld(hover.wx, hover.wy) : null;
       if (picked?.kind === 'rack') {
         room.setGhost(tile ? { kind: 'rack', tile } : null);
@@ -707,8 +835,14 @@ export const sandboxRoomScreen: ScreenDef = {
           goTo(parentView(view) ?? ROOM_VIEW);
           return;
         }
+        if (overview.active) {
+          e.preventDefault();
+          goRoom(roomId);
+          return;
+        }
         if (picked) return pick(null);
         if (trackerOpen) return toggleTracker(false);
+        if (multiRoom()) goOverview(); // room -> site overview (one level up in multi-room layouts)
         return;
       }
       if (typing) return;
@@ -746,6 +880,25 @@ export const sandboxRoomScreen: ScreenDef = {
     return {
       update(r) {
         if (r.name !== 'sandbox-room') return;
+        if (r.overview) {
+          if (r.demo !== demo) {
+            demo = r.demo;
+            demoToggle.checked = demo;
+            loadPort();
+          }
+          showOverview();
+          return;
+        }
+        const nextRoom = roomOf(site.layout(), r.roomId).id;
+        const fromOverview = overview.active;
+        if (fromOverview) hideOverview();
+        if (nextRoom !== roomId) {
+          if (view.kind !== 'room') enterView(ROOM_VIEW, false);
+          switchRoom(nextRoom, !fromOverview);
+        } else if (fromOverview && !reducedMotion) {
+          fadeMs = 0;
+          room.world.alpha = 0;
+        }
         if (r.demo !== demo) {
           demo = r.demo;
           demoToggle.checked = demo;
@@ -763,6 +916,9 @@ export const sandboxRoomScreen: ScreenDef = {
       dispose() {
         disposed = true;
         finishTransition();
+        offSite();
+        offDoorWalk?.();
+        overview.dispose();
         rackPanel?.dispose();
         hostDetail?.dispose();
         panels.dispose();

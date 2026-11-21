@@ -114,10 +114,12 @@ const DASH_FRAME_MS = 90;
 
 export class RoomScene {
   readonly world = new Container();
-  readonly grid: Occupancy;
+  /** Occupancy of the current room (replaced by setSize). */
+  grid: Occupancy;
+  private roomSize: RoomSize;
   readonly avatar: AvatarMotion;
 
-  private readonly staticGfx: Graphics;
+  private staticGfx: Graphics;
   private staticSprite: Sprite | null = null;
   private staticRes = 0;
   private readonly shadows = new Container();
@@ -174,9 +176,10 @@ export class RoomScene {
 
   constructor(
     private readonly renderer: Renderer,
-    readonly size: RoomSize = DEFAULT_ROOM,
+    size: RoomSize = DEFAULT_ROOM,
     avatarStart: Tile = { gx: Math.floor(size.cols / 2), gy: size.rows - 2 },
   ) {
+    this.roomSize = size;
     this.grid = new Occupancy(size);
     this.fixtures = new RoomFixtures(renderer);
     this.grid.set(DESK, true);
@@ -210,6 +213,32 @@ export class RoomScene {
   }
 
   // ---------------------------------------------------------------- view
+
+  /** Current room size (tiles). */
+  get size(): RoomSize {
+    return this.roomSize;
+  }
+
+  /**
+   * Switch to a room of another size (multi-room sites, small / large room). Clears the furniture
+   * (the caller re-syncs the contents of the new room), redraws and re-bakes the static room.
+   */
+  setSize(size: RoomSize): void {
+    if (size.cols === this.roomSize.cols && size.rows === this.roomSize.rows) return;
+    this.clear();
+    this.roomSize = size;
+    this.grid = new Occupancy(size);
+    this.grid.set(DESK, true);
+    this.staticGfx.destroy();
+    this.staticGfx = drawStaticRoom(size);
+    this.staticRes = 0;
+    this.bakeStatic(2);
+    this.simDirty = true;
+    this.cablesDirty = true;
+    this.drawUplink();
+    const a = this.avatar.tile;
+    if (a.gx >= size.cols || a.gy >= size.rows) this.resetAvatar({ gx: Math.floor(size.cols / 2), gy: size.rows - 2 });
+  }
 
   /** World bounds of the room (floor, walls, slab). */
   get bounds(): { x: number; y: number; width: number; height: number } {

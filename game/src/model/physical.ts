@@ -6,6 +6,10 @@
  * installer validations, flows N1–N8), docs/spec/10-planning.md §3.3, §7 (switch ports, MTU, VLAN, flows),
  * docs/spec/20-deployment.md §7 (installer / vCenter / ESX flows), docs/spec/15-hardware.md (NICs).
  *
+ * Sites (layout, rooms, inter-room links, AZ assignment) live in sites.ts; racks carry a `roomId`. Cables between
+ * rooms are [GAME] switch-to-switch uplinks over an inter-room link (connectCable rejects others, linkStatus is down
+ * for invalid ones and caps the speed by the link bandwidth).
+ *
  * Provenance conventions:
  *  - `[DOC]` value / rule from the spec (reference given),
  *  - `[GAME]` game default or game rule (generic switch, rack U, OOB network, generic 802.1Q behaviour, loads).
@@ -30,6 +34,7 @@
 import { type EsxHost, type EsxHostNetwork, type StorageType, configureHostNetwork, installEsx, newBareMetalHost } from './bringup';
 import { type ServerConfig, BMC_LABEL, BMC_PORT_SPEEDS_GBE, configFingerprint, nicMaxSpeed } from './hardware';
 import type { HardwareCatalog } from './hardwareCatalog';
+import { type SiteLayoutId, type SiteState, crossRoomCable, defaultRoomId, siteStateFor, sitesOf, validateRoomCapacity } from './sites';
 import { type TransitionResult, type ValidationIssue, issue } from './validation';
 
 // ===========================================================================
@@ -54,6 +59,8 @@ export interface RackInstance {
   readonly id: string;
   readonly modelId: string;
   readonly heightU: number;
+  /** Room of the site layout the rack stands in (sites.ts). */
+  readonly roomId: string;
 }
 
 /** Lowest occupied U (1-based). */
@@ -140,9 +147,11 @@ export interface PhysicalState {
   readonly switches: readonly PhysicalSwitch[];
   readonly cables: readonly Cable[];
   readonly endpoints: readonly ServiceEndpoint[];
+  /** Site layout, rooms, inter-room links and AZ assignment (sites.ts). Default layout 'small-room'. */
+  readonly sites: SiteState;
 }
 
-export const emptyPhysicalState = (): PhysicalState => ({ racks: [], servers: [], switches: [], cables: [], endpoints: [] });
+export const emptyPhysicalState = (layoutId?: SiteLayoutId): PhysicalState => ({ racks: [], servers: [], switches: [], cables: [], endpoints: [], sites: siteStateFor(layoutId) });
 
 // ---------------------------------------------------------------------------
 // Host networking after ESX install (25 §3.5, §6.3)
@@ -275,7 +284,10 @@ export interface LinkStatus {
   readonly up: boolean;
   /** Negotiated speed (highest common speed) [GAME]. */
   readonly speedGbE?: number;
-  readonly reason?: 'no-common-speed' | 'port-missing';
+  /** 'cross-room-invalid': devices in different rooms not joined by a valid switch-to-switch uplink over a link (sites.ts, game). */
+  readonly reason?: 'no-common-speed' | 'port-missing' | 'cross-room-invalid';
+  /** [GAME] the cable is an uplink between rooms carried over these inter-room links. */
+  readonly interRoomLinkIds?: readonly string[];
 }
 
 export function linkStatus(state: PhysicalState, catalog: HardwareCatalog, cable: Cable): LinkStatus {
@@ -283,7 +295,12 @@ export function linkStatus(state: PhysicalState, catalog: HardwareCatalog, cable
   const b = portSpeeds(state, catalog, cable.b);
   if (!a || !b) return { up: false, reason: 'port-missing' };
   const common = a.filter((s) => b.includes(s));
-  return common.length ? { up: true, speedGbE: Math.max(...common) } : { up: false, reason: 'no-common-speed' };
+  if (!common.length) return { up: false, reason: 'no-common-speed' };
+  // [GAME] between rooms only over inter-room links; the uplink speed is capped by the link bandwidth.
+  const x = crossRoomCable(state, cable);
+  if (x.issue) return { up: false, reason: 'cross-room-invalid' };
+  const speed = Math.max(...common);
+  return x.path ? { up: true, speedGbE: Math.min(speed, x.path.bandwidthGbps), interRoomLinkIds: x.path.linkIds } : { up: true, speedGbE: speed };
 }
 
 // ===========================================================================
@@ -292,10 +309,15 @@ export function linkStatus(state: PhysicalState, catalog: HardwareCatalog, cable
 
 const fail = <S>(i: ValidationIssue): TransitionResult<S> => ({ ok: false, error: i });
 
-export function addRack(state: PhysicalState, catalog: HardwareCatalog, id: string, modelId = 'rack-generic-42u'): TransitionResult<PhysicalState> {
+/** Adds a rack into `roomId` (default: first room of the site layout). [GAME] room rack capacity (sites.ts). */
+export function addRack(state: PhysicalState, catalog: HardwareCatalog, id: string, modelId = 'rack-generic-42u', roomId?: string): TransitionResult<PhysicalState> {
   const m = catalog.racks.get(modelId);
   if (!m || byId(state.racks, id)) return fail(issue('PHYS_DEVICE_INVALID', 'error', `Cannot add rack ${id} (${modelId}).`, 'game: room rules', id, 'game-scope'));
-  return { ok: true, state: { ...state, racks: [...state.racks, { id, modelId, heightU: m.heightU }] } };
+  const sites = sitesOf(state);
+  const room = roomId ?? defaultRoomId(sites) ?? '';
+  const cap = validateRoomCapacity(state, room)[0];
+  if (cap) return fail(cap);
+  return { ok: true, state: { ...state, sites, racks: [...state.racks, { id, modelId, heightU: m.heightU, roomId: room }] } };
 }
 
 /** Adds a bought server (not mounted, no ESX). */
@@ -388,6 +410,8 @@ export function connectCable(state: PhysicalState, catalog: HardwareCatalog, cab
   }
   if (byId(state.cables, cable.id) || samePort(cable.a, cable.b) || (cable.a.kind !== 'switch' && cable.b.kind !== 'switch'))
     return fail(issue('PHYS_CABLE_INVALID', 'error', `Cable ${cable.id}: server ports connect to switch ports.`, 'game: cabling', cable.id, 'game-scope'));
+  const cross = crossRoomCable(state, cable).issue;
+  if (cross) return fail(cross);
   return { ok: true, state: { ...state, cables: [...state.cables, cable] } };
 }
 

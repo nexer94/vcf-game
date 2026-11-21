@@ -19,7 +19,7 @@ const BULLETS: readonly [string, string][] = [
 export const sandboxIntroScreen: ScreenDef = {
   stageMode: 'off',
   mount(root, ctx) {
-    const start = button('Vstoupit do serverovny →', () => ctx.navigate({ name: 'sandbox-room', demo: false }), {
+    const start = button('Vybrat blueprint a vstoupit →', () => ctx.navigate({ name: 'sandbox-site' }), {
       class: 'btn btn-primary btn-big',
     });
     const design = button('Otevřít jen návrh', () => ctx.navigate({ name: 'sandbox', phase: 'navrh' }), {

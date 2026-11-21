@@ -148,6 +148,13 @@ export function unlockOf(u: UnlockAction): PcUnlock {
       return { text: `Přidej FC HBA do ${u.hostIds.join(', ')}`, target: 'room' };
     case 'use-single-vendor':
       return { text: `Ponech servery jen od jednoho vendora (teď: ${u.vendors.join(', ')})`, target: 'room' };
+    // Site limits (model/sites.ts) – minimal labels added by domain-modeler; ui-dev may refine texts / targets.
+    case 'choose-site-layout':
+      return { text: `Zvol lokalitu: ${u.layoutIds.join(', ')}`, target: 'room' };
+    case 'assign-room-role':
+      return { text: `Přiřaď místnost (${u.roomIds.join(', ')}) do role ${u.role}`, target: 'room' };
+    case 'add-hosts-to-az':
+      return { text: `Přidej ${u.count} ${plural(u.count, 'server', 'servery', 'serverů')} do ${u.role} (${u.roomIds.join(', ')})`, target: 'room' };
   }
 }
 

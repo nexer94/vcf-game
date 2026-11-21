@@ -5,12 +5,22 @@ import { formatRoomView, parseRoomView, type RoomView } from './sandbox/roomView
 export type Route =
   | { readonly name: 'menu' }
   | { readonly name: 'sandbox-intro' }
+  /** Start choice „Vyber design blueprint“ (site layout) before entering the room. */
+  | { readonly name: 'sandbox-site' }
   | { readonly name: 'sandbox'; readonly phase: SandboxPhaseId }
   /**
    * Server room; `demo` = illustrative furniture placed. `view` = opened object view (UX §7.1),
    * omitted = the room itself.
    */
-  | { readonly name: 'sandbox-room'; readonly demo: boolean; readonly view?: RoomView }
+  | {
+      readonly name: 'sandbox-room';
+      readonly demo: boolean;
+      readonly view?: RoomView;
+      /** Room of a multi-room site layout (omitted = the first room). */
+      readonly roomId?: string;
+      /** Site overview (building / campus / map) instead of a room. */
+      readonly overview?: true;
+    }
   | { readonly name: 'career' }
   | { readonly name: 'traffic' };
 
@@ -18,6 +28,11 @@ export const MENU: Route = { name: 'menu' };
 
 const ROOM_SEGMENT = 'mistnost';
 const DEMO_SEGMENT = 'ukazka';
+const SITE_SEGMENT = 'lokalita';
+const OVERVIEW_SEGMENT = 'areal';
+/** Segments that can never be a room id (view keywords). */
+const RESERVED = new Set([DEMO_SEGMENT, OVERVIEW_SEGMENT, 'rack', 'tabule', 'pocitac', 'host']);
+const ROOM_ID_RE = /^[A-Za-z0-9_-]{1,32}$/;
 
 /** Parse a location hash ("#/sandbox/navrh"). Unknown hashes fall back to the menu. */
 export function parseRoute(hash: string): Route {
@@ -30,9 +45,18 @@ export function parseRoute(hash: string): Route {
       if (b === undefined) return { name: 'sandbox-intro' };
       if (b === ROOM_SEGMENT) {
         const demo = c === DEMO_SEGMENT;
-        const view = parseRoomView(parts.slice(demo ? 3 : 2));
-        return view.kind === 'room' ? { name: 'sandbox-room', demo } : { name: 'sandbox-room', demo, view };
+        let i = demo ? 3 : 2;
+        const seg = parts[i];
+        if (seg === OVERVIEW_SEGMENT) return { name: 'sandbox-room', demo, overview: true };
+        let roomId: string | undefined;
+        if (seg !== undefined && !RESERVED.has(seg) && ROOM_ID_RE.test(seg)) {
+          roomId = seg;
+          i++;
+        }
+        const view = parseRoomView(parts.slice(i));
+        return { name: 'sandbox-room', demo, ...(roomId ? { roomId } : {}), ...(view.kind === 'room' ? {} : { view }) };
       }
+      if (b === SITE_SEGMENT) return { name: 'sandbox-site' };
       return isSandboxPhase(b) ? { name: 'sandbox', phase: b } : { name: 'sandbox-intro' };
     case 'kariera':
       return { name: 'career' };
@@ -51,8 +75,13 @@ export function formatRoute(r: Route): string {
       return '#/sandbox';
     case 'sandbox':
       return `#/sandbox/${r.phase}`;
-    case 'sandbox-room':
-      return `#/sandbox/${ROOM_SEGMENT}${r.demo ? `/${DEMO_SEGMENT}` : ''}${r.view ? formatRoomView(r.view) : ''}`;
+    case 'sandbox-site':
+      return `#/sandbox/${SITE_SEGMENT}`;
+    case 'sandbox-room': {
+      const base = `#/sandbox/${ROOM_SEGMENT}${r.demo ? `/${DEMO_SEGMENT}` : ''}`;
+      if (r.overview) return `${base}/${OVERVIEW_SEGMENT}`;
+      return `${base}${r.roomId ? `/${encodeURIComponent(r.roomId)}` : ''}${r.view ? formatRoomView(r.view) : ''}`;
+    }
     case 'career':
       return '#/kariera';
     case 'traffic':

@@ -163,3 +163,9 @@
 .hd-table caption { text-align: left; font-weight: 800; }
 .card-variant { font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .port-table th, .port-table td { padding: 2px 4px; }
+/* tracker rows: title on its own line, actions wrap below (Ukaž mi, Proč?, ⤼) */
+.room-tracker .obj { flex-wrap: wrap; }
+.room-tracker .obj-title { flex: 1 1 calc(100% - 26px); }
+.room-tracker .obj > .btn, .room-tracker .obj > .doc-link, .room-tracker .obj > .ui-badge { margin-left: 22px; }
+.room-tracker .obj > .btn + .btn, .room-tracker .obj > .btn + .doc-link, .room-tracker .obj > .doc-link + .btn, .room-tracker .obj > .ui-badge + .btn { margin-left: 0; }
+.room-tracker { max-height: calc(100vh - var(--top-h) - 24px); overflow: auto; }

@@ -7,12 +7,14 @@ import { mainMenuScreen } from './screens/mainMenu';
 import { sandboxIntroScreen } from './screens/sandboxIntro';
 import { sandboxRoomScreen } from './screens/sandboxRoom';
 import { sandboxShellScreen } from './screens/sandboxShell';
+import { sandboxSiteScreen } from './screens/sandboxSite';
 import type { AppContext, MountedScreen, ScreenDef } from './screens/screen';
 import { trafficDemoScreen } from './screens/trafficDemo';
 
 const SCREENS: Readonly<Record<Route['name'], ScreenDef>> = {
   menu: mainMenuScreen,
   'sandbox-intro': sandboxIntroScreen,
+  'sandbox-site': sandboxSiteScreen,
   sandbox: sandboxShellScreen,
   'sandbox-room': sandboxRoomScreen,
   career: careerScreen,

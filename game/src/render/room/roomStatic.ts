@@ -101,9 +101,23 @@ function drawWalls(g: Graphics, room: RoomSize): void {
   g.moveTo(isoToScreen(0, 0).x, isoToScreen(0, 0).y).lineTo(up(isoToScreen(0, 0), H).x, up(isoToScreen(0, 0), H).y).stroke({ color: OUTLINE, width: 1, alpha: 0.35 });
 }
 
-function drawDoor(g: Graphics, room: RoomSize): void {
+/**
+ * The room door (left wall): wall span v0..v1, the floor tile in front of it (avatar leaves / enters the room
+ * there) and its world-space bounding box (click target). Multi-room sites use it to move between rooms.
+ */
+export function roomDoor(room: RoomSize): { v0: number; v1: number; tile: { gx: number; gy: number }; rect: { x: number; y: number; width: number; height: number } } {
   const v0 = Math.max(1, room.rows - 3.4);
   const v1 = v0 + 1.5;
+  const pts = wallRect(lw, v0 - 0.15, v1 + 0.15, 0, 112);
+  const xs = pts.map((p) => p.x);
+  const ys = pts.map((p) => p.y);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return { v0, v1, tile: { gx: 0, gy: Math.min(room.rows - 1, Math.floor(v0 + 0.75)) }, rect: { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y } };
+}
+
+function drawDoor(g: Graphics, room: RoomSize): void {
+  const { v0, v1 } = roomDoor(room);
   poly(g, wallRect(lw, v0 - 0.15, v1 + 0.15, 0, 112), DECOR.doorFrame);
   poly(g, wallRect(lw, v0, v1, 0, 104), DECOR.door);
   poly(g, wallRect(lw, v0 + 0.15, v1 - 0.15, 12, 46), DECOR.doorDark, true, 0.6);

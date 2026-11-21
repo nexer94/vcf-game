@@ -16,6 +16,10 @@ describe('router', () => {
     expect(parseRoute('#/sandbox/mistnost/ukazka/tabule')).toEqual({ name: 'sandbox-room', demo: true, view: { kind: 'board' } });
     // Bad ids fall back to the room itself.
     expect(parseRoute('#/sandbox/mistnost/rack/%3Cx%3E')).toEqual({ name: 'sandbox-room', demo: false });
+    expect(parseRoute('#/sandbox/lokalita')).toEqual({ name: 'sandbox-site' });
+    expect(parseRoute('#/sandbox/mistnost/areal')).toEqual({ name: 'sandbox-room', demo: false, overview: true });
+    expect(parseRoute('#/sandbox/mistnost/m2')).toEqual({ name: 'sandbox-room', demo: false, roomId: 'm2' });
+    expect(parseRoute('#/sandbox/mistnost/m2/rack/R1')).toEqual({ name: 'sandbox-room', demo: false, roomId: 'm2', view: { kind: 'rack', rackId: 'R1' } });
   });
 
   it('falls back on unknown input', () => {
@@ -35,6 +39,11 @@ describe('router', () => {
       { name: 'sandbox-room', demo: true, view: { kind: 'host', rackId: 'R1', hostId: 'srv-1' } },
       { name: 'sandbox-room', demo: false, view: { kind: 'board' } },
       { name: 'sandbox-room', demo: false, view: { kind: 'pc', app: 'navrh' } },
+      { name: 'sandbox-site' },
+      { name: 'sandbox-room', demo: false, overview: true },
+      { name: 'sandbox-room', demo: true, overview: true },
+      { name: 'sandbox-room', demo: false, roomId: 'm2' },
+      { name: 'sandbox-room', demo: true, roomId: 'm2', view: { kind: 'host', rackId: 'R1', hostId: 'srv-1' } },
       ...SANDBOX_PHASES.map((phase) => ({ name: 'sandbox', phase }) as const),
     ];
     for (const r of routes) expect(parseRoute(formatRoute(r))).toEqual(r);

@@ -304,7 +304,7 @@ export function createServerPanel(o: ServerPanelOptions): ObjectPanel & { setTab
         document.createTextNode(' '), badge('out-of-scope', BMC_SCOPE.specRef),
         bmcReason ? h('div', { class: 'op-hint' }, '⛔ ', bmcReason, !v.bmc.remoteInstallDocumented ? null : button('Nastavit BMC', () => setTab('bmc'), { class: 'btn btn-small', 'data-fk': 'go-bmc' })) : null,
       ]),
-      method === 'bmc'
+      method === 'bmc' || v.bmc.remoteInstallDocumented
         ? message({
             type: 'vcf-warning',
             compact: true,

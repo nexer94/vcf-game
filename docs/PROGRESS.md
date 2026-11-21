@@ -83,10 +83,11 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
   - [ ] další: UI pro instalaci ESX/DCUI/síť firmy/use case (API hotové, UI chybí), karty vmnic (host view),
     tabule, počítač; profil `dell-r670-sm` hlásí „pod SM“ (ověřit); bundle 930 kB (dynamický import datasetu)
 - [ ] **Sprint 2** (2026-11-21):
-  - [ ] `ui-dev` A – panel serveru (HW, konfigurace, instalace ESX fyzicky/BMC), DCUI, panel switche (porty, síť firmy),
-    DNS, BMC krok, detail hosta s kartami vmnic, undo/redo *(běží)*
-  - [ ] `ui-dev` B – stůl + počítač s „OS“ (aplikace Use case, Návrh VCF v dlaždicích, Knihovna), tabule s auto HLD
-    (Fyzicky/Síť/Logicky) + kresba hráče *(běží)*
+  - [x] `ui-dev` A – panel serveru (HW, úprava konfigurace, ESX fyzicky/BMC), DCUI konzole + test sítě, panel switche
+    (porty, VLAN, MTU, síť firmy), DNS A+PTR, BMC krok, detail hosta (VMkernel → vSwitch → karty vmnic, řetěz MTU),
+    „Ukaž mi“ z trackeru, undo/redo; oprava karty obchodu (id sestavy)
+  - [x] `ui-dev` B – stůl + počítač s „OS“ (Use case, Návrh VCF v dlaždicích s HW omezením, Knihovna), tabule s auto
+    HLD (Fyzicky/Síť/Logicky) + kresba hráče
   - [x] `domain-modeler` – `dell-r670-sm` v modelu správně HCI-SM (chyba v UI obchodu → ui-dev A); regresní test
     všech 25 řádků B.3 přímo ze specu; `USE_CASE_NOT_MODELLED`; `hostPortRequirements`; `loadHardwareCatalog()`
   - [ ] přepnout session/UI na líné načítání katalogu (bundle) – postup v reportu domain-modelera
@@ -100,8 +101,8 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
     role místností AZ1/AZ2/witness/druhá instance, linky (herní RTT/propustnost) vs. limit 10 §3.3 (≥10 Gbps,
     RTT < 5 ms = error), minima hostů na AZ, kabely mezi místnostmi jen switch–switch, návrh omezený lokalitou
     s odemykacími akcemi; tabulka blueprint → lokalita čeká na `06`
-    - otevřené: Fault Domains+DR nedosažitelné (potřeba 4 místnosti), witness/DR v libovolné místnosti, RTT pro
-      witness/DR spec neuvádí → rozhodnout po `06-blueprints`
+    - doplněno: 5 fleet blueprintů z `06`, předvolba `two-buildings-plus-dr` (Fault Domains+DR), witness RTT ≤ 200 ms,
+      stejný počet hostů v AZ, minima stretched (mgmt HA 8 Day 2, WLD 6); DR mezi regiony bez čísel (spec)
   - [ ] `ui-dev` C – startovní obrazovka s kartami blueprintů, místnosti malá/velká, budova, kampus, DR *(běží)*
   - [ ] `engine-dev` – napojení (volba blueprintu v session, místnosti, AZ)
 - [ ] (odloženo do funkčního milníku) `code-reviewer` + `ux-designer` review → `fact-checker`

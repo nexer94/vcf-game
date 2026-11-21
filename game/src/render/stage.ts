@@ -8,6 +8,7 @@ import { RoomScene } from './room/roomScene';
 import { ROOM_BG } from './room/palette';
 import { DatacenterScene } from './scene/datacenterScene';
 import { RackElevationView } from './rack/rackView';
+import { SiteScene } from './site/siteScene';
 
 /**
  * - backdrop: slow automatic drift, no interaction, labels hidden (menu background)
@@ -16,10 +17,10 @@ import { RackElevationView } from './rack/rackView';
  */
 export type StageMode = 'backdrop' | 'interactive' | 'off';
 
-/** Which world the stage shows: the old dark datacenter prototype or the cosy Sandbox room. */
-export type StageScene = 'datacenter' | 'room';
+/** Which world the stage shows: the old dark datacenter prototype, the cosy Sandbox room or the site overview. */
+export type StageScene = 'datacenter' | 'room' | 'site';
 
-const BACKGROUND: Readonly<Record<StageScene, number>> = { datacenter: 0x0f141b, room: ROOM_BG };
+const BACKGROUND: Readonly<Record<StageScene, number>> = { datacenter: 0x0f141b, room: ROOM_BG, site: ROOM_BG };
 
 export type FrameHook = (snapshot: GameSnapshot, realDeltaMs: number, fps: number) => void;
 
@@ -50,9 +51,12 @@ export class SceneStage {
     readonly room: RoomScene,
     /** Full-screen rack front elevation (Sandbox view stack, UX §7.1 / §9). Hidden unless a screen shows it. */
     readonly rack: RackElevationView,
+    /** Site overview (building / campus / DR map) of multi-room Sandbox layouts. */
+    readonly site: SiteScene,
     private readonly engine: StageEngine,
   ) {
     room.world.visible = false;
+    site.world.visible = false;
     app.ticker.add((ticker) => this.frame(ticker.deltaMS, ticker.FPS));
   }
 
@@ -76,8 +80,9 @@ export class SceneStage {
     const scene = new DatacenterScene(app.renderer, createDemoTopology(), new DemoTrafficSource());
     const room = new RoomScene(app.renderer);
     const rack = new RackElevationView(app.renderer);
-    app.stage.addChild(scene.world, room.world, rack.root);
-    const stage = new SceneStage(app, scene, room, rack, engine);
+    const site = new SiteScene(app.renderer);
+    app.stage.addChild(scene.world, site.world, room.world, rack.root);
+    const stage = new SceneStage(app, scene, room, rack, site, engine);
     stage.setMode('off');
     return stage;
   }
@@ -95,6 +100,7 @@ export class SceneStage {
     this.active = which;
     this.scene.world.visible = which === 'datacenter';
     this.room.world.visible = which === 'room';
+    this.site.world.visible = which === 'site';
     if (which !== 'room') this.rack.root.visible = false;
     this.app.renderer.background.color = BACKGROUND[which];
   }
@@ -118,15 +124,16 @@ export class SceneStage {
 
   /** Camera that fits the whole scene into the current screen. */
   fit(padding = 60): Camera {
-    const bounds = this.active === 'room' ? this.room.bounds : this.scene.layout.bounds;
+    const bounds = this.active === 'room' ? this.room.bounds : this.active === 'site' ? this.site.bounds : this.scene.layout.bounds;
     return fitRect(bounds, this.app.screen.width, this.app.screen.height, padding);
   }
 
   setCamera(cam: Camera): void {
-    const world = this.active === 'room' ? this.room.world : this.scene.world;
+    const world = this.active === 'room' ? this.room.world : this.active === 'site' ? this.site.world : this.scene.world;
     world.position.set(cam.x, cam.y);
     world.scale.set(cam.scale);
     if (this.active === 'room') this.room.setViewScale(cam.scale, this.app.renderer.resolution);
+    if (this.active === 'site') this.site.setViewScale(cam.scale, this.app.renderer.resolution);
   }
 
   /** Per-frame callback (after the scene update). Returns an unsubscribe function. */
@@ -144,7 +151,8 @@ export class SceneStage {
       // UX §7.1: while a full-screen view covers the room, the room is hidden and its packets are not simulated.
       if (this.room.world.visible) this.room.update(snap, realMs);
       this.rack.update(snap, realMs);
-    } else this.scene.update(snap, realMs);
+    } else if (this.active === 'site') this.site.update(realMs);
+    else this.scene.update(snap, realMs);
     if (this.mode === 'backdrop') this.driftBackdrop(realMs);
     for (const h of this.hooks) h(snap, realMs, fps);
   }
