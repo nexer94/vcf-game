@@ -14,6 +14,7 @@ import { loadBand } from '../../render/traffic/loadStyle';
 import { TRAFFIC_STYLE } from '../../render/traffic/trafficTypes';
 import { button, h } from '../dom';
 import { badge } from '../messages';
+import { icon } from '../icons';
 import { formatVlanList, hostNetBands, intOf, type VmnicCard } from './panelData';
 import { focusKey, issueList, restoreFocus, resultNote, type ResultNote } from './panelKit';
 import type { SessionOps } from './sessionPort';
@@ -183,7 +184,7 @@ export function createHostDetail(o: HostDetailOptions): HostDetail {
           c.mtuChain.length
             ? h('div', { class: 'hd-chain', 'aria-label': 'Řetěz MTU' }, ...c.mtuChain.flatMap((l, i) => [
                 i ? h('span', { 'aria-hidden': 'true' }, ' → ') : null,
-                h('span', { class: `hd-link${l.short ? ' short' : ''}`, title: l.short ? 'článek je menší než MTU VMkernelu' : '' }, `${l.short ? '⚠ ' : ''}${l.label} ${l.mtu ?? '?'}`),
+                h('span', { class: `hd-link${l.short ? ' short' : ''}`, title: l.short ? 'článek je menší než MTU VMkernelu' : '' }, l.short ? icon('warning') : null, `${l.short ? ' ' : ''}${l.label} ${l.mtu ?? '?'}`),
               ]).filter((x): x is HTMLElement => !!x))
             : null,
           h('div', { class: 'hd-port' },
@@ -215,7 +216,7 @@ export function createHostDetail(o: HostDetailOptions): HostDetail {
         h('td', null, c.linkUp ? pct(c.utilization) : '–'),
         h('td', null, Object.entries(c.loadByClass).filter(([, g]) => (g ?? 0) > 0).map(([k, g]) => `${k} ${(g ?? 0).toFixed(3)} Gb/s`).join(', ') || '–'),
         h('td', null, c.port ? `${c.port.switchLabel} p${c.port.index + 1} · ${c.port.view.config.mode} · MTU ${c.port.view.config.mtu}` : c.peerLabel ?? '–'),
-        h('td', null, c.mtuChain.map((l) => `${l.short ? '⚠ ' : ''}${l.label} ${l.mtu ?? '?'}`).join(' → ') || '–'),
+        h('td', null, c.mtuChain.map((l) => `${l.short ? '(krátké) ' : ''}${l.label} ${l.mtu ?? '?'}`).join(' → ') || '–'),
       ))),
     );
     const topo = [...srv.topology.errors, ...srv.topology.warnings, ...srv.topology.recommendations];

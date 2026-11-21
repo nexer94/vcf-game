@@ -35,15 +35,15 @@ const C = {
   woodSide: 0xc98f52,
   woodTop: 0xf5cf98,
   leg: 0x8a6a4a,
-  monitor: 0x3b3a58,
-  monitorSide: 0x2c2b45,
+  monitor: 0x24324a,
+  monitorSide: 0x1a2538,
   screen: 0xbfe6ff,
   screenGlow: 0xe8f7ff,
-  key: 0xf7f5fc,
-  keyShade: 0xd5d2e3,
-  chair: 0x5b9cf0,
-  chairDark: 0x3d7fd6,
-  chairTop: 0x8ab8f6,
+  key: 0xf6f8fa,
+  keyShade: 0xd5dde8,
+  chair: 0x3b5f8f,
+  chairDark: 0x2b4a78,
+  chairTop: 0x6f8fb8,
   mug: 0xff7a8a,
   plant: 0x4cc38a,
   pot: 0xd98a3d,
@@ -80,7 +80,7 @@ function drawDesk(g: Graphics): void {
   // Tiny "desktop": dock strip + window (original, no OS look-alike).
   poly(g, sideQuad(gx + 0.18, gy + 0.5, 0.08, 1.0, 0.09, 0.22, 43, 63), 0x8fb9e8, false);
   poly(g, sideQuad(gx + 0.18, gy + 0.5, 0.08, 1.0, 0.28, 0.88, 46, 61), C.screenGlow, false);
-  poly(g, sideQuad(gx + 0.18, gy + 0.5, 0.08, 1.0, 0.28, 0.88, 58, 61), 0x5b4fd6, false);
+  poly(g, sideQuad(gx + 0.18, gy + 0.5, 0.08, 1.0, 0.28, 0.88, 58, 61), 0xc41f33, false);
   // Keyboard + mouse + mug.
   prism(g, gx + 0.44, gy + 0.62, 0.2, 0.74, 2, { top: C.key, front: C.keyShade, side: C.keyShade }, 32);
   for (let i = 0; i < 4; i++) {
@@ -94,8 +94,8 @@ function drawDesk(g: Graphics): void {
   // Office chair in front of the desk.
   const cx = gx + 0.8;
   const cy = gy + 0.72;
-  prism(g, cx + 0.12, cy + 0.24, 0.06, 0.06, 16, { top: OUTLINE, front: 0x55516f, side: 0x55516f });
-  prism(g, cx - 0.02, cy + 0.12, 0.34, 0.3, 1, { top: 0x55516f, front: 0x3a3550, side: 0x3a3550 }, 1);
+  prism(g, cx + 0.12, cy + 0.24, 0.06, 0.06, 16, { top: OUTLINE, front: 0x4a5566, side: 0x4a5566 });
+  prism(g, cx - 0.02, cy + 0.12, 0.34, 0.3, 1, { top: 0x4a5566, front: 0x24324a, side: 0x24324a }, 1);
   prism(g, cx, cy, 0.3, 0.54, 5, { top: C.chairTop, front: C.chair, side: C.chairDark }, 17);
   prism(g, cx + 0.26, cy + 0.02, 0.08, 0.5, 26, { top: C.chairTop, front: C.chair, side: C.chairDark }, 22);
 }
@@ -163,7 +163,7 @@ export class RoomFixtures {
     for (const n of layout.nodes) {
       if (n.kind === 'cloud') g.ellipse(ox + (n.x + n.w / 2) * k, oy + (n.y + n.h / 2) * k, (n.w / 2) * k, (n.h / 2) * k);
       else g.rect(ox + n.x * k, oy + n.y * k, n.w * k, n.h * k);
-      g.stroke({ color: n.problem ? 0xc0322e : C.ink, width: n.container ? 0.6 : 1, alpha: n.dashed ? 0.45 : 0.9 });
+      g.stroke({ color: n.problem ? 0xb42318 : C.ink, width: n.container ? 0.6 : 1, alpha: n.dashed ? 0.45 : 0.9 });
     }
   }
 

@@ -8,6 +8,7 @@
 import { USE_CASES, type UseCaseId } from '../../modes/sandbox/useCases';
 import { button, docLink, h } from '../dom';
 import { message } from '../messages';
+import { icon } from '../icons';
 import type { RoomPort } from '../sandbox/sessionPort';
 import { nn, type PcApp } from './designApp';
 
@@ -52,7 +53,7 @@ export function createUseCaseApp(o: UseCaseAppOptions): PcApp {
           return h('li', { class: `uc-card${isChosen ? ' chosen' : ''}${u.modelled ? '' : ' not-modelled'}` },
             h('div', { class: 'uc-head' },
               h('strong', null, u.id),
-              u.modelled ? h('span', { class: 'ui-badge badge-ok' }, 'hratelné') : h('span', { class: 'ui-badge badge-muted', title: 'Hra tuto cestu zatím nesimuluje – není to chyba VCF.' }, '🧩 herní omezení'),
+              u.modelled ? h('span', { class: 'ui-badge badge-ok' }, 'hratelné') : h('span', { class: 'ui-badge badge-game-simplification', title: 'Hra tuto cestu zatím nesimuluje – není to chyba VCF.' }, icon('puzzle', { className: 'badge-icon' }), 'herní omezení'),
             ),
             h('div', { class: 'uc-title', lang: 'en' }, u.title),
             h('div', { class: 'small' }, docLink('TechDocs', u.url), h('span', { class: 'spec-ref' }, ` spec ${u.specRef}`)),

@@ -48,7 +48,7 @@ const RACK_PACKETS = { ...DEFAULT_PACKET_SIM, maxPackets: 300, packetsPerGbps: 1
 const HOVER_SCALE = 1.6;
 const LED_UP = DEVICE.ledOk;
 const LED_DOWN = 0xf0a14a;
-const LED_OFF = 0x9a96ad;
+const LED_OFF = 0x8592a3;
 
 const txt = (text: string, size: number, color: number, weight: '400' | '700' | '800' = '700'): Text =>
   new Text({ text, style: { fontFamily: FONT, fontSize: size, fontWeight: weight, fill: color }, resolution: 2 });
@@ -242,21 +242,21 @@ export class RackElevationView {
       layer.addChild(head);
       for (const row of col.rows) {
         // U number on the left rail.
-        const num = txt(row.kind === 'empty' && row.compressed ? `${row.topU}–${row.bottomU}` : String(row.topU), row.kind === 'empty' && row.compressed ? 8 : 10, 0xdad8f0, '700');
+        const num = txt(row.kind === 'empty' && row.compressed ? `${row.topU}–${row.bottomU}` : String(row.topU), row.kind === 'empty' && row.compressed ? 8 : 10, 0xc9d3ea, '700');
         num.anchor.set(1, 0.5);
         num.position.set(col.innerX - 3, row.y + Math.min(row.h / 2, 12));
         layer.addChild(num);
         if (row.kind === 'empty') {
           if (row.compressed) {
-            g.rect(col.innerX + 2, row.y + 3, col.innerW - 4, row.h - 6).fill({ color: 0x3a3a62 });
+            g.rect(col.innerX + 2, row.y + 3, col.innerW - 4, row.h - 6).fill({ color: 0x2e3d55 });
             for (let x = col.innerX + 6; x < col.innerX + col.innerW - 6; x += 10) g.moveTo(x, row.y + row.h - 5).lineTo(x + 8, row.y + 5);
-            g.stroke({ color: 0x55557e, width: 1.5 });
-            const t = txt(`${row.topU - row.bottomU + 1} U volné`, 12, 0xe9e7ff, '700');
+            g.stroke({ color: 0x4a5b73, width: 1.5 });
+            const t = txt(`${row.topU - row.bottomU + 1} U volné`, 12, 0xe6edf6, '700');
             t.anchor.set(0.5);
             t.position.set(col.innerX + col.innerW / 2, row.y + row.h / 2);
             layer.addChild(t);
           } else {
-            g.rect(col.innerX + 2, row.y + 1, col.innerW - 4, row.h - 2).stroke({ color: 0x3e3e68, width: 1 });
+            g.rect(col.innerX + 2, row.y + 1, col.innerW - 4, row.h - 2).stroke({ color: 0x33435c, width: 1 });
           }
         }
       }
@@ -271,13 +271,13 @@ export class RackElevationView {
     const { x, y, w, h } = geo;
     if (d.kind === 'server') {
       g.roundRect(x, y, w, h, 4).fill(DEVICE.serverFace).stroke({ color: OUTLINE, width: 2 });
-      g.roundRect(x + 3, y + 3, 10, h - 6, 2).fill(d.tagColor ?? 0x3d8bfd);
+      g.roundRect(x + 3, y + 3, 10, h - 6, 2).fill(d.tagColor ?? 0x2560c4);
       // Drive bays.
       for (let bx = x + 238; bx < x + 318; bx += 11) g.roundRect(bx, y + 5, 8, h - 10, 1.5);
       g.fill(DEVICE.serverShade).stroke({ color: DEVICE.bay, width: 1 });
       const t = txt(d.label, 13, OUTLINE, '800');
       t.position.set(x + 18, y + 4);
-      const sub = txt(d.sublabel ?? '', 10, 0x5a4f78, '700');
+      const sub = txt(d.sublabel ?? '', 10, 0x4a5566, '700');
       sub.position.set(x + 18, y + 21);
       layer.addChild(t, sub);
       // Status LED: shape + colour (● online, ■ no OS / off) – UX §4.5.
@@ -316,7 +316,7 @@ export class RackElevationView {
         layer.addChild(n);
       }
       if (p.port === 'bmc') {
-        const b = txt('BMC', 7, 0x5a4f78, '800');
+        const b = txt('BMC', 7, 0x4a5566, '800');
         b.anchor.set(0.5, 1);
         b.position.set(p.x, p.y - 7);
         layer.addChild(b);
@@ -328,8 +328,8 @@ export class RackElevationView {
     const bmc = p.port === 'bmc';
     const w = p.w;
     const hh = p.h;
-    if (bmc) g.rect(p.x - w / 2, p.y - hh / 2, w, hh).fill(0x9a96ad).stroke({ color: OUTLINE, width: 1.4 });
-    else g.roundRect(p.x - w / 2, p.y - hh / 2, w, hh, 2.5).fill(link === undefined ? DEVICE.port : 0x3a3550).stroke({ color: uplink ? 0xffc94d : OUTLINE, width: uplink ? 2.2 : 1.4 });
+    if (bmc) g.rect(p.x - w / 2, p.y - hh / 2, w, hh).fill(0x8592a3).stroke({ color: OUTLINE, width: 1.4 });
+    else g.roundRect(p.x - w / 2, p.y - hh / 2, w, hh, 2.5).fill(link === undefined ? DEVICE.port : 0x24324a).stroke({ color: uplink ? 0xffc94d : OUTLINE, width: uplink ? 2.2 : 1.4 });
     // Link LED (shape: filled = link, hollow = no link) above the port.
     const ly = p.y - hh / 2 - 2.5;
     if (link === undefined) g.circle(p.x + w / 2 - 2, ly, 1.4).stroke({ color: LED_OFF, width: 1 });
@@ -372,21 +372,21 @@ export class RackElevationView {
         if (pend.compatible.has(p.id)) g.roundRect(p.x - p.w / 2 - 3, p.y - p.h / 2 - 3, p.w + 6, p.h + 6, 4).stroke({ color: 0x2e9e6a, width: 2 });
         else {
           // Dimmed + hatched (not colour only).
-          g.rect(p.cell.x, p.cell.y, p.cell.w, p.cell.h).fill({ color: 0x1b1730, alpha: 0.55 });
+          g.rect(p.cell.x, p.cell.y, p.cell.w, p.cell.h).fill({ color: 0x0f1b2d, alpha: 0.55 });
           g.moveTo(p.cell.x, p.cell.y + p.cell.h).lineTo(p.cell.x + p.cell.w, p.cell.y).stroke({ color: 0xe5484d, width: 1, alpha: 0.8 });
         }
       }
       const from = L.ports.get(pend.from);
       if (from) {
-        g.roundRect(from.x - from.w / 2 - 4, from.y - from.h / 2 - 4, from.w + 8, from.h + 8, 4).stroke({ color: 0xff8a3d, width: 3 });
+        g.roundRect(from.x - from.w / 2 - 4, from.y - from.h / 2 - 4, from.w + 8, from.h + 8, 4).stroke({ color: 0x1d63c8, width: 3 });
         if (pend.cursor) {
           const c = pend.cursor;
           const dx = Math.max(30, Math.abs(c.x - from.x) * 0.4);
           g.moveTo(from.x, from.y).bezierCurveTo(from.x + dx, from.y + 30, c.x - dx * 0.3, c.y + 40, c.x, c.y);
           g.stroke({ color: OUTLINE, width: 4, cap: 'round' });
           g.moveTo(from.x, from.y).bezierCurveTo(from.x + dx, from.y + 30, c.x - dx * 0.3, c.y + 40, c.x, c.y);
-          g.stroke({ color: 0xff8a3d, width: 2, cap: 'round' });
-          g.circle(c.x, c.y, 3.5).fill(0xff8a3d).stroke({ color: OUTLINE, width: 1.4 });
+          g.stroke({ color: 0x1d63c8, width: 2, cap: 'round' });
+          g.circle(c.x, c.y, 3.5).fill(0x1d63c8).stroke({ color: OUTLINE, width: 1.4 });
         }
       }
     }
@@ -395,7 +395,7 @@ export class RackElevationView {
       // Port under the cursor grows 1.6x (UX §9.3) – drawn as an enlarged copy on top.
       const w = hp.w * HOVER_SCALE;
       const h = hp.h * HOVER_SCALE;
-      g.roundRect(hp.x - w / 2, hp.y - h / 2, w, h, 3).fill(hp.port === 'bmc' ? 0x9a96ad : DEVICE.port).stroke({ color: 0xff8a3d, width: 2.4 });
+      g.roundRect(hp.x - w / 2, hp.y - h / 2, w, h, 3).fill(hp.port === 'bmc' ? 0x8592a3 : DEVICE.port).stroke({ color: 0x1d63c8, width: 2.4 });
     }
   }
 

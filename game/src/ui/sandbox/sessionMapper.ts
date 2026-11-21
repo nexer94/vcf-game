@@ -167,7 +167,7 @@ export function roomStateFromSnapshot(raw: unknown): RoomState | null {
     revision: s.revision ?? 0,
     source: 'session',
     catalog: catalogOf(p),
-    racks: p.racks.map((r) => ({ id: r.id, label: r.id, heightU: r.heightU, tile: r.placed && r.tile ? { gx: r.tile.gx, gy: r.tile.gy } : null })),
+    racks: p.racks.map((r) => ({ id: r.id, label: r.id, heightU: r.heightU, tile: r.placed && r.tile ? { gx: r.tile.gx, gy: r.tile.gy } : null, ...(r.facing ? { facing: r.facing } : {}) })),
     devices,
     cables,
     inventory: p.inventory

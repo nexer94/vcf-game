@@ -20,7 +20,7 @@ export type StageMode = 'backdrop' | 'interactive' | 'off';
 /** Which world the stage shows: the old dark datacenter prototype, the cosy Sandbox room or the site overview. */
 export type StageScene = 'datacenter' | 'room' | 'site';
 
-const BACKGROUND: Readonly<Record<StageScene, number>> = { datacenter: 0x0f141b, room: ROOM_BG, site: ROOM_BG };
+const BACKGROUND: Readonly<Record<StageScene, number>> = { datacenter: 0x0f1b2d, room: ROOM_BG, site: ROOM_BG };
 
 export type FrameHook = (snapshot: GameSnapshot, realDeltaMs: number, fps: number) => void;
 

@@ -7,6 +7,7 @@
  * model / spec via the caller.
  */
 import { h } from './dom';
+import { icon, MESSAGE_ICON, type IconName } from './icons';
 
 // ---------------------------------------------------------------------------
 // Message types
@@ -15,8 +16,8 @@ import { h } from './dom';
 export type MessageType = 'vcf-error' | 'vcf-warning' | 'game-limit' | 'game-tip';
 
 export interface MessageTypeInfo {
-  /** Icon shown before the heading (decorative, aria-hidden). */
-  readonly icon: string;
+  /** Own line icon shown before the heading (decorative, aria-hidden; ui/icons.ts, T9). */
+  readonly icon: IconName;
   /** Default heading (UX.md §3.2). */
   readonly title: string;
   /** Who is speaking - announced to screen readers before the heading. */
@@ -26,10 +27,10 @@ export interface MessageTypeInfo {
 }
 
 export const MESSAGE_TYPES: Readonly<Record<MessageType, MessageTypeInfo>> = {
-  'vcf-error': { icon: '⛔', title: 'Podle dokumentace nelze', source: 'Chyba VCF', blocks: 'yes' },
-  'vcf-warning': { icon: '⚠', title: 'Odchylka od doporučení', source: 'Varování VCF', blocks: 'until-acknowledged' },
-  'game-limit': { icon: '🧩', title: 'Zatím ve hře není', source: 'Omezení hry', blocks: 'game' },
-  'game-tip': { icon: '💡', title: 'Tip', source: 'Tip hry', blocks: 'no' },
+  'vcf-error': { icon: MESSAGE_ICON['vcf-error'], title: 'Podle dokumentace nelze', source: 'Chyba VCF', blocks: 'yes' },
+  'vcf-warning': { icon: MESSAGE_ICON['vcf-warning'], title: 'Odchylka od doporučení', source: 'Varování VCF', blocks: 'until-acknowledged' },
+  'game-limit': { icon: MESSAGE_ICON['game-limit'], title: 'Zatím ve hře není', source: 'Omezení hry', blocks: 'game' },
+  'game-tip': { icon: MESSAGE_ICON['game-tip'], title: 'Tip', source: 'Tip hry', blocks: 'no' },
 };
 
 type Content = Node | string | null | undefined | false;
@@ -63,7 +64,7 @@ export function message(o: MessageOptions): HTMLElement {
     .join(' ');
   return h('div', { class: cls, role: 'note' },
     h('div', { class: 'msg-head' },
-      h('span', { class: 'msg-icon', 'aria-hidden': 'true' }, info.icon),
+      h('span', { class: 'msg-icon', 'aria-hidden': 'true' }, icon(info.icon)),
       h('span', { class: 'msg-src' }, `${info.source}: `),
       h('strong', { class: 'msg-title' }, o.title ?? info.title),
     ),
@@ -181,8 +182,13 @@ export function badge(kind: BadgeKind, detail?: string): HTMLElement {
 }
 
 /** Generic small chip (e.g. "varování", "zkráceno") with an optional tooltip; not focusable. */
-export function chip(text: string, cls: string, title?: string): HTMLElement {
-  return h('span', { class: `ui-badge ${cls}`, ...(title ? { title } : {}) }, text);
+export function chip(text: string, cls: string, title?: string, iconName?: IconName): HTMLElement {
+  return h('span', { class: `ui-badge ${cls}`, ...(title ? { title } : {}) }, iconName ? icon(iconName, { className: 'badge-icon' }) : null, text);
+}
+
+/** Inline "icon + text" (decorative icon; the text carries the meaning). */
+export function iconText(name: IconName, text: string, cls = ''): HTMLElement {
+  return h('span', { class: `icon-text ${cls}`.trim() }, icon(name), text);
 }
 
 /** "?" legend popover listing the badges (and optional extra rows). Uses native <details>. */
@@ -198,7 +204,7 @@ export function badgeLegend(kinds: readonly BadgeKind[] = BADGE_ORDER, extra: re
       h('strong', null, 'Hlášky'),
       h('dl', null,
         ...(Object.keys(MESSAGE_TYPES) as MessageType[]).flatMap((t) => [
-          h('dt', null, h('span', { class: `msg-swatch msg-${t}` }, `${MESSAGE_TYPES[t].icon} ${MESSAGE_TYPES[t].source}`)),
+          h('dt', null, h('span', { class: `msg-swatch msg-${t}` }, icon(MESSAGE_TYPES[t].icon), MESSAGE_TYPES[t].source)),
           h('dd', null, MESSAGE_HELP[t]),
         ]),
       ),

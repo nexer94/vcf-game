@@ -9,6 +9,7 @@
  * The auto diagram uses a reserved ink colour the player does not have.
  */
 import { Container, Graphics, Rectangle, Sprite, Text, type Renderer, type Texture } from 'pixi.js';
+import { TRAFFIC_STYLE } from '../traffic/trafficTypes';
 import type { HldLayout, HldNode, BoardTraffic } from './hldLayout';
 import { BOARD_H, BOARD_W, NOTES_X, PEN_COLORS, PEN_WIDTHS, type PageNotes, type PenColorId } from './notes';
 import { arrowHead, dashPolyline, hashSeed, sketchCloud, sketchEllipse, sketchLine, sketchRect, type Pt } from './sketch';
@@ -22,14 +23,14 @@ const FRAME = 0xb9bfc9;
 const FRAME_DARK = 0x8b93a1;
 export const HAND_FONT = "'Patrick Hand', 'Comic Neue', 'Comic Sans MS', 'Segoe Print', 'Bradley Hand', 'Chalkboard SE', cursive";
 
-/** Same colours as the packets (GRAPHICS.md "Vizualizace provozu"). */
+/** Same colours as the packets – imported, never copied (GRAPHICS.md T5/T11). */
 const TRAFFIC_COLOR: Readonly<Record<BoardTraffic, number>> = {
-  management: 0x8aa4c8,
-  vmotion: 0xf0a14a,
-  vsan: 0x4cc38a,
-  nfs: 0x3fb8c9,
-  overlay: 0xa37cf0,
-  vm: 0xe8edf3,
+  management: TRAFFIC_STYLE.management.color,
+  vmotion: TRAFFIC_STYLE.vmotion.color,
+  vsan: TRAFFIC_STYLE.vsan.color,
+  nfs: TRAFFIC_STYLE.nfs.color,
+  overlay: TRAFFIC_STYLE.overlay.color,
+  vm: TRAFFIC_STYLE.vm.color,
 };
 
 const PEN = new Map<PenColorId, number>(PEN_COLORS.map((c) => [c.id, c.color]));
@@ -151,12 +152,12 @@ export class BoardRenderer {
       this.label(line, n.kind === 'cloud' ? tx : n.x + 12, ty, 19, ink, anchor);
       ty += 26;
     }
-    if (n.badge) this.label(`[${n.badge}]`, n.x + n.w - 8, n.y + 8, 16, 0x6a6585, 1);
+    if (n.badge) this.label(`[${n.badge}]`, n.x + n.w - 8, n.y + 8, 16, 0x5c6878, 1);
     if (n.problem) {
       const cx = n.x + n.w - 6;
       const cy = n.y + 4;
-      strokePoly(g, sketchEllipse(cx, cy, 13, 13, seed ^ 0x55), 0xc0322e, 2.4);
-      this.label('!', cx, cy - 12, 20, 0xc0322e, 0.5, true);
+      strokePoly(g, sketchEllipse(cx, cy, 13, 13, seed ^ 0x55), 0xb42318, 2.4);
+      this.label('!', cx, cy - 12, 20, 0xb42318, 0.5, true);
     }
   }
 
@@ -205,7 +206,7 @@ export class BoardRenderer {
     const g = this.hoverFx;
     g.clear();
     if (!n) return;
-    g.roundRect(n.x - 5, n.y - 5, n.w + 10, n.h + 10, 8).stroke({ color: 0xffc94d, width: 5, alpha: 0.85 });
+    g.roundRect(n.x - 5, n.y - 5, n.w + 10, n.h + 10, 8).stroke({ color: 0x1d63c8, width: 5, alpha: 0.85 });
   }
 
   // ------------------------------------------------------------------ player notes
@@ -258,10 +259,10 @@ export class BoardRenderer {
     const g = new Graphics();
     this.paper.addChild(g);
     const f = 22;
-    g.roundRect(-f, -f, BOARD_W + 2 * f, BOARD_H + 2 * f + 34, 14).fill({ color: FRAME }).stroke({ color: 0x2e2645, width: 3 });
+    g.roundRect(-f, -f, BOARD_W + 2 * f, BOARD_H + 2 * f + 34, 14).fill({ color: FRAME }).stroke({ color: 0x14233a, width: 3 });
     g.rect(0, 0, BOARD_W, BOARD_H).fill({ color: BOARD_SURFACE }).stroke({ color: FRAME_DARK, width: 2 });
     // Marker shelf (the DOM toolbar sits on it).
-    g.roundRect(-f + 8, BOARD_H + 6, BOARD_W + 2 * f - 16, 26, 6).fill({ color: FRAME_DARK }).stroke({ color: 0x2e2645, width: 2 });
+    g.roundRect(-f + 8, BOARD_H + 6, BOARD_W + 2 * f - 16, 26, 6).fill({ color: FRAME_DARK }).stroke({ color: 0x14233a, width: 2 });
     // Notes strip divider (dotted) + heading.
     for (let y = 16; y < BOARD_H - 16; y += 18) g.moveTo(NOTES_X, y).lineTo(NOTES_X, y + 8);
     g.stroke({ color: 0xc9c4d6, width: 2 });

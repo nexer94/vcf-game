@@ -21,8 +21,10 @@ import { createAvatarTextures, type AvatarTextures } from './avatarArt';
 import { AvatarMotion } from './avatarMotion';
 import { diamond, up, type P } from './draw';
 import { createDotAtlas, type DotShape } from './dotAtlas';
-import { CABINETS, canMount, drawCabinet, firstFreeU, devicePortPoint, type CabinetKind, type CabinetSpec, type RoomDeviceSpec } from './furniture';
-import { BLOCKED_TILE, CABLE, DECOR, HOVER_TILE, OUTLINE, SHADOW, TARGET_TILE } from './palette';
+import { cabinetGeometry, canMount, drawCabinet, firstFreeU, devicePortPoint, rackPlateCenter, type CabinetFacing, type CabinetKind, type CabinetSpec, type RoomDeviceSpec } from './furniture';
+import { drawAisles, drawGhostFootprint, drawOobSwitch, drawPlacementHints, drawRackFront, type AisleSet, type PlacementHintTile } from './placementFx';
+import { OOB_SWITCH_SPOT } from '../../model/roomFixtures';
+import { CABLE, DECOR, HOVER_TILE, OUTLINE, SHADOW, TARGET_TILE } from './palette';
 import { BUNDLE_Z, bundleWidth, devicePath, faceEdgePoint, flatten, pairKey, polyLength, riserTop, trayPoint, trayRoute } from './roomBundles';
 import type { RoomCableSpec } from './roomCables';
 import { depthOf, nearestReachable, Occupancy, worldToTile, type Footprint, type RoomSize, type Tile } from './roomGrid';
@@ -36,6 +38,26 @@ export type PlaceResult =
   | { readonly ok: false; readonly reason: 'duplicate' | 'outside' | 'occupied' | 'avatar' | 'unknown' | 'slot' };
 
 export type GhostKind = CabinetKind;
+
+/** Placement preview of a cabinet. `valid` comes from the caller (engine hints), never from the render layer. */
+export interface GhostSpec {
+  readonly kind: GhostKind;
+  readonly tile: Tile;
+  readonly facing?: CabinetFacing;
+  /** Rack height in U (24 / 42 / 48). */
+  readonly units?: number;
+  /** Omitted = the render layer's physical check (demo room only). */
+  readonly valid?: boolean;
+  /** Facings the engine allows on this tile (drawn as small chevrons). */
+  readonly allowed?: readonly CabinetFacing[];
+}
+
+/** Placement hints overlay (engine: valid tiles with their allowed facings). */
+export interface PlacementHints {
+  readonly tiles: readonly PlacementHintTile[];
+  /** Facing currently chosen by the player (R rotates). */
+  readonly facing: CabinetFacing;
+}
 
 /** Snapshot of what is placed (for UI lists / persistence later). */
 export interface RoomContents {
@@ -109,6 +131,11 @@ function createMagnifierTexture(renderer: Renderer): Texture {
 }
 
 const DOT_SCALE = 0.62;
+
+/** Rack number for the red plate: trailing digits of the label / id ("rack-3" -> "3"). */
+export function rackNumber(label: string): string {
+  return /(\d+)\D*$/.exec(label)?.[1] ?? '';
+}
 /** Real-ms period of the dashed "ISO transfer" animation on BMC cables (game scope, UX §15.4). */
 const DASH_FRAME_MS = 90;
 
@@ -124,6 +151,15 @@ export class RoomScene {
   private staticRes = 0;
   private readonly shadows = new Container();
   private readonly floorFx = new Graphics();
+  /** Cold / hot aisles + rack front chevrons (redrawn on change only). */
+  private readonly aisleFx = new Graphics();
+  /** Placement hints (valid tiles / hatched invalid tiles), only while placing. */
+  private readonly placeFx = new Graphics();
+  /** Pre-installed wall-mounted OOB switch at the back corner (game, out of VCF scope). */
+  private readonly oobLayer = new Container();
+  private aisles: AisleSet | null = null;
+  private hints: PlacementHints | null = null;
+  private overlayDirty = true;
   private readonly markerFx = new Graphics();
   private readonly objects = new Container();
   private readonly ghostSprite = new Sprite();
@@ -167,8 +203,8 @@ export class RoomScene {
   private traffic: ReadonlyMap<string, LinkTraffic> = new Map();
   private lastGameTimeMs: number | null = null;
   private hoverTile: Tile | null = null;
-  private ghost: { kind: GhostKind; tile: Tile; valid: boolean } | null = null;
-  private ghostTextures = new Map<GhostKind, { tex: Texture; ax: number; ay: number }>();
+  private ghost: { kind: GhostKind; tile: Tile; valid: boolean; facing: CabinetFacing; units?: number; allowed: readonly CabinetFacing[] } | null = null;
+  private ghostTextures = new Map<string, { tex: Texture; ax: number; ay: number }>();
   private fxKey = '';
   private markerMs = 0;
   private arriveListeners = new Set<(tile: Tile) => void>();
@@ -205,9 +241,10 @@ export class RoomScene {
     this.objects.addChild(this.avatarSprite, this.ghostSprite);
     this.shadows.addChild(this.avatarShadow, this.ghostShadow);
     this.objects.addChild(this.highlightFx, this.fixtures.desk);
-    this.world.addChild(this.fixtures.wall, this.shadows, this.floorFx, this.markerFx, this.objects, this.overhead, this.uplinkLayer, this.bmcFx, this.magnifier);
+    this.world.addChild(this.fixtures.wall, this.oobLayer, this.shadows, this.aisleFx, this.placeFx, this.floorFx, this.markerFx, this.objects, this.overhead, this.uplinkLayer, this.bmcFx, this.magnifier);
     this.uplinkLayer.addChild(this.uplinkFx);
     this.drawUplink();
+    this.drawOob();
     this.bakeStatic(2);
     this.syncAvatar(0);
   }
@@ -236,6 +273,8 @@ export class RoomScene {
     this.simDirty = true;
     this.cablesDirty = true;
     this.drawUplink();
+    this.drawOob();
+    this.overlayDirty = true;
     const a = this.avatar.tile;
     if (a.gx >= size.cols || a.gy >= size.rows) this.resetAvatar({ gx: Math.floor(size.cols / 2), gy: size.rows - 2 });
   }
@@ -290,7 +329,7 @@ export class RoomScene {
 
   /** Can a cabinet of `kind` stand at `tile`? (physical check only) */
   checkPlace(kind: CabinetKind, tile: Tile): PlaceResult {
-    const geo = CABINETS[kind];
+    const geo = cabinetGeometry(kind);
     const f: Footprint = { gx: tile.gx, gy: tile.gy, w: geo.w, d: geo.d };
     if (tile.gx < 0 || tile.gy < 0 || tile.gx + geo.w > this.size.cols || tile.gy + geo.d > this.size.rows) return { ok: false, reason: 'outside' };
     if (!this.grid.canPlace(f)) return { ok: false, reason: 'occupied' };
@@ -304,7 +343,7 @@ export class RoomScene {
     if (this.cabinets.has(spec.id)) return { ok: false, reason: 'duplicate' };
     const check = this.checkPlace(spec.kind, spec);
     if (!check.ok && !(force && check.reason === 'avatar')) return check;
-    const geo = CABINETS[spec.kind];
+    const geo = cabinetGeometry(spec);
     this.grid.set({ gx: spec.gx, gy: spec.gy, w: geo.w, d: geo.d }, true);
     const sprite = new Sprite();
     const p = isoToScreen(spec.gx, spec.gy);
@@ -321,6 +360,7 @@ export class RoomScene {
     this.shadows.addChild(shadow);
     for (const d of devices) this.mountDevice(spec.id, d);
     this.rebakeCabinet(entry);
+    this.overlayDirty = true;
     // Walk path may now be blocked - re-plan.
     this.replanWalk();
     return { ok: true };
@@ -341,7 +381,7 @@ export class RoomScene {
     const e = this.cabinets.get(id);
     if (!e) return;
     for (const d of [...e.devices]) this.unmountDevice(d.id);
-    const geo = CABINETS[e.spec.kind];
+    const geo = cabinetGeometry(e.spec);
     this.grid.set({ gx: e.spec.gx, gy: e.spec.gy, w: geo.w, d: geo.d }, false);
     e.sprite.destroy();
     e.shadow.destroy();
@@ -350,6 +390,7 @@ export class RoomScene {
     this.cabinets.delete(id);
     if (this.highlighted === id) this.setHighlightedCabinet(null);
     this.cablesDirty = true;
+    this.overlayDirty = true;
   }
 
   /**
@@ -361,7 +402,7 @@ export class RoomScene {
     for (const id of [...this.cabinets.keys()]) {
       const e = this.cabinets.get(id)!;
       const w = want.get(id);
-      if (!w || w.spec.gx !== e.spec.gx || w.spec.gy !== e.spec.gy || w.spec.kind !== e.spec.kind) this.removeCabinet(id);
+      if (!w || w.spec.gx !== e.spec.gx || w.spec.gy !== e.spec.gy || w.spec.kind !== e.spec.kind || (w.spec.facing ?? 'S') !== (e.spec.facing ?? 'S') || w.spec.units !== e.spec.units || w.spec.label !== e.spec.label) this.removeCabinet(id);
     }
     for (const w of c.cabinets) {
       const key = JSON.stringify(w.devices);
@@ -374,7 +415,7 @@ export class RoomScene {
         for (const d of e.devices) this.deviceOwner.delete(d.id);
         e.devices = [];
         for (const d of w.devices) {
-          if (canMount(e.spec.kind, e.devices, d)) {
+          if (canMount(e.spec, e.devices, d)) {
             e.devices.push(d);
             this.deviceOwner.set(d.id, e.spec.id);
           }
@@ -400,11 +441,11 @@ export class RoomScene {
     if (this.deviceOwner.has(dev.id)) return { ok: false, reason: 'duplicate' };
     let d = dev;
     if (d.u <= 0) {
-      const u = firstFreeU(e.spec.kind, e.devices, d.heightU);
+      const u = firstFreeU(e.spec, e.devices, d.heightU);
       if (u === null) return { ok: false, reason: 'slot' };
       d = { ...d, u };
     }
-    if (!canMount(e.spec.kind, e.devices, d)) return { ok: false, reason: 'slot' };
+    if (!canMount(e.spec, e.devices, d)) return { ok: false, reason: 'slot' };
     e.devices.push(d);
     this.deviceOwner.set(d.id, cabinetId);
     if (e.texture) this.rebakeCabinet(e);
@@ -428,12 +469,23 @@ export class RoomScene {
   }
 
   private rebakeCabinet(e: CabinetEntry): void {
+    const root = new Container();
     const g = new Graphics();
-    drawCabinet(g, e.spec.kind, e.devices);
+    drawCabinet(g, e.spec.kind, e.devices, e.spec);
+    root.addChild(g);
+    const num = e.spec.kind === 'rack' ? rackNumber(e.spec.label ?? e.spec.id) : '';
+    if (num) {
+      // White number on the red plate (T6 CABINET.label, 5.85:1), baked into the cabinet texture.
+      const c = rackPlateCenter(e.spec);
+      const t = new Text({ text: num, style: { fontFamily: 'system-ui, sans-serif', fontSize: 5, fontWeight: '800', fill: 0xffffff }, resolution: FURNITURE_RES });
+      t.anchor.set(0.5);
+      t.position.set(c.x, c.y);
+      root.addChild(t);
+    }
     const b = g.getLocalBounds();
     const frame = new Rectangle(Math.floor(b.x) - 2, Math.floor(b.y) - 2, Math.ceil(b.width) + 4, Math.ceil(b.height) + 4);
-    const tex = this.renderer.generateTexture({ target: g, frame, resolution: FURNITURE_RES, antialias: true });
-    g.destroy();
+    const tex = this.renderer.generateTexture({ target: root, frame, resolution: FURNITURE_RES, antialias: true });
+    root.destroy({ children: true });
     e.texture?.destroy(true);
     e.texture = tex;
     e.sprite.texture = tex;
@@ -650,7 +702,7 @@ export class RoomScene {
     const link = this.uplink;
     const pw = link ? this.portWorld(link.deviceId, link.port) : null;
     // Link LED on the panel: green when connected.
-    g.circle(j.port.x + 10, j.port.y - 8, 2.4).fill(pw ? 0x4cc38a : 0x9a96ad).stroke({ color: OUTLINE, width: 1 });
+    g.circle(j.port.x + 10, j.port.y - 8, 2.4).fill(pw ? 0x3ccf7a : 0x8592a3).stroke({ color: OUTLINE, width: 1 });
     if (!link || !pw) return;
     const cab = pw.cabinet.spec;
     const ju = (j.u0 + j.u1) / 2;
@@ -814,7 +866,7 @@ export class RoomScene {
       this.magnifier.visible = false;
       return;
     }
-    const geo = CABINETS[e.spec.kind];
+    const geo = cabinetGeometry(e.spec);
     const { gx, gy } = e.spec;
     const H = geo.heightPx;
     const c00 = isoToScreen(gx, gy);
@@ -835,18 +887,23 @@ export class RoomScene {
     this.hoverTile = tile;
   }
 
-  /** Placement preview: translucent object + green/red footprint. null hides it. */
-  setGhost(ghost: { kind: GhostKind; tile: Tile } | null): void {
+  /**
+   * Placement preview: translucent cabinet (right height + facing) + blue/red footprint with a front chevron.
+   * `valid` is decided by the caller (engine hints); without it the render's physical check is used (demo room).
+   */
+  setGhost(ghost: GhostSpec | null): void {
     if (!ghost) {
+      if (this.ghost) this.overlayDirty = true;
       this.ghost = null;
       this.ghostSprite.visible = false;
       this.ghostShadow.visible = false;
       return;
     }
-    const valid = this.checkPlace(ghost.kind, ghost.tile).ok;
-    this.ghost = { ...ghost, valid };
-    const gt = this.ghostTexture(ghost.kind);
-    const geo = CABINETS[ghost.kind];
+    const valid = ghost.valid ?? this.checkPlace(ghost.kind, ghost.tile).ok;
+    const facing = ghost.facing ?? 'S';
+    this.ghost = { kind: ghost.kind, tile: ghost.tile, valid, facing, allowed: ghost.allowed ?? [], ...(ghost.units !== undefined ? { units: ghost.units } : {}) };
+    const gt = this.ghostTexture(ghost.kind, ghost.units, facing);
+    const geo = cabinetGeometry({ kind: ghost.kind, units: ghost.units });
     const p = isoToScreen(ghost.tile.gx, ghost.tile.gy);
     this.ghostSprite.texture = gt.tex;
     this.ghostSprite.anchor.set(gt.ax, gt.ay);
@@ -859,19 +916,60 @@ export class RoomScene {
     this.ghostShadow.visible = true;
   }
 
-  private ghostTexture(kind: GhostKind): { tex: Texture; ax: number; ay: number } {
-    let t = this.ghostTextures.get(kind);
+  private ghostTexture(kind: GhostKind, units: number | undefined, facing: CabinetFacing): { tex: Texture; ax: number; ay: number } {
+    const key = `${kind}|${units ?? ''}|${facing}`;
+    let t = this.ghostTextures.get(key);
     if (!t) {
       const g = new Graphics();
-      drawCabinet(g, kind, kind === 'stand' ? [{ id: 'ghost', kind: 'switch', u: 1, heightU: 1 }] : []);
+      drawCabinet(g, kind, kind === 'stand' ? [{ id: 'ghost', kind: 'switch', u: 1, heightU: 1 }] : [], { units, facing });
       const b = g.getLocalBounds();
       const frame = new Rectangle(Math.floor(b.x) - 2, Math.floor(b.y) - 2, Math.ceil(b.width) + 4, Math.ceil(b.height) + 4);
       const tex = this.renderer.generateTexture({ target: g, frame, resolution: 2, antialias: true });
       g.destroy();
       t = { tex, ax: -frame.x / frame.width, ay: -frame.y / frame.height };
-      this.ghostTextures.set(kind, t);
+      this.ghostTextures.set(key, t);
     }
     return t;
+  }
+
+  /** Cold / hot aisle tiles of the standing racks (engine snapshot); null hides them. */
+  setAisles(a: AisleSet | null): void {
+    const key = (x: AisleSet | null): string => (x ? `${x.cold.map((t) => `${t.gx},${t.gy}`).join(';')}|${x.hot.map((t) => `${t.gx},${t.gy}`).join(';')}` : '');
+    if (key(a) === key(this.aisles)) return;
+    this.aisles = a;
+    this.overlayDirty = true;
+  }
+
+  /** Placement hints (engine) while the player places / moves a rack; null hides them. */
+  setPlacementHints(h: PlacementHints | null): void {
+    this.hints = h;
+    this.overlayDirty = true;
+  }
+
+  /** Redraw aisles, rack front chevrons and placement hints (only after a change). */
+  private drawOverlays(): void {
+    this.overlayDirty = false;
+    const a = this.aisleFx;
+    a.clear();
+    if (this.aisles) drawAisles(a, this.aisles);
+    for (const e of this.cabinets.values()) if (e.spec.kind === 'rack') drawRackFront(a, e.spec, e.spec.facing ?? 'S');
+    const p = this.placeFx;
+    p.clear();
+    if (this.hints) {
+      const occupied = new Set([...this.cabinets.values()].map((e) => `${e.spec.gx},${e.spec.gy}`));
+      drawPlacementHints(p, this.size, this.hints.tiles, this.hints.facing, occupied);
+    }
+  }
+
+  /** Wall-mounted OOB switch at the back corner + its game-scope label (redrawn with the room). */
+  private drawOob(): void {
+    for (const c of this.oobLayer.removeChildren()) c.destroy();
+    const g = new Graphics();
+    const { label } = drawOobSwitch(g, OOB_SWITCH_SPOT);
+    const t = new Text({ text: 'OOB switch · mimo VCF scope – herní', style: { fontFamily: 'system-ui, sans-serif', fontSize: 8, fontWeight: '700', fill: OUTLINE, stroke: { color: 0xffffff, width: 3 } }, resolution: 3 });
+    t.anchor.set(0.5, 0);
+    t.position.set(label.x, label.y);
+    this.oobLayer.addChild(g, t);
   }
 
   // ---------------------------------------------------------------- avatar
@@ -890,8 +988,9 @@ export class RoomScene {
   walkToCabinet(id: string): Tile | null {
     const e = this.cabinets.get(id);
     if (!e) return null;
-    const geo = CABINETS[e.spec.kind];
-    return this.walkTo({ gx: e.spec.gx, gy: Math.min(this.size.rows - 1, e.spec.gy + geo.d) });
+    const f = e.spec.facing ?? 'S';
+    const t = f === 'S' ? { gx: e.spec.gx, gy: e.spec.gy + 1 } : f === 'N' ? { gx: e.spec.gx, gy: e.spec.gy - 1 } : f === 'E' ? { gx: e.spec.gx + 1, gy: e.spec.gy } : { gx: e.spec.gx - 1, gy: e.spec.gy };
+    return this.walkTo({ gx: Math.max(0, Math.min(this.size.cols - 1, t.gx)), gy: Math.max(0, Math.min(this.size.rows - 1, t.gy)) });
   }
 
   /** Called whenever the avatar finishes a walk. Returns unsubscribe. */
@@ -1054,7 +1153,7 @@ export class RoomScene {
     }
     const g = this.bmcFx;
     g.clear();
-    for (const [color, width] of [[OUTLINE, 3.4], [0xb8b4c8, 1.8]] as const) {
+    for (const [color, width] of [[OUTLINE, 3.4], [0xb4bfcd, 1.8]] as const) {
       for (let i = 0; i < segs.length; i += 4) g.moveTo(segs[i]!, segs[i + 1]!).lineTo(segs[i + 2]!, segs[i + 3]!);
       g.stroke({ color, width, cap: 'round' });
     }
@@ -1068,15 +1167,14 @@ export class RoomScene {
   private drawFloorFx(realMs: number): void {
     const gh = this.ghost;
     const ht = this.hoverTile;
-    const key = `${ht ? `${ht.gx},${ht.gy}` : '-'}|${gh ? `${gh.kind}${gh.tile.gx},${gh.tile.gy}${gh.valid}` : '-'}`;
+    if (this.overlayDirty) this.drawOverlays();
+    const key = `${ht ? `${ht.gx},${ht.gy}` : '-'}|${gh ? `${gh.kind}${gh.tile.gx},${gh.tile.gy}${gh.valid}${gh.facing}${gh.allowed.join('')}` : '-'}`;
     if (key !== this.fxKey) {
       this.fxKey = key;
       const g = this.floorFx;
       g.clear();
       if (gh) {
-        const geo = CABINETS[gh.kind];
-        const pts = diamond(gh.tile.gx, gh.tile.gy, geo.w, geo.d).flatMap((p) => [p.x, p.y]);
-        g.poly(pts).fill({ color: gh.valid ? 0x4cc38a : BLOCKED_TILE, alpha: 0.45 }).stroke({ color: gh.valid ? 0x2e9e6a : BLOCKED_TILE, width: 2 });
+        drawGhostFootprint(g, gh.tile, gh.facing, gh.valid, gh.allowed);
       } else if (ht) {
         const pts = diamond(ht.gx, ht.gy, 1, 1, -0.04).flatMap((p) => [p.x, p.y]);
         g.poly(pts).fill({ color: HOVER_TILE, alpha: 0.45 }).stroke({ color: OUTLINE, width: 1.5, alpha: 0.5 });

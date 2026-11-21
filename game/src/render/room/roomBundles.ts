@@ -8,9 +8,9 @@
  * - Bundle (drawn): only the tray part between two cabinets, one per cabinet pair, thickness by cable count.
  */
 import { isoToScreen } from '../iso';
-import { frontFace, up, type P } from './draw';
+import { up, type P } from './draw';
 import type { CabinetSpec } from './furniture';
-import { CABINETS } from './furniture';
+import { cabinetFace, cabinetGeometry } from './furniture';
 
 /** Tray height above the floor for bundles between cabinets (just above a 42U rack). */
 export const BUNDLE_Z = 140;
@@ -21,20 +21,20 @@ export const pairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : 
 
 /** Top of the riser of a cabinet (front-right edge at the cabinet top). */
 export function riserTop(cab: CabinetSpec): P {
-  const geo = CABINETS[cab.kind];
-  return frontFace(cab.gx, cab.gy, geo.w, geo.d, RISER_U, geo.heightPx);
+  const geo = cabinetGeometry(cab);
+  return cabinetFace(cab, cab.gx, cab.gy, geo, RISER_U, geo.heightPx);
 }
 
 /** Point above the cabinet centre at tray height. */
 export function trayPoint(cab: CabinetSpec): P {
-  const geo = CABINETS[cab.kind];
+  const geo = cabinetGeometry(cab);
   return up(isoToScreen(cab.gx + geo.w / 2, cab.gy + geo.d), BUNDLE_Z);
 }
 
 /** Tray route between two cabinets: along +gx first, then +gy (grid-orthogonal). */
 export function trayRoute(a: CabinetSpec, b: CabinetSpec): P[] {
-  const ga = CABINETS[a.kind];
-  const gb = CABINETS[b.kind];
+  const ga = cabinetGeometry(a);
+  const gb = cabinetGeometry(b);
   const pa = trayPoint(a);
   const pb = trayPoint(b);
   const corner = up(isoToScreen(b.gx + gb.w / 2, a.gy + ga.d), BUNDLE_Z);
@@ -53,13 +53,13 @@ export function devicePath(ca: CabinetSpec, pa: P, cb: CabinetSpec, pb: P): P[] 
 }
 
 /**
- * Point on the riser (front-right edge) at the same height above the floor as the port: walk along the face
+ * Point on the riser (right edge of the visible face of the facing axis) at the same height above the floor as the port: walk along the face
  * from the port towards u = RISER_U (iso face lines slope by the same amount per u).
  */
 export function faceEdgePoint(cab: CabinetSpec, port: P): P {
-  const geo = CABINETS[cab.kind];
-  const left = frontFace(cab.gx, cab.gy, geo.w, geo.d, 0, 0);
-  const right = frontFace(cab.gx, cab.gy, geo.w, geo.d, 1, 0);
+  const geo = cabinetGeometry(cab);
+  const left = cabinetFace(cab, cab.gx, cab.gy, geo, 0, 0);
+  const right = cabinetFace(cab, cab.gx, cab.gy, geo, 1, 0);
   // Fraction of the port along the face, from its x.
   const u = (port.x - left.x) / (right.x - left.x);
   const du = RISER_U - u;

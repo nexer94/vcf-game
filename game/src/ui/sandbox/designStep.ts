@@ -1,6 +1,7 @@
 import { drawDesignPreview, type DesignPreviewData } from '../../render/designPreview';
 import { button, docLink, h } from '../dom';
 import { badge, badgeLegend, chip, message } from '../messages';
+import { icon } from '../icons';
 import type {
   ConsequenceView,
   DesignDecision,
@@ -165,7 +166,7 @@ function optionEl(d: DesignDecision, o: DesignOption, props: DesignStepProps): H
           o.paraphrased ? paraBadge() : null,
           ...o.openQuestions.map(openQBadge),
           o.illustrative ? badge('illustrative') : null,
-          o.warnings.length ? chip('⚠ varování', 'badge-warn', 'Volba se odchyluje od doporučení dokumentace – před pokračováním ji potvrdíš.') : null,
+          o.warnings.length ? chip('varování', 'badge-warn', 'Volba se odchyluje od doporučení dokumentace – před pokračováním ji potvrdíš.', 'warning') : null,
         ),
         o.description ? h('span', { class: 'option-desc' }, o.description) : null,
         o.disabledReason
@@ -231,7 +232,7 @@ function stepEl(g: DesignStepGroup, props: DesignStepProps, open: boolean, toggl
     h('span', { class: 'dstep-head-inner' },
       h('span', { class: 'flow-num', 'aria-hidden': 'true' }, g.complete && g.unlocked ? '✓' : String(g.step)),
       h('span', { class: 'dstep-title' }, g.title),
-      hasError ? h('span', { class: 'dstep-err', title: 'V kroku je chyba podle dokumentace' }, '⛔') : null,
+      hasError ? h('span', { class: 'dstep-err', title: 'V kroku je chyba podle dokumentace' }, icon('error', { label: 'chyba podle dokumentace' })) : null,
       status,
       g.unlocked ? h('span', { class: 'dstep-caret', 'aria-hidden': 'true' }, open ? '▾' : '▸') : null,
     ),

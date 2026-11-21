@@ -93,6 +93,10 @@ function drawWalls(g: Graphics, room: RoomSize): void {
   poly(g, wallRect(rw, 0, cols, 0, H), WALL.right);
   g.poly(wallRect(rw, 0, cols, 0, 46).flatMap((p) => [p.x, p.y])).fill({ color: WALL.rightDark });
   poly(g, wallRect(rw, 0, cols, 0, 8), WALL.base);
+  // Brand stripe (T6 WALL.stripe): 6 px at 1/3 of the wall height - the only large red element in the scene.
+  const sh = Math.round(H / 3);
+  poly(g, wallRect(lw, 0, rows, sh, sh + 6), WALL.stripe, false);
+  poly(g, wallRect(rw, 0, cols, sh, sh + 6), WALL.stripe, false);
   // Wall caps (thickness) + exposed wall ends.
   const T = WALL_T;
   poly(g, [up(isoToScreen(-T, -T), H), up(isoToScreen(cols, -T), H), up(isoToScreen(cols, 0), H), up(isoToScreen(0, 0), H), up(isoToScreen(0, rows), H), up(isoToScreen(-T, rows), H)], WALL.cap);
@@ -185,7 +189,7 @@ function drawWallJack(g: Graphics, room: RoomSize): void {
   poly(g, wallRect(rw, j.u0, j.u1, j.h1 - 7, j.h1), 0xffc94d, false);
   for (let i = 0; i < 4; i++) {
     const a = j.u0 + 0.14 + i * 0.2;
-    poly(g, wallRect(rw, a, a + 0.13, j.h1 - 20, j.h1 - 12), 0x3a3550);
+    poly(g, wallRect(rw, a, a + 0.13, j.h1 - 20, j.h1 - 12), 0x24324a);
   }
   // Conduit from the panel down into the floor ("the company network comes from outside").
   poly(g, wallRect(rw, (j.u0 + j.u1) / 2 - 0.05, (j.u0 + j.u1) / 2 + 0.05, 0, j.h0 - 3), DECOR.trayDark, true, 0.8);

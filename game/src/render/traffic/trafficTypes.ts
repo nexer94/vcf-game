@@ -1,6 +1,7 @@
 /**
  * Traffic types and their colours (docs/design/GRAPHICS.md, "Vizualizace provozu").
- * Pure data - shared by render (packets) and UI (legend, tooltip).
+ * Pure data - shared by render (packets), the whiteboard and UI (legend, tooltip).
+ * Management + NFS changed for colour-blind separation (GRAPHICS.md T5).
  */
 export const TRAFFIC_TYPES = ['management', 'vmotion', 'vsan', 'nfs', 'overlay', 'vm'] as const;
 export type TrafficType = (typeof TRAFFIC_TYPES)[number];
@@ -14,10 +15,10 @@ export interface TrafficTypeStyle {
 }
 
 export const TRAFFIC_STYLE: Readonly<Record<TrafficType, TrafficTypeStyle>> = {
-  management: { label: 'Management', color: 0x8aa4c8, css: '#8aa4c8' },
+  management: { label: 'Management', color: 0xa9b6c9, css: '#a9b6c9' },
   vmotion: { label: 'vMotion', color: 0xf0a14a, css: '#f0a14a' },
   vsan: { label: 'vSAN', color: 0x4cc38a, css: '#4cc38a' },
-  nfs: { label: 'NFS / storage', color: 0x3fb8c9, css: '#3fb8c9' },
+  nfs: { label: 'NFS / storage', color: 0x1fa3b8, css: '#1fa3b8' },
   overlay: { label: 'NSX overlay', color: 0xa37cf0, css: '#a37cf0' },
   vm: { label: 'VM / north-south', color: 0xe8edf3, css: '#e8edf3' },
 };

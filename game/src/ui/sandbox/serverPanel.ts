@@ -11,6 +11,7 @@ import type { ServerView } from '../../modes/sandbox/roomView';
 import type { SandboxSnapshot } from '../../modes/sandbox/snapshot';
 import { button, docLink, h } from '../dom';
 import { badge, chip, message } from '../messages';
+import { icon } from '../icons';
 import {
   type DcuiDraft,
   type DcuiSources,
@@ -302,7 +303,7 @@ export function createServerPanel(o: ServerPanelOptions): ObjectPanel & { setTab
       radio('physical', 'U serveru – fyzické médium', false, [h('span', { class: 'muted small' }, ' (vždy dostupné)')]),
       radio('bmc', 'Vzdáleně přes BMC – virtual media', !bmcOk, [
         document.createTextNode(' '), badge('out-of-scope', BMC_SCOPE.specRef),
-        bmcReason ? h('div', { class: 'op-hint' }, '⛔ ', bmcReason, !v.bmc.remoteInstallDocumented ? null : button('Nastavit BMC', () => setTab('bmc'), { class: 'btn btn-small', 'data-fk': 'go-bmc' })) : null,
+        bmcReason ? h('div', { class: 'op-hint op-hint-bad' }, icon('error'), ' ', bmcReason, !v.bmc.remoteInstallDocumented ? null : button('Nastavit BMC', () => setTab('bmc'), { class: 'btn btn-small', 'data-fk': 'go-bmc' })) : null,
       ]),
       method === 'bmc' || v.bmc.remoteInstallDocumented
         ? message({

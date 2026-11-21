@@ -1,6 +1,7 @@
 import { button, h } from '../dom';
 import { VCF_VERSION } from '../version';
 import { disclaimer } from './disclaimer';
+import { icon } from '../icons';
 import type { ScreenDef } from './screen';
 
 /**
@@ -44,7 +45,7 @@ export const mainMenuScreen: ScreenDef = {
       h(
         'main',
         { class: 'menu-card', 'aria-labelledby': 'menu-title' },
-        h('div', { class: 'brand-mark', 'aria-hidden': 'true' }),
+        h('div', { class: 'brand-mark', 'aria-hidden': 'true' }, icon('game-mark')),
         h('h1', { id: 'menu-title' }, 'VCF Game'),
         h('p', { class: 'menu-sub' }, 'Simulátor privátního cloudu · modelovaná verze ', h('strong', null, VCF_VERSION)),
         h('nav', { class: 'menu-list', 'aria-label': 'Hlavní menu' }, sandbox, career),

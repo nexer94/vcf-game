@@ -8,18 +8,20 @@
  * Nothing VCF-specific is decided here: availability, reasons and numbers come from the model; the only
  * additions are Czech UI labels (tile status, unlock button text) and the step headings of designData.
  */
-import { docRefOf, type DesignSummary, type UnlockAction, type ValidationIssue } from '../../model';
+import { docRefOf, rackUnlockLabel, type DesignSummary, type UnlockAction, type ValidationIssue } from '../../model';
 import type { SandboxSnapshot } from '../../modes/sandbox/snapshot';
+import type { IconName } from '../iconNames';
 import { DESIGN_STEP_TITLES, type DesignStepData, type DocRef } from '../sandbox/designData';
 
 export type TileStatus = 'done' | 'warn' | 'error' | 'hw' | 'pending';
 
-export const TILE_STATUS: Readonly<Record<TileStatus, { readonly icon: string; readonly label: string }>> = {
-  done: { icon: '✓', label: 'hotovo' },
-  warn: { icon: '⚠', label: 'hotovo – odchylka od doporučení' },
-  error: { icon: '⛔', label: 'chyba podle dokumentace' },
-  hw: { icon: '✖', label: 'blokováno hardwarem' },
-  pending: { icon: '○', label: 'čeká' },
+/** Own line icon per tile status (ui/icons.ts) – no emoji (GRAPHICS.md T9). */
+export const TILE_STATUS: Readonly<Record<TileStatus, { readonly icon: IconName; readonly label: string }>> = {
+  done: { icon: 'check', label: 'hotovo' },
+  warn: { icon: 'warning', label: 'hotovo – odchylka od doporučení' },
+  error: { icon: 'error', label: 'chyba podle dokumentace' },
+  hw: { icon: 'cross', label: 'blokováno hardwarem' },
+  pending: { icon: 'circle', label: 'čeká' },
 };
 
 export interface PcIssue {
@@ -155,6 +157,9 @@ export function unlockOf(u: UnlockAction): PcUnlock {
       return { text: `Přiřaď místnost (${u.roomIds.join(', ')}) do role ${u.role}`, target: 'room' };
     case 'add-hosts-to-az':
       return { text: `Přidej ${u.count} ${plural(u.count, 'server', 'servery', 'serverů')} do ${u.role} (${u.roomIds.join(', ')})`, target: 'room' };
+    // Rack awareness (model/rackAwareness.ts) – minimal labels from the model; ui-dev may refine texts / targets.
+    default:
+      return { text: rackUnlockLabel(u), target: 'room' };
   }
 }
 

@@ -31,10 +31,10 @@ describe('loadStyle', () => {
 describe('trafficTypes', () => {
   it('uses the GRAPHICS.md palette', () => {
     expect(TRAFFIC_TYPES).toHaveLength(6);
-    expect(TRAFFIC_STYLE.management.css).toBe('#8aa4c8');
+    expect(TRAFFIC_STYLE.management.css).toBe('#a9b6c9');
     expect(TRAFFIC_STYLE.vmotion.css).toBe('#f0a14a');
     expect(TRAFFIC_STYLE.vsan.css).toBe('#4cc38a');
-    expect(TRAFFIC_STYLE.nfs.css).toBe('#3fb8c9');
+    expect(TRAFFIC_STYLE.nfs.css).toBe('#1fa3b8');
     expect(TRAFFIC_STYLE.overlay.css).toBe('#a37cf0');
     expect(TRAFFIC_STYLE.vm.css).toBe('#e8edf3');
     for (const t of TRAFFIC_TYPES) {

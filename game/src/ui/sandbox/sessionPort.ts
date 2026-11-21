@@ -15,6 +15,7 @@
  *    session API lands. It holds no VCF rules of its own.
  */
 import type { FlowTrafficClass, HwVendor, EsaProfileId, ValidationIssue } from '../../model';
+import { validateRackPlacement, type Facing } from '../../model/roomLayout';
 import type { SandboxSnapshot } from '../../modes/sandbox/snapshot';
 import type { SandboxCommand } from '../../modes/sandbox/types';
 import type { Tile } from '../../render/room/roomGrid';
@@ -105,6 +106,33 @@ export interface RoomRack {
   readonly heightU: number;
   /** Floor tile; null = still in the backpack. */
   readonly tile: Tile | null;
+  /** Where the rack front points ([GAME] room layout rules; engine rackTiles rotation). Default 'S'. */
+  readonly facing?: Facing;
+}
+
+/** Valid tile for a rack with the facings the [GAME] room layout rules allow (engine hints). */
+export interface RackTileHint {
+  readonly tile: Tile;
+  readonly facings: readonly Facing[];
+}
+
+/** [GAME] rack placement view of one room (engine snapshot site.layout.rooms[].placement). */
+export interface RoomPlacement {
+  readonly roomId: string;
+  readonly cols: number;
+  readonly rows: number;
+  readonly rackSlots: number;
+  readonly freeSlots: number;
+  readonly racks: readonly { readonly rackId: string; readonly tile: Tile; readonly facing: Facing }[];
+  readonly aisles: { readonly cold: readonly Tile[]; readonly hot: readonly Tile[] };
+  /** Ghost hints for a NEW rack per rack model id. */
+  readonly hintsByModel: Readonly<Record<string, readonly RackTileHint[]>>;
+}
+
+/** Result of checking one tile against the model's [GAME] rules (reasons = model issues, scope game-scope). */
+export interface RackTileCheck {
+  readonly ok: boolean;
+  readonly issues: readonly ValidationIssue[];
 }
 
 export interface DeviceNicPort {
@@ -211,8 +239,19 @@ export interface RoomPort {
   state(): RoomState;
   subscribe(fn: () => void): () => void;
   buyItem(catalogItemId: string): PortResult;
-  /** `roomId` = room of the site layout (session backend; the local fallback has one room and ignores it). */
-  placeRack(rackId: string, tile: Tile, roomId?: string): PortResult;
+  /**
+   * `roomId` = room of the site layout (session backend; the local fallback has one room and ignores it).
+   * `facing` = where the rack front points (session backend; the fallback ignores it).
+   */
+  placeRack(rackId: string, tile: Tile, roomId?: string, facing?: Facing): PortResult;
+  /** Turn a placed rack (session backend only). */
+  rotateRack?(rackId: string, facing: Facing): PortResult;
+  /** [GAME] placement view of a room (session backend only; undefined for an unknown room). */
+  roomPlacement?(roomId: string): RoomPlacement | undefined;
+  /** Hints for moving / rotating an already placed rack (its own tile counts as free). */
+  rackHints?(roomId: string, rackId: string): readonly RackTileHint[] | undefined;
+  /** Why a tile is (not) valid for a rack – model validateRackPlacement over the snapshot grid. */
+  checkRackTile?(roomId: string, tile: Tile, facing: Facing, rackId?: string): RackTileCheck | undefined;
   /** `positionU` omitted = lowest free position (model firstFreeU). */
   mountDevice(deviceId: string, rackId: string, positionU?: number): PortResult;
   unmountDevice(deviceId: string): PortResult;
@@ -355,6 +394,10 @@ function sessionBackend(session: SessionLike): RoomPort {
     },
   };
   const toPortRef = (p: PortKey): Record<string, unknown> => ({ deviceId: p.deviceId, port: p.port });
+  const snap = (): SandboxSnapshot => session.snapshot() as SandboxSnapshot;
+  /** Engine [GAME] placement view of a room (snapshot site.layout.rooms[].placement). */
+  const placementView = (roomId: string) => snap().site?.layout?.rooms.find((r) => r.id === roomId)?.placement;
+  const placedRack = (rackId: string): boolean => !!snap().physical?.racks.find((r) => r.id === rackId)?.placed;
   const memo: { snap?: unknown; state?: RoomState } = {};
   const empty: RoomState = {
     revision: 0, source: 'session',
@@ -374,7 +417,26 @@ function sessionBackend(session: SessionLike): RoomPort {
     },
     subscribe: (fn) => session.subscribe(() => fn()),
     buyItem: (itemId) => run({ type: 'buyItem', itemId }),
-    placeRack: (rackId, tile, roomId) => run({ type: 'placeRack', inventoryId: rackId, tile: { gx: tile.gx, gy: tile.gy }, ...(roomId !== undefined ? { roomId } : {}) }),
+    placeRack: (rackId, tile, roomId, facing) =>
+      run({ type: 'placeRack', ...(placedRack(rackId) ? { rackId } : { inventoryId: rackId }), tile: { gx: tile.gx, gy: tile.gy }, ...(roomId !== undefined ? { roomId } : {}), ...(facing ? { facing } : {}) }),
+    rotateRack: (rackId, facing) => run({ type: 'rotateRack', rackId, facing }),
+    roomPlacement: (roomId) => {
+      const v = placementView(roomId);
+      if (!v) return undefined;
+      return {
+        roomId: v.roomId, cols: v.grid.cols, rows: v.grid.rows, rackSlots: v.grid.rackSlots, freeSlots: v.freeSlots,
+        racks: v.racks.map((r) => ({ rackId: r.rackId, tile: r.tile, facing: r.facing })),
+        aisles: { cold: v.aisles.cold, hot: v.aisles.hot },
+        hintsByModel: v.placement,
+      };
+    },
+    rackHints: (roomId, rackId) => (session as unknown as { rackPlacementHints(r: string, o: { rackId: string }): readonly RackTileHint[] | undefined }).rackPlacementHints(roomId, { rackId }),
+    checkRackTile: (roomId, tile, facing, rackId) => {
+      const v = placementView(roomId);
+      if (!v) return undefined;
+      const r = validateRackPlacement(v.grid, v.racks, { rackId: rackId ?? '__candidate__', tile: { gx: tile.gx, gy: tile.gy }, facing });
+      return { ok: r.ok, issues: r.issues };
+    },
     mountDevice: (deviceId, rackId, positionU) => run({ type: 'mountDevice', inventoryId: deviceId, rackId, ...(positionU !== undefined ? { positionU } : {}) }),
     unmountDevice: (deviceId) => run({ type: 'unmountDevice', deviceId }),
     removeItem: (id) => run({ type: 'removeItem', id }),

@@ -36,7 +36,7 @@ export function createTrafficChip(onFilter: (t: TrafficType | null) => void): Tr
       return h('li', null, b);
     }),
   );
-  const bmcRow = h('li', { class: 'tchip-bmc' }, h('span', { class: 'tglyph', style: 'color:#9a96ad', 'aria-hidden': 'true' }, DOT_GLYPH.bmc), ' BMC – přenos ISO, šedá čárkovaná ', h('span', { class: 'ui-badge badge-outscope' }, 'mimo VCF scope – herní'));
+  const bmcRow = h('li', { class: 'tchip-bmc' }, h('span', { class: 'tglyph', style: 'color:#8592a3', 'aria-hidden': 'true' }, DOT_GLYPH.bmc), ' BMC – přenos ISO, šedá čárkovaná ', h('span', { class: 'ui-badge badge-outscope' }, 'mimo VCF scope – herní'));
   const body = h('div', { class: 'tchip-body', id: 'tchip-body', hidden: true },
     h('div', { class: 'tchip-group' }, 'Typ provozu (tvar + barva teček)'),
     list,
@@ -74,7 +74,7 @@ export function createTrafficChip(onFilter: (t: TrafficType | null) => void): Tr
       summary.replaceChildren();
       if (active.size === 0 && !bmc) summary.append(empty);
       for (const t of TRAFFIC_TYPES) if (active.has(t)) summary.append(' ', glyph(t), h('span', { class: 'tchip-name' }, TRAFFIC_STYLE[t].label));
-      if (bmc) summary.append(' ', h('span', { class: 'tglyph', style: 'color:#9a96ad', 'aria-hidden': 'true' }, DOT_GLYPH.bmc), h('span', { class: 'tchip-name' }, 'BMC (herní)'));
+      if (bmc) summary.append(' ', h('span', { class: 'tglyph', style: 'color:#8592a3', 'aria-hidden': 'true' }, DOT_GLYPH.bmc), h('span', { class: 'tchip-name' }, 'BMC (herní)'));
       for (const [t, b] of typeButtons) b.classList.toggle('inactive', !active.has(t));
       bmcRow.classList.toggle('inactive', !bmc);
       // First traffic ever: expand once (UX §3.3), the player closes it.

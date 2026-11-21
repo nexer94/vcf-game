@@ -14,9 +14,10 @@ import { CABINET, DECOR, FLOOR, OUTLINE, SHADOW, WALL } from '../room/palette';
 import { planBounds, planSite, pointAlong, polylineLength, roomAt, roomWorldRect, ROOM_WALL_H, type PlacedLink, type PlacedRoom, type Rect, type SitePlan, type SiteSceneInput } from './siteGeom';
 
 const GROUND = { grass: 0xbfe3a1, grassDark: 0xa3d184, path: 0xeadfc4, water: 0xa9d8f0, waterDark: 0x86c3e2 } as const;
-const BUILDING = { slab: 0xf7f2e8, slabFront: 0xe3c79a, slabSide: 0xcfae7c, corridor: 0xf3e7cf, corridorLine: 0xe0d2b4 } as const;
+const BUILDING = { slab: 0xf6f8fa, slabFront: 0xc5cdd8, slabSide: 0xa9b6c8, corridor: 0xeef1f5, corridorLine: 0xdde3ea } as const;
 const FIBRE = 0xffc94d;
-const AZ_FILL: Readonly<Record<string, number>> = { AZ1: 0xdff1ff, AZ2: 0xffe6f0, Witness: 0xfff1dc, '2. instance': 0xe2f6ec };
+/** AZ tags (GRAPHICS.md T4) - AZ2 no longer pink/red, always with a text label. */
+const AZ_FILL: Readonly<Record<string, number>> = { AZ1: 0xe3ecf8, AZ2: 0xefe8f7, Witness: 0xfff4dc, '2. instance': 0xe6f4ec };
 const DOTS_PER_LINK = 5;
 const DOT_SPEED = 0.06; // px per real ms (illustrative)
 
@@ -136,12 +137,12 @@ export class SiteScene {
       t.anchor.set(0.5, 1);
       t.position.set(top.x, top.y);
       this.labels.addChild(t);
-      const az = new Text({ text: p.room.az ?? 'AZ —', style: { ...style, fontSize: 13, fill: p.room.az ? OUTLINE : 0x6a6585 }, resolution: 2 });
+      const az = new Text({ text: p.room.az ?? 'AZ —', style: { ...style, fontSize: 13, fill: p.room.az ? OUTLINE : 0x5c6878 }, resolution: 2 });
       az.anchor.set(0.5, 1);
       az.position.set(top.x, top.y + 18);
       const pill = new Graphics();
       const w = az.width + 14;
-      pill.roundRect(top.x - w / 2, top.y + 1, w, 19, 9).fill({ color: AZ_FILL[p.room.az ?? ''] ?? 0xefe9f8 }).stroke({ color: OUTLINE, width: 2 });
+      pill.roundRect(top.x - w / 2, top.y + 1, w, 19, 9).fill({ color: AZ_FILL[p.room.az ?? ''] ?? 0xeef1f5 }).stroke({ color: OUTLINE, width: 2 });
       this.labels.addChild(pill, az);
     }
     for (const s of plan.sites) {
@@ -154,7 +155,7 @@ export class SiteScene {
     }
     for (const l of plan.links) {
       if (!l.breakAt) continue;
-      const t = new Text({ text: '≈ nekresleno v měřítku', style: { ...style, fontSize: 12, fontWeight: '700', fill: 0x6a6585 }, resolution: 2 });
+      const t = new Text({ text: '≈ nekresleno v měřítku', style: { ...style, fontSize: 12, fontWeight: '700', fill: 0x5c6878 }, resolution: 2 });
       t.anchor.set(0.5, 1);
       t.position.set(l.breakAt.x, l.breakAt.y - 12);
       this.labels.addChild(t);
@@ -188,7 +189,7 @@ export class SiteScene {
     const { cols, rows } = p.room;
     g.poly([isoToScreen(ox, oy), isoToScreen(ox + cols, oy), isoToScreen(ox + cols, oy + rows), isoToScreen(ox, oy + rows)].flatMap((q) => [q.x, q.y]))
       .fill({ color: 0xffffff, alpha: 0.28 })
-      .stroke({ color: 0xff8a3d, width: 4, join: 'round' });
+      .stroke({ color: 0x1d63c8, width: 4, join: 'round' });
   }
 
   private drawHere(): void {
@@ -199,7 +200,7 @@ export class SiteScene {
     // Little orange pin (the avatar's hoodie colour) standing in front of the room door.
     const c = isoToScreen(p.ox + 0.8, p.oy + p.room.rows - 1.5);
     g.ellipse(c.x, c.y, 7, 3.5).fill({ color: SHADOW, alpha: 0.25 });
-    g.moveTo(c.x, c.y).lineTo(c.x - 7, c.y - 16).arc(c.x, c.y - 20, 8, Math.PI * 0.82, Math.PI * 0.18).lineTo(c.x, c.y).fill({ color: 0xff8a3d }).stroke({ color: OUTLINE, width: 2, join: 'round' });
+    g.moveTo(c.x, c.y).lineTo(c.x - 7, c.y - 16).arc(c.x, c.y - 20, 8, Math.PI * 0.82, Math.PI * 0.18).lineTo(c.x, c.y).fill({ color: 0x1d63c8 }).stroke({ color: OUTLINE, width: 2, join: 'round' });
     g.circle(c.x, c.y - 20, 3).fill({ color: 0xffffff });
   }
 }
@@ -293,7 +294,7 @@ function drawMiniRoom(g: Graphics, p: PlacedRoom): void {
   if (p.room.witness) {
     const c = fp(cols / 2, rows / 2);
     g.moveTo(c.x, c.y).lineTo(c.x, c.y - 46).stroke({ color: OUTLINE, width: 2.5, cap: 'round' });
-    poly(g, [{ x: c.x, y: c.y - 46 }, { x: c.x + 24, y: c.y - 40 }, { x: c.x, y: c.y - 32 }], 0xe5484d);
+    poly(g, [{ x: c.x, y: c.y - 46 }, { x: c.x + 24, y: c.y - 40 }, { x: c.x, y: c.y - 32 }], 0xc41f33);
   }
   // Racks.
   for (const r of p.room.racks) {

@@ -1,6 +1,6 @@
 /**
  * Original illustrated isometric thumbnails of the site layouts (start screen cards). Pure SVG built in the DOM –
- * the PixiJS stage is off on DOM-only screens, so no WebGL work. Same 2:1 projection and palette as the room.
+ * the PixiJS stage is off on DOM-only screens, so no WebGL work. Same 2:1 projection and palette as the room (GRAPHICS.md T6).
  */
 import { planSite } from '../../render/site/siteGeom';
 import { presetLayout, siteSceneInput, type SiteLayoutId } from './siteLayout';
@@ -12,27 +12,27 @@ const TH = 7;
 const SCALE = 64 / TW;
 
 const C = {
-  outline: '#2e2645',
-  floorA: '#e9e5f2',
-  floorB: '#dfdaee',
-  slabL: '#b9b0d6',
-  slabR: '#9e94c4',
-  wallL: '#82c6c9',
-  wallR: '#9fdccf',
-  cap: '#f7f2e8',
-  rackTop: '#6a6a9a',
-  rackFront: '#4a4a78',
-  rackSide: '#383862',
-  door: '#f2a65a',
+  outline: '#14233a',
+  floorA: '#eef1f5',
+  floorB: '#e4e8ef',
+  slabL: '#a9b5c5',
+  slabR: '#8e9cb0',
+  wallL: '#b9c5d5',
+  wallR: '#d5dde8',
+  cap: '#f7f9fb',
+  rackTop: '#3b4a5f',
+  rackFront: '#24324a',
+  rackSide: '#1a2538',
+  door: '#3b5f8f',
   grass: '#bfe3a1',
   grassDark: '#a3d184',
   road: '#e8dcc0',
   fibre: '#ffc94d',
-  corridor: '#f3e7cf',
+  corridor: '#eef1f5',
   roofL: '#e3c79a',
   roofR: '#cfae7c',
   water: '#a9d8f0',
-  pin: '#e5484d',
+  pin: '#c41f33',
 } as const;
 
 interface Pt {

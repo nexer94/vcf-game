@@ -17,6 +17,7 @@ import type { Pt } from '../../render/rack/rackRoute';
 import type { ValidationIssue } from '../../model';
 import { button, h } from '../dom';
 import { chip, message, type MessageType } from '../messages';
+import { icon, MESSAGE_ICON } from '../icons';
 import { elevationRacks, linkTrafficOf } from './roomSync';
 import { CABLE_COLORS, isCableColorId, portKeyId, type CableColorId, type PortKey, type RoomCable, type RoomDevice, type RoomPort, type RoomState } from './sessionPort';
 
@@ -30,7 +31,7 @@ export function issueMessageType(i: ValidationIssue): MessageType {
   return 'vcf-warning';
 }
 
-const ISSUE_ICON: Readonly<Record<MessageType, string>> = { 'vcf-error': '⛔', 'vcf-warning': '⚠', 'game-limit': '🧩', 'game-tip': '💡' };
+
 
 function issueTitle(i: ValidationIssue): string {
   const t = issueMessageType(i);
@@ -381,7 +382,7 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
       if (!iss.length) continue;
       const worst = iss.find((i) => issueMessageType(i) === 'vcf-error') ?? iss.find((i) => issueMessageType(i) === 'vcf-warning') ?? iss[0]!;
       const t = issueMessageType(worst);
-      const b = button(`${ISSUE_ICON[t]} ${iss.length}`, () => problems.querySelector<HTMLElement>(`[data-subject="${CSS.escape(d.id)}"]`)?.focus(), {
+      const b = button(h('span', { class: 'dev-badge-in' }, icon(MESSAGE_ICON[t]), String(iss.length)), () => problems.querySelector<HTMLElement>(`[data-subject="${CSS.escape(d.id)}"]`)?.focus(), {
         class: `dev-badge dev-badge-${t}`,
         'data-device': d.id,
         title: iss.map((i) => `${issueTitle(i)}: ${i.message}`).join('\n'),

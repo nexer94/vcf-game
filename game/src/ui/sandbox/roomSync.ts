@@ -24,7 +24,7 @@ export function roomContentsOf(s: RoomState): RoomContents {
   const cabinets = s.racks
     .filter((r) => r.tile)
     .map((r) => ({
-      spec: { id: r.id, kind: 'rack' as const, gx: r.tile!.gx, gy: r.tile!.gy, label: r.label },
+      spec: { id: r.id, kind: 'rack' as const, gx: r.tile!.gx, gy: r.tile!.gy, label: r.label, units: r.heightU, facing: r.facing ?? 'S' },
       devices: s.devices
         .filter((d) => d.mount?.rackId === r.id)
         .map((d) => {

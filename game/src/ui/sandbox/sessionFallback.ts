@@ -8,6 +8,11 @@
  * Game-only parts (no documentation behind them, labelled in the UI):
  *  - prices (`gamePrice`, "herní cena"), the backpack, floor tiles of racks, device ids / labels,
  *  - fallback objectives: four game steps only (no VCF facts, no spec references).
+ *
+ * DEMO-ONLY since the session exposes the physical layer: used for the illustrative demo room and as a stand-in
+ * when the session fails to load. It does NOT implement the [GAME] rack placement rules (facing, aisles, room
+ * capacity – modes/sandbox/rackLayout.ts): no roomPlacement / rackHints / checkRackTile / rotateRack, so the room
+ * UI falls back to the drawing's occupancy check and every rack faces S.
  */
 import {
   type PhysicalServer,
@@ -367,6 +372,7 @@ export class LocalRoomPort implements RoomPort {
     return this.commit(r, id);
   }
 
+  /** Demo only: facing is ignored (always S), no room layout rules (see the header). */
   placeRack(rackId: string, tile: Tile): PortResult {
     if (!this.phys.racks.some((r) => r.id === rackId)) return { ok: false, message: `Rack ${rackId} neexistuje.` };
     this.tiles.set(rackId, { gx: tile.gx, gy: tile.gy });

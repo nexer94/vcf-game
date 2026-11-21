@@ -13,6 +13,7 @@
  */
 import { AZ_ROLES, DEFAULT_SITE_LAYOUT, isSiteLayoutId as isModelLayoutId, LAYOUT_BLUEPRINTS, SITE_LAYOUT_IDS as MODEL_LAYOUT_IDS, SITE_LAYOUTS, type AzRole, type BlueprintId, type SiteLayoutId as ModelLayoutId, type SiteLinkKind } from '../../model/sites';
 import type { SiteView } from '../../modes/sandbox/site';
+import { roomFloorSize } from '../../modes/sandbox/rackLayout';
 import type { SandboxCommand } from '../../modes/sandbox/types';
 import { loadedSandboxSession, sharedSandboxSession } from './sessionPort';
 import type { RoomSize } from '../../render/room/roomGrid';
@@ -81,16 +82,16 @@ export interface SiteLayoutView {
   readonly links: readonly SiteLinkView[];
 }
 
-/** Room floor size (tiles) from the model's rack capacity – drawing only (game). */
+/**
+ * Room floor size (tiles) from the model's rack capacity – [GAME] value of the engine (modes/sandbox/rackLayout.ts
+ * roomFloorSize), so the drawn room and the engine's placement grid always agree. Drawing only, not a VCF fact.
+ */
 export function roomSizeFor(rackSlots: number): RoomSize {
-  if (rackSlots <= 1) return { cols: 7, rows: 8 };
-  if (rackSlots <= 4) return { cols: 8, rows: 8 };
-  if (rackSlots <= 6) return { cols: 10, rows: 8 };
-  if (rackSlots <= 8) return { cols: 11, rows: 9 };
-  return { cols: 14, rows: 11 };
+  return roomFloorSize(rackSlots);
 }
 
-export const DEFAULT_ROOM_SIZE: RoomSize = { cols: 11, rows: 9 };
+/** Legacy single room (8 rack slots) – same as the engine's default room. */
+export const DEFAULT_ROOM_SIZE: RoomSize = roomFloorSize(8);
 const LINK_KIND: Readonly<Record<SiteLinkKind, SiteLinkView['kind']>> = { 'intra-building': 'corridor', campus: 'campus', wan: 'wan' };
 
 /** Layout view of a model preset (AZ = the model's default assignment). null = legacy single room. */

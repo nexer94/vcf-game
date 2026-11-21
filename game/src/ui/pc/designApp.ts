@@ -8,7 +8,8 @@
  */
 import type { DesignDecisionId } from '../../model';
 import { button, docLink, h } from '../dom';
-import { badge, chip, message } from '../messages';
+import { badge, chip, iconText, message } from '../messages';
+import { icon } from '../icons';
 import { loadDesignStepData, type DocRef } from '../sandbox/designData';
 import { sharedDesignState } from '../sandbox/designState';
 import type { RoomPort } from '../sandbox/sessionPort';
@@ -89,7 +90,7 @@ export function createDesignApp(o: DesignAppOptions): PcApp {
     const descId = `pc-tile-${d.id}`;
     const b = button(
       h('span', { class: 'tile-inner' },
-        h('span', { class: `tile-icon tile-${d.status}`, 'aria-hidden': 'true' }, st.icon),
+        h('span', { class: `tile-icon tile-${d.status}`, 'aria-hidden': 'true' }, icon(st.icon)),
         h('span', { class: 'tile-title' }, d.title),
         h('span', { class: 'tile-sub', id: descId },
           d.chosenLabel ?? st.label,
@@ -118,7 +119,7 @@ export function createDesignApp(o: DesignAppOptions): PcApp {
         h('div', { class: 'req req-bad' }, h('span', { 'aria-hidden': 'true' }, '✖ '), h('span', { lang: 'en' }, e.issue.message), h('span', { class: 'spec-ref' }, ` ${e.issue.specRef}`))),
       ...[...hw.errors, ...hw.warnings].filter((e) => e.unlock).map((e) =>
         button(`${e.unlock!.text} ▸`, () => o.onUnlock(e.unlock!), { class: 'btn btn-small unlock-btn', title: 'Herní akce – odemkne volbu podle požadavku z dokumentace' })),
-      ...hw.warnings.map((w) => h('div', { class: 'req req-warn' }, h('span', { 'aria-hidden': 'true' }, '⚠ '), h('span', { lang: 'en' }, w.issue.message), h('span', { class: 'spec-ref' }, ` ${w.issue.specRef}`))),
+      ...hw.warnings.map((w) => h('div', { class: 'req req-warn' }, iconText('warning', ' '), h('span', { lang: 'en' }, w.issue.message), h('span', { class: 'spec-ref' }, ` ${w.issue.specRef}`))),
     );
   }
 
@@ -140,13 +141,13 @@ export function createDesignApp(o: DesignAppOptions): PcApp {
         opt.day2 ? badge('day2') : null,
         opt.paraphrased ? badge('paraphrase') : null,
         ...opt.openQuestions.map((q) => badge('unverified', q)),
-        opt.warnings.length ? chip('⚠ odchylka', 'badge-warn', 'Odchylka od doporučení dokumentace – po volbě ji potvrdíš.') : null,
+        opt.warnings.length ? chip('odchylka', 'badge-warn', 'Odchylka od doporučení dokumentace – po volbě ji potvrdíš.', 'warning') : null,
       ),
       opt.description ? h('p', { class: 'opt-desc' }, opt.description) : null,
       ...opt.recommended.slice(0, 2).map((t) => h('div', { class: 'opt-rec' }, h('span', { 'aria-hidden': 'true' }, '★ '), t)),
       hwBlock(opt),
       ...opt.errors.map((e) => h('div', { class: 'req req-bad' }, h('span', { 'aria-hidden': 'true' }, '✖ '), 'Nelze: ', h('span', { lang: 'en' }, e.message), e.specRef ? h('span', { class: 'spec-ref' }, ` ${e.specRef}`) : null)),
-      ...opt.warnings.map((w) => h('div', { class: 'req req-warn' }, h('span', { 'aria-hidden': 'true' }, '⚠ '), h('span', { lang: 'en' }, w.message), h('span', { class: 'spec-ref' }, ` ${w.specRef}`))),
+      ...opt.warnings.map((w) => h('div', { class: 'req req-warn' }, iconText('warning', ' '), h('span', { lang: 'en' }, w.message), h('span', { class: 'spec-ref' }, ` ${w.specRef}`))),
       why,
       h('div', { class: 'opt-foot' },
         opt.selected
@@ -161,7 +162,7 @@ export function createDesignApp(o: DesignAppOptions): PcApp {
     const warns = m.warnings.filter((w) => w.decisionId === d.id);
     const pending = warns.filter((w) => !w.acknowledged);
     return h('section', { class: 'pc-detail', 'aria-label': `Rozhodnutí ${d.title}` },
-      h('h3', { tabindex: '-1' }, h('span', { class: `tile-icon tile-${d.status}`, 'aria-hidden': 'true' }, TILE_STATUS[d.status].icon), ' ', d.title),
+      h('h3', { tabindex: '-1' }, h('span', { class: `tile-icon tile-${d.status}`, 'aria-hidden': 'true' }, icon(TILE_STATUS[d.status].icon)), ' ', d.title),
       d.help ? h('p', { class: 'muted' }, d.help) : null,
       d.afterStep ? message({ type: 'game-tip', compact: true, title: `Doporučené pořadí: nejdřív krok ${d.afterStep}`, body: 'Herní vedení – nic není zamčené, ale volby tady závisí na dřívějších rozhodnutích.' }) : null,
       ...d.errors.map((e) => message({ type: 'vcf-error', compact: true, body: h('span', { lang: 'en' }, e.message), reference: `${e.code} · Spec: ${e.specRef}` })),

@@ -1,48 +1,164 @@
-/* Shared palette + HUD / overlay UI. Bright, friendly "room tycoon" look
-   (docs/design/GRAPHICS.md) - own styling, not a copy of any Broadcom UI or game.
-   All text colours keep >= 4.5:1 contrast on the panel backgrounds. */
+/* Shared palette + HUD / overlay UI. Theme inspired by the Broadcom/VCF colour world
+   (docs/design/GRAPHICS.md "Téma a paleta", T0-T11): strong red accent, dark navy, cool greys,
+   clean enterprise panels. Own game values only - NOT an official brand, no logos, no vendor fonts.
+   All text colours keep >= 4.5:1 contrast on the panel backgrounds (WCAG AA). */
 :root {
-  --font: ui-rounded, 'Nunito', 'Segoe UI Rounded', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  --bg: #f4ead8;
-  --bg-2: #fbf5ea;
+  /* T1 primitives */
+  --red-50: #fdebed;
+  --red-200: #f3b3bb;
+  --red-500: #c41f33;
+  --red-600: #a3192a;
+  --red-300d: #ff6b78;
+  --navy-950: #0f1b2d;
+  --navy-900: #14233a;
+  --navy-850: #172840;
+  --navy-800: #16304d;
+  --navy-700: #1f4f8f;
+  --navy-600: #2b4a78;
+  --navy-500: #4a6a96;
+  --graphite-900: #1a2538;
+  --graphite-800: #24324a;
+  --graphite-700: #3b4a5f;
+  --gray-0: #ffffff;
+  --gray-25: #f6f8fa;
+  --gray-50: #f1f3f6;
+  --gray-100: #eef1f5;
+  --gray-150: #e9edf2;
+  --gray-200: #dde3ea;
+  --gray-300: #c5cdd8;
+  --gray-400: #8592a3;
+  --gray-500: #6b7785;
+  --gray-600: #5c6878;
+  --gray-700: #3a4656;
+  --gray-900: #1b2733;
+
+  /* T2 semantic tokens - light theme (default) */
+  --font: 'Inter', 'Noto Sans', system-ui, -apple-system, 'Segoe UI', Roboto, 'Liberation Sans', Arial, sans-serif;
+  --mono: ui-monospace, 'JetBrains Mono', 'DejaVu Sans Mono', 'Cascadia Mono', monospace;
+  --bg: #e9edf2;
+  --bg-2: #f6f8fa;
   --panel: #ffffff;
-  --panel-2: #f7f3fc;
-  --panel-3: #efe9f8;
-  --line: #ddd4ec;
-  --line-2: #c9bde0;
-  --ink: #2a2440;
-  --text: #3b3555;
-  --muted: #6a6585;
-  --faint: #6d6887; /* >= 4.4:1 on all panel backgrounds (was #807a96, 3.7:1) */
-  --outline: #2e2645;
-  --accent: #5b4fd6;
-  --accent-2: #4a3fc0;
-  --accent-soft: #ebe8ff;
-  --link: #2f5fcf;
-  --link-2: #1d47a8;
-  --ok: #1d8a57;
-  --ok-soft: #e2f6ec;
-  --warn: #9a5a0a;
-  --warn-soft: #fff1dc;
-  --bad: #c0322e;
-  --bad-soft: #fde6e5;
-  --orange: #ff8a3d;
-  --shadow: 0 3px 0 rgba(46, 38, 69, 0.18), 0 8px 20px rgba(46, 38, 69, 0.12);
-  --radius: 12px;
+  --panel-2: #f6f8fa;
+  --panel-3: #eef1f5;
+  --line: #dde3ea;
+  --line-2: #c5cdd8;
+  --line-strong: #8592a3;
+  --ink: #1b2733;
+  --text: #3a4656;
+  --muted: #5c6878;
+  --faint: #5c6878;
+  --outline: #14233a;
+  --brand: #c41f33;
+  --brand-hover: #a3192a;
+  --brand-soft: #fdebed;
+  --brand-line: #f3b3bb;
+  --brand-text: #c41f33;
+  --accent: #1f4f8f;
+  --accent-2: #163b6c;
+  --accent-soft: #e3ecf8;
+  --select: #1d63c8;
+  --select-soft: #e6efff;
+  --focus: #1d63c8;
+  --link: #1a5bb5;
+  --link-2: #12468f;
+  --ok: #1d7a46;
+  --ok-strong: #155e37;
+  --ok-soft: #e6f4ec;
+  --ok-line: #8fcfab;
+  --warn: #8a5300;
+  --warn-stripe: #b76e00;
+  --warn-soft: #fff4dc;
+  --warn-line: #e9b45a;
+  --bad: #b42318;
+  --bad-soft: #fdecea;
+  --bad-line: #f0a8a2;
+  --info: #1d5fbf;
+  --info-soft: #e8f1fd;
+  --info-line: #9cc0ef;
+  --info-text: #1a4f9c;
+  --game: #4a5566;
+  --game-soft: #f1f3f6;
+  --game-line: #8592a3;
+  --game-text: #3f4c5c;
+  --rec-soft: #fff6d6;
+  --rec-text: #5c4300;
+  --rec-line: #d9a514;
+  --shadow: 0 1px 2px rgba(20, 35, 58, 0.12), 0 4px 12px rgba(20, 35, 58, 0.1);
+  --shadow-sm: 0 1px 2px rgba(20, 35, 58, 0.12);
+  --radius: 8px;
+  --radius-sm: 6px;
 }
+
+/* T3 dark "console" theme - only on console-type apps inside the in-game PC
+   (installer, operations console, DCUI). Overrides the same semantic tokens. */
+[data-theme='console'] {
+  --bg: #0f1b2d;
+  --bg-2: #0f1b2d;
+  --panel: #172840;
+  --panel-2: #1c3050;
+  --panel-3: #223a5e;
+  --line: #2d4466;
+  --line-2: #3d5a80;
+  --line-strong: #5a77a0;
+  --ink: #f2f5f9;
+  --text: #e6edf5;
+  --muted: #a9b6c8;
+  --faint: #a9b6c8;
+  --outline: #5a77a0;
+  --brand: #c41f33;
+  --brand-text: #ff6b78;
+  --accent: #6ea8ff;
+  --accent-2: #6ea8ff;
+  --accent-soft: #1f3a63;
+  --select: #6ea8ff;
+  --select-soft: #1f3a63;
+  --focus: #6ea8ff;
+  --link: #6ea8ff;
+  --link-2: #9cc4ff;
+  --ok: #4fd18b;
+  --ok-strong: #4fd18b;
+  --ok-soft: #15372a;
+  --ok-line: #2f7a52;
+  --warn: #ffc861;
+  --warn-stripe: #ffc861;
+  --warn-soft: #3a2f17;
+  --warn-line: #8a6a2a;
+  --bad: #ff8a8a;
+  --bad-soft: #3a1d27;
+  --bad-line: #8a3a48;
+  --info: #6ea8ff;
+  --info-soft: #172f52;
+  --info-line: #3d5a80;
+  --info-text: #9cc4ff;
+  --game: #8592a3;
+  --game-soft: #1c3050;
+  --game-line: #8592a3;
+  --game-text: #c9d3ea;
+  --rec-soft: #3a2f17;
+  --rec-text: #ffd27a;
+  --rec-line: #d9a514;
+  color: var(--text);
+  background: var(--bg);
+  color-scheme: dark;
+}
+
+/* Inline SVG icons (ui/icons.ts): line icons, currentColor. */
+.icon { display: inline-block; width: 16px; height: 16px; flex: none; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.icon-20 { width: 20px; height: 20px; vertical-align: -5px; }
+.icon-24 { width: 24px; height: 24px; vertical-align: -6px; }
 
 .ui-root {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  font: 13px/1.35 var(--font);
+  font: 14px/1.4 var(--font);
   color: var(--text);
 }
 .ui-panel {
   position: absolute;
   pointer-events: auto;
   background: var(--panel);
-  border: 2px solid var(--outline);
+  border: 1px solid var(--line-2);
   border-radius: var(--radius);
   padding: 10px 12px;
   box-shadow: var(--shadow);
@@ -54,10 +170,10 @@
   cursor: help;
   font-weight: 600;
   padding: 1px 7px;
-  border-radius: 999px;
-  background: #fff4c7;
-  color: #6e5300;
-  border: 1.5px solid #e8c547;
+  border-radius: var(--radius-sm);
+  background: var(--game-soft);
+  color: var(--game-text);
+  border: 1.5px dashed var(--game-line);
 }
 .hud { top: 12px; left: 12px; }
 .hud h1 { margin: 0 0 4px; font-size: 15px; color: var(--ink); font-weight: 700; }
@@ -70,14 +186,14 @@
   font: inherit;
   font-weight: 600;
   color: var(--text);
-  background: var(--panel-2);
-  border: 1.5px solid var(--line-2);
-  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
   padding: 3px 10px;
   cursor: pointer;
 }
-.time button:hover { background: var(--panel-3); }
-.time button[aria-pressed='true'] { background: var(--accent); border-color: var(--outline); color: #fff; }
+.time button:hover { background: var(--panel-2); }
+.time button[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 .legend { bottom: 12px; left: 12px; min-width: 200px; }
 .legend h2 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
@@ -86,7 +202,7 @@
 .legend li { display: flex; align-items: center; gap: 8px; margin: 3px 0; font-size: 12px; }
 .legend .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; outline: 1.5px solid var(--outline); box-shadow: none !important; }
 .legend .bar { width: 22px; border-radius: 2px; flex: none; outline: 1px solid var(--outline); }
-.legend .bar-neutral { background: #f7f5fc; outline: 1.5px solid var(--outline); box-shadow: inset 0 -1px 0 #4cc38a, inset 0 1px 0 #4cc38a; }
+.legend .bar-neutral { background: #f6f8fa; outline: 1.5px solid var(--outline); box-shadow: inset 0 -1px 0 var(--line-strong), inset 0 1px 0 var(--line-strong); }
 .legend .foot { margin-top: 8px; }
 
 .tooltip { min-width: 220px; pointer-events: none; display: none; }

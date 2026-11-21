@@ -173,7 +173,7 @@ export function createShop(opts: ShopOptions): ShopHandle {
       h('div', { class: 'card-line', title: s.nics.map((n) => n.label).join(', ') }, sum.nics),
       h('div', { class: 'card-badges' },
         s.profile
-          ? chip(s.profile + (s.profileNetworkLimited ? ' ⚠' : ''), 'badge-profile', `Profil vSAN ESA odvozený modelem z konfigurace (spec 15 §6.1)${s.profileNetworkLimited ? ' – síť drží uzel pod jeho výpočetním profilem' : ''}`)
+          ? chip(s.profile + (s.profileNetworkLimited ? ' (síť omezuje)' : ''), 'badge-profile', `Profil vSAN ESA odvozený modelem z konfigurace (spec 15 §6.1)${s.profileNetworkLimited ? ' – síť drží uzel pod jeho výpočetním profilem' : ''}`)
           : chip('pod HCI-SM', 'badge-profile badge-muted', 'Konfigurace nesplňuje minima nejmenšího profilu vSAN ESA (spec 15 §6.1)'),
         s.certified91
           ? h('a', { class: 'ui-badge badge-cert', href: s.bcgUrl, target: '_blank', rel: 'noopener noreferrer', title: `Broadcom Compatibility Guide uvádí podporu „ESXi 9.1“ pro tento model (export dat ${dataDate}). Ověřují se i NIC a HBA.` }, '✔ certified ESXi 9.1 ↗')
@@ -186,9 +186,9 @@ export function createShop(opts: ShopOptions): ShopHandle {
   function genericCard(it: ShopSwitchItem | ShopRackItem): HTMLElement {
     const lines = it.kind === 'switch'
       ? [`${it.ports}× port · ${it.speedsGbE.join('/')} GbE`, `MTU portu ${it.defaultPortMtu} (výchozí) – max ${it.maxMtu}`, `${it.rackUnits}U do racku`]
-      : [`${it.heightU}U · postav na volnou dlaždici`];
+      : [`${it.heightU}U · výška v místnosti odpovídá U`, 'postav na modrou dlaždici, R otočí čelo'];
     return h('article', { class: 'shop-card', 'aria-label': it.label },
-      h('div', { class: 'card-title' }, h('span', { class: 'card-model' }, it.label)),
+      h('div', { class: 'card-title' }, it.kind === 'rack' ? h('span', { class: `inv-icon icon-rack rack-u${it.heightU}`, 'aria-hidden': 'true' }) : null, h('span', { class: 'card-model' }, it.label)),
       ...lines.map((l) => h('div', { class: 'card-line' }, l)),
       h('div', { class: 'card-badges' }, chip('generický (herní zjednodušení)', 'badge-generic', 'No-name položka hry – hodnoty jsou herní, ne z dokumentace'), it.kind === 'switch' ? badge('game-default', 'MTU 1500 generického switche') : null),
       h('div', { class: 'card-foot' }, priceLine(it.price), button('Koupit', () => opts.onBuy(it.id), { class: 'btn btn-small btn-primary' })),
@@ -200,7 +200,7 @@ export function createShop(opts: ShopOptions): ShopHandle {
       h('div', { class: 'card-title' }, h('span', { class: 'card-model', title: it.label }, it.label)),
       h('div', { class: 'card-line' }, it.detail, it.oem ? ` · OEM ${it.oem}` : ''),
       h('div', { class: 'card-badges' }, it.bcgUrl ? docLink('BCG ↗', it.bcgUrl) : null),
-      h('div', { class: 'card-foot' }, priceLine(it.price), button('Koupit', () => undefined, { class: 'btn btn-small', disabled: true, title: 'Výměna dílů v serveru zatím ve hře není (🧩 omezení hry)' })),
+      h('div', { class: 'card-foot' }, priceLine(it.price), button('Koupit', () => undefined, { class: 'btn btn-small', disabled: true, title: 'Výměna dílů v serveru zatím ve hře není (omezení hry)' })),
     );
   }
 
@@ -210,7 +210,7 @@ export function createShop(opts: ShopOptions): ShopHandle {
       const isPicked = picked === e.id;
       const hint = e.kind === 'rack' ? 'klikni na dlaždici v místnosti' : 'klikni na rack (nebo volnou pozici v pohledu racku)';
       return h('article', { class: `shop-card bp-card${isPicked ? ' picked' : ''}`, 'aria-label': e.label },
-        h('div', { class: 'card-title' }, h('span', { class: `inv-icon icon-${e.kind === 'rack' ? 'rack' : e.kind === 'switch' ? 'switch' : 'server-a'}`, 'aria-hidden': 'true' }), h('span', { class: 'card-model' }, e.label)),
+        h('div', { class: 'card-title' }, h('span', { class: `inv-icon icon-${e.kind === 'rack' ? `rack rack-u${state?.catalog.racks.find((r) => r.id === e.catalogItemId)?.heightU ?? 42}` : e.kind === 'switch' ? 'switch' : 'server-a'}`, 'aria-hidden': 'true' }), h('span', { class: 'card-model' }, e.label)),
         h('div', { class: 'card-line' }, isPicked ? `Vybráno – ${hint}` : e.kind === 'rack' ? 'Rack' : e.kind === 'switch' ? 'Switch' : 'Server'),
         h('div', { class: 'card-foot' },
           button(isPicked ? 'Zrušit' : 'Umístit', () => opts.onPick(isPicked ? null : e), { class: 'btn btn-small btn-primary', 'aria-pressed': String(isPicked) }),

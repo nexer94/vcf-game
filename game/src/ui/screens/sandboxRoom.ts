@@ -12,6 +12,9 @@ import type { Tile } from '../../render/room/roomGrid';
 import { cameraOnto, transitionDuration, transitionFrame, type TransitionDirection } from '../../render/room/viewTransition';
 import { button, h } from '../dom';
 import { message } from '../messages';
+import { icon, type IconName } from '../icons';
+import { FACING_LABEL, nextFacing, FACING_ORDER } from '../../render/room/placementFx';
+import type { Facing } from '../../model/roomLayout';
 import { loadDesignStepData } from '../sandbox/designData';
 import { sharedDesignState } from '../sandbox/designState';
 import { createDesignViewState, renderDesignStep, restoreDesignFocus } from '../sandbox/designStep';
@@ -24,7 +27,7 @@ import { resolveShowMe } from '../sandbox/panelData';
 import { createRackPanel, type RackPanel } from '../sandbox/rackPanel';
 import { bmcTransfersOf, linkTrafficOf, roomContentsOf, StaticTrafficSource } from '../sandbox/roomSync';
 import { parentView, ROOM_VIEW, sameView, viewLabel, type RoomView } from '../sandbox/roomViews';
-import { createDemoRoomPort, sharedRoomPort, type InventoryEntry, type ObjectiveView, type RoomPort, type RoomState } from '../sandbox/sessionPort';
+import { createDemoRoomPort, sharedRoomPort, type InventoryEntry, type ObjectiveView, type RackTileHint, type RoomPlacement, type RoomPort, type RoomState } from '../sandbox/sessionPort';
 import { createShop, formatPrice } from '../sandbox/shop';
 import { createTrafficChip } from '../sandbox/trafficChip';
 import { createTimeControls } from '../timeControls';
@@ -43,6 +46,7 @@ const ROOM_KEYS: readonly [string, string][] = [
   [', / .', 'zpomalit / zrychlit čas (1× · 4× · 16×)'],
   ['1–7', 'kategorie obchodu (když má fokus obchod)'],
   ['E / Enter', 'otevřít rack / tabuli / počítač pod kurzorem'],
+  ['R', 'otočit rack (při umísťování, pod kurzorem nebo v pohledu racku)'],
   ['Shift+D', 'počítač → Návrh VCF'],
   ['Esc / Backspace', 'zrušit → o úroveň zpět'],
   ['D', 'panel Návrh'],
@@ -60,7 +64,7 @@ const SIDE_W = 380;
 const SIDE_TAB_W = 44;
 const TOOLTIP_DELAY_MS = 400;
 
-const OBJ_ICON: Readonly<Record<ObjectiveView['status'], string>> = { todo: '○', progress: '◐', done: '✓', skipped: '⤼', problem: '⚠' };
+const OBJ_ICON: Readonly<Record<ObjectiveView['status'], IconName>> = { todo: 'circle', progress: 'half-circle', done: 'check', skipped: 'skip', problem: 'warning' };
 
 function keysHelp(): HTMLElement {
   return h('details', { class: 'legend-pop keys-pop' },
@@ -100,6 +104,10 @@ export const sandboxRoomScreen: ScreenDef = {
     let state: RoomState | null = null;
     let offPort: (() => void) | null = null;
     let picked: InventoryEntry | null = null;
+    /** Facing chosen for the rack being placed (R rotates; engine rules decide what is valid). */
+    let placeFacing: Facing = 'S';
+    /** [GAME] placement view of the shown room (session backend; null = local fallback / demo room). */
+    let placement: RoomPlacement | null = null;
     let disposed = false;
 
     const ui = h('div', { class: 'ui-root room-ui' });
@@ -180,14 +188,15 @@ export const sandboxRoomScreen: ScreenDef = {
       const r = ops.dispatch({ type: which === 'undo' ? 'undoRoom' : 'redoRoom' });
       say(r.ok ? (which === 'undo' ? 'Vráceno.' : 'Zopakováno.') : r.message, !r.ok);
     }
-    const rackTools = (): HTMLElement[] => {
+    const rackTools = (rackId?: string): HTMLElement[] => {
+      const rot = rackId && port?.rotateRack ? button(h('span', { class: 'icon-text' }, icon('rotate'), 'Otočit (R)'), () => rotatePlaced(rackId), { class: 'btn btn-small', title: 'Otočit rack – čelo po směru hodinových ručiček na další povolený směr (herní pravidla místnosti)' }) : null;
       const u = button('⟲', () => undoRedo('undo'), { class: 'btn btn-small rack-undo', title: 'Vrátit (Ctrl+Z)', 'aria-label': 'Vrátit změnu (Ctrl+Z)' });
       const r = button('⟳', () => undoRedo('redo'), { class: 'btn btn-small rack-redo', title: 'Zopakovat (Ctrl+Y)', 'aria-label': 'Zopakovat změnu (Ctrl+Y)' });
       const d = button('DNS', () => panels.openDns(), { class: 'btn btn-small', title: 'DNS server firmy (mimo VCF)' });
       u.disabled = !state?.undo?.canUndo;
       r.disabled = !state?.undo?.canRedo;
       d.hidden = !port?.ops;
-      return [u, r, d];
+      return rot ? [u, r, d, rot] : [u, r, d];
     };
     function openDevice(id: string): void {
       const d = state?.devices.find((x) => x.id === id);
@@ -293,14 +302,86 @@ export const sandboxRoomScreen: ScreenDef = {
     const placeholder = h('div', { class: 'view-placeholder', hidden: true });
     ui.appendChild(placeholder);
 
+    // ------------------------------------------------------------ rack placement (engine hints, UX: ghost)
+    const placeBar = h('div', { class: 'ui-panel place-bar', role: 'region', 'aria-label': 'Umísťování racku', hidden: true });
+    ui.appendChild(placeBar);
+    /** Rack height (U) of an inventory rack (catalog) – drawn at its real relative height. */
+    const unitsOf = (e: InventoryEntry): number | undefined => state?.catalog.racks.find((r) => r.id === e.catalogItemId)?.heightU ?? state?.racks.find((r) => r.id === e.id)?.heightU;
+    const hintsFor = (e: InventoryEntry): readonly RackTileHint[] | null => (placement ? (placement.hintsByModel[e.catalogItemId] ?? []) : null);
+    const hintAt = (hs: readonly RackTileHint[], gx: number, gy: number): RackTileHint | undefined => hs.find((x) => x.tile.gx === gx && x.tile.gy === gy);
+    function refreshPlacement(): void {
+      placement = port?.roomPlacement?.(roomId) ?? null;
+      room.setAisles(placement ? placement.aisles : null);
+      const e = picked;
+      if (e?.kind === 'rack') {
+        const hs = hintsFor(e);
+        room.setPlacementHints(hs ? { tiles: hs, facing: placeFacing } : null);
+      } else room.setPlacementHints(null);
+      renderPlaceBar();
+    }
+    function renderPlaceBar(): void {
+      const e = picked;
+      placeBar.hidden = !(e && e.kind === 'rack') || view.kind !== 'room';
+      if (placeBar.hidden || !e) return;
+      const hs = hintsFor(e);
+      const okTiles = hs ? hs.filter((x) => x.facings.includes(placeFacing)).length : null;
+      placeBar.replaceChildren(
+        h('div', { class: 'place-row' },
+          h('strong', null, `${e.label}`), h('span', { class: 'muted' }, ` · ${unitsOf(e) ?? '?'}U · `), h('span', null, FACING_LABEL[placeFacing]),
+          button(h('span', { class: 'icon-text' }, icon('rotate'), 'Otočit (R)'), () => rotatePick(), { class: 'btn btn-small', title: 'Otočit čelo racku (R)' }),
+          button('Zrušit (Esc)', () => pick(null), { class: 'btn btn-small btn-ghost' }),
+        ),
+        h('div', { class: 'place-row small' },
+          h('span', { class: 'place-key place-ok' }, 'modrá = sem lze'), h('span', { class: 'place-key place-bad' }, 'šrafovaná = nelze (najeď myší pro důvod)'),
+          h('span', { class: 'place-key aisle-cold' }, 'studená ulička (čelo)'), h('span', { class: 'place-key aisle-hot' }, 'teplá ulička (záda)'),
+          h('span', { class: 'ui-badge badge-generic', title: 'Rozmístění racků, uličky a volné sloty jsou herní pravidla místnosti, ne fakta z dokumentace VCF.' }, 'herní pravidla místnosti'),
+        ),
+        okTiles !== null ? h('div', { class: 'place-row small muted' }, `Volné sloty: ${placement?.freeSlots ?? '?'} · vhodných dlaždic s tímto čelem: ${okTiles}`) : h('div', { class: 'place-row small muted' }, 'Ukázková místnost: kontroluje se jen obsazenost dlaždice.'),
+      );
+    }
+    function rotatePick(): void {
+      const e = picked;
+      if (!e || e.kind !== 'rack') return;
+      const hs = hintsFor(e);
+      // Next facing clockwise; prefer one that has at least one valid tile.
+      let f = nextFacing(placeFacing);
+      if (hs) for (let i = 0; i < 4 && !hs.some((x) => x.facings.includes(f)); i++) f = nextFacing(f);
+      placeFacing = f;
+      say(`Čelo racku: ${FACING_LABEL[f]}.`);
+      refreshPlacement();
+    }
+    /** Rotate a placed rack to the next facing the engine allows on its tile. */
+    function rotatePlaced(rackId: string): void {
+      const r = state?.racks.find((x) => x.id === rackId);
+      if (!port?.rotateRack || !r?.tile) return say('Otáčení racku je jen v tvé serverovně (ne v ukázce).', true);
+      const cur = r.facing ?? 'S';
+      const hs = port.rackHints?.(roomId, rackId) ?? [];
+      const allowed = hintAt(hs, r.tile.gx, r.tile.gy)?.facings ?? [];
+      let f = nextFacing(cur);
+      for (let i = 0; i < 3 && !allowed.includes(f); i++) f = nextFacing(f);
+      if (f === cur || !allowed.includes(f)) {
+        const why = port.checkRackTile?.(roomId, r.tile, nextFacing(cur), rackId)?.issues[0]?.message;
+        return say(`Rack ${r.label} nejde otočit – herní pravidla místnosti${why ? `: ${why}` : '.'}`, true);
+      }
+      const res = port.rotateRack(rackId, f);
+      if (!res.ok) return say(res.message, true);
+      say(`Rack ${r.label}: ${FACING_LABEL[f]}.`);
+    }
+
     function pick(e: InventoryEntry | null): void {
       picked = e;
       if (!e) room.setGhost(null);
       canvas.style.cursor = e ? 'copy' : '';
       if (e && view.kind !== 'room') goTo(ROOM_VIEW);
-      if (e) say(e.kind === 'rack' ? `${e.label}: klikni na volnou dlaždici.` : `${e.label}: klikni na rack (nebo otevři rack a vyber pozici).`);
+      if (e?.kind === 'rack') {
+        // Start with the first facing that has a valid tile (engine hints).
+        const hs = hintsFor(e);
+        if (hs && !hs.some((x) => x.facings.includes(placeFacing))) placeFacing = FACING_ORDER.find((f) => hs.some((x) => x.facings.includes(f))) ?? 'S';
+      }
+      if (e) say(e.kind === 'rack' ? `${e.label}: klikni na modrou dlaždici, R otočí čelo.` : `${e.label}: klikni na rack (nebo otevři rack a vyber pozici).`);
       if (state) shop.update(state, picked?.id ?? null);
       if (e) shop.setTab('backpack');
+      refreshPlacement();
     }
 
     // ------------------------------------------------------------ tracker / HUD chip
@@ -342,7 +423,7 @@ export const sandboxRoomScreen: ScreenDef = {
       tracker.replaceChildren(
         h('div', { class: 'pop-head' }, h('strong', null, 'Úkoly'), h('span', { class: 'muted small' }, s.source === 'local-fallback' ? ' (zjednodušené – herní kroky)' : ''), button('–', () => toggleTracker(false), { class: 'btn btn-small', 'aria-label': 'Sbalit úkoly' })),
         h('ul', { class: 'obj-list' }, ...s.objectives.map((o) => h('li', { class: `obj obj-${o.status}${o.id === next?.id ? ' obj-next' : ''}` },
-          h('span', { class: 'obj-icon', 'aria-hidden': 'true' }, o.kind === 'game-optional' ? '◇' : OBJ_ICON[o.status]),
+          h('span', { class: 'obj-icon', 'aria-hidden': 'true' }, icon(o.kind === 'game-optional' ? 'diamond' : OBJ_ICON[o.status])),
           h('span', { class: 'obj-title' }, o.title, o.progress ? ` ${o.progress.done}/${o.progress.total}` : '', o.kind === 'doc-recommended' ? ' ★' : ''),
           o.kind === 'game-optional' ? h('span', { class: 'ui-badge badge-outscope' }, 'mimo VCF scope – herní') : null,
           o.showMe && o.status !== 'done' ? button('Ukaž mi', () => showMe(o), { class: 'btn btn-small btn-showme', 'aria-label': `Ukaž mi: ${o.title}` }) : null,
@@ -402,14 +483,23 @@ export const sandboxRoomScreen: ScreenDef = {
       if (sel) {
         if (sel.kind === 'rack') {
           if (!tile) return say('Mimo místnost.', true);
-          const chk = room.checkPlace('rack', tile);
-          if (!chk.ok) return say(chk.reason === 'occupied' ? 'Dlaždice je obsazená.' : chk.reason === 'avatar' ? 'Tady stojí panáček.' : 'Mimo místnost.', true);
+          const hs = hintsFor(sel);
+          if (hs) {
+            // Session: the engine's [GAME] room rules decide (hints); the reason comes from the model.
+            if (!hintAt(hs, tile.gx, tile.gy)?.facings.includes(placeFacing)) {
+              const why = port.checkRackTile?.(roomId, tile, placeFacing, sel.id)?.issues[0]?.message;
+              return say(`Sem rack nelze (herní pravidlo místnosti)${why ? `: ${why}` : '.'}`, true);
+            }
+          } else {
+            // Local fallback / demo room only: physical occupancy check of the drawing.
+            const chk = room.checkPlace('rack', tile);
+            if (!chk.ok) return say(chk.reason === 'occupied' ? 'Dlaždice je obsazená.' : chk.reason === 'avatar' ? 'Tady stojí panáček.' : 'Mimo místnost.', true);
+          }
           if (port.source !== 'session') site.assignRack(sel.id, roomId); // local fallback / demo: room kept by the UI
-          const r = port.placeRack(sel.id, tile, roomId);
+          const r = port.placeRack(sel.id, tile, roomId, placeFacing);
           if (!r.ok) return say(r.message, true);
           pick(null);
-          say(`${sel.label} postaven. Teď kup server a switch a klikni na rack.`);
-          room.walkTo({ gx: tile.gx, gy: Math.min(room.size.rows - 1, tile.gy + 1) });
+          say(`${sel.label} postaven (${FACING_LABEL[placeFacing]}). Teď kup server a switch a klikni na rack.`);
           return;
         }
         if (!cab) return say('Klikni na rack.', true);
@@ -558,6 +648,7 @@ export const sandboxRoomScreen: ScreenDef = {
     function enterView(next: RoomView, animate: boolean): void {
       const prev = view;
       view = next;
+      renderPlaceBar();
       tip.hidden = true;
       room.setHighlightedCabinet(null);
       if (objHooks.switchApp(prev, next)) return; // Sprint 2B hook: pc app -> pc app
@@ -604,7 +695,7 @@ export const sandboxRoomScreen: ScreenDef = {
           dpr: stage.app.renderer.resolution,
           onOpenDevice: openDevice,
           onOpenHost: openHost,
-          toolbarExtra: rackTools(),
+          toolbarExtra: rackTools(next.rackId),
         });
         if (next.kind === 'host' && !hostDetail) say('Detail hosta je jen v tvé serverovně (ne v ukázce).', true);
       } else if (!objHooks.open(next)) {
@@ -690,6 +781,7 @@ export const sandboxRoomScreen: ScreenDef = {
       state = port.state();
       const full = state;
       room.syncContents(roomContentsOf({ ...full, racks: full.racks.filter((r) => inThisRoom(r.id, !!r.tile)) }));
+      refreshPlacement();
       if (!demoTraffic) room.setTrafficSource(new StaticTrafficSource(linkTrafficOf(state)));
       if (!demoTraffic) room.setBmcTransfers(bmcTransfersOf(state));
       shop.update(state, picked?.id ?? null);
@@ -775,18 +867,25 @@ export const sandboxRoomScreen: ScreenDef = {
       }
       if (view.kind !== 'room' || transition || !camera || overview.active) return;
       const tile = hover ? room.tileAtWorld(hover.wx, hover.wy) : null;
+      let badTile: { gx: number; gy: number } | null = null;
       if (picked?.kind === 'rack') {
-        room.setGhost(tile ? { kind: 'rack', tile } : null);
+        const hs = hintsFor(picked);
+        const allowed = tile && hs ? (hintAt(hs, tile.gx, tile.gy)?.facings ?? []) : [];
+        const valid = tile && hs ? allowed.includes(placeFacing) : undefined;
+        if (tile && valid === false) badTile = tile;
+        const units = unitsOf(picked);
+        room.setGhost(tile ? { kind: 'rack', tile, facing: placeFacing, ...(units !== undefined ? { units } : {}), ...(valid !== undefined ? { valid } : {}), allowed } : null);
         room.setHoverTile(null);
       } else {
         room.setGhost(null);
         room.setHoverTile(picked ? null : tile);
       }
-      const cab = hover ? room.cabinetAtWorld(hover.wx, hover.wy) : null;
+      const cab = hover && !badTile ? room.cabinetAtWorld(hover.wx, hover.wy) : null;
       const cabId = cab?.kind === 'rack' ? cab.id : null;
+      const badKey = badTile ? `bad:${badTile.gx},${badTile.gy},${placeFacing}` : null;
       const fxId = hover && !cabId && !picked ? objHooks.fixtureAt(hover.wx, hover.wy) : null; // Sprint 2B hook
-      if ((cabId ?? fxId) !== hoverCab) {
-        hoverCab = cabId ?? fxId;
+      if ((cabId ?? fxId ?? badKey) !== hoverCab) {
+        hoverCab = cabId ?? fxId ?? badKey;
         hoverMs = 0;
       }
       room.setHighlightedCabinet(cabId ?? fxId);
@@ -794,7 +893,21 @@ export const sandboxRoomScreen: ScreenDef = {
       room.setHoveredBundle(bundle?.key ?? null);
       canvas.style.cursor = picked ? (picked.kind === 'rack' || cabId ? 'copy' : 'not-allowed') : cabId || fxId ? 'zoom-in' : '';
       hoverMs += real;
-      if (hover && hoverMs >= TOOLTIP_DELAY_MS && (cabId || fxId || bundle)) {
+      if (hover && hoverMs >= TOOLTIP_DELAY_MS && badTile && picked && port?.checkRackTile) {
+        // Why the tile is invalid: the model's [GAME] room layout issues (scope game-scope) – shown as a game message.
+        if (tip.hidden || tip.dataset['key'] !== badKey) {
+          const issues = port.checkRackTile(roomId, badTile, placeFacing, picked.id)?.issues ?? [];
+          tip.dataset['key'] = badKey ?? '';
+          tip.replaceChildren(message({
+            type: 'game-limit', compact: true, title: 'Herní pravidlo místnosti',
+            body: issues.length ? h('ul', { class: 'tip-issues' }, ...issues.slice(0, 4).map((i) => h('li', { lang: 'en' }, i.message))) : 'S tímto čelem tu rack nestojí – zkus R.',
+            ...(issues[0] ? { reference: `${issues[0].code} · ${issues[0].specRef}` } : {}),
+          }));
+          tip.style.transform = `translate(${Math.min(canvas.clientWidth - 320, hover.sx + 14)}px, ${hover.sy + 14}px)`;
+          tip.hidden = false;
+        }
+      } else if (hover && hoverMs >= TOOLTIP_DELAY_MS && (cabId || fxId || bundle)) {
+        tip.dataset['key'] = '';
         if (cabId) showTip(hover.sx, hover.sy, rackTooltip(cabId));
         else if (fxId) showTip(hover.sx, hover.sy, objHooks.tooltip(fxId));
         else if (bundle && state) {
@@ -853,10 +966,13 @@ export const sandboxRoomScreen: ScreenDef = {
       if (e.key === 'D' && e.shiftKey) goTo({ kind: 'pc', app: 'navrh' }); // Sprint 2B hook (UX §7.3)
       else if (e.key === 'd' || e.key === 'D') {
         if (view.kind === 'room') setSide(!sideOpen);
-      } else if (e.key === 'l' || e.key === 'L') chip.toggle();
+      } else if ((e.key === 'r' || e.key === 'R') && view.kind === 'room' && picked?.kind === 'rack') rotatePick();
+      else if ((e.key === 'r' || e.key === 'R') && view.kind === 'room' && hoverCab && !isFixtureId(hoverCab) && !hoverCab.startsWith('bad:')) rotatePlaced(hoverCab);
+      else if ((e.key === 'r' || e.key === 'R') && view.kind === 'rack') rotatePlaced(view.rackId);
+      else if (e.key === 'l' || e.key === 'L') chip.toggle();
       else if (e.key === 't') toggleTracker();
       else if (e.key === 'T') setHidden(!(state?.objectivesHidden ?? false));
-      else if ((e.key === 'e' || e.key === 'E' || e.key === 'Enter') && view.kind === 'room' && hoverCab && !(t instanceof HTMLButtonElement)) {
+      else if ((e.key === 'e' || e.key === 'E' || e.key === 'Enter') && view.kind === 'room' && hoverCab && !hoverCab.startsWith('bad:') && !(t instanceof HTMLButtonElement)) {
         if (isFixtureId(hoverCab)) goTo(objHooks.viewOf(hoverCab));
         else openRack(hoverCab);
       }

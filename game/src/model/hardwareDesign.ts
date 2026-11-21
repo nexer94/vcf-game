@@ -19,6 +19,10 @@
  *    ≥ 10 Gbps, 10 §3.3 [P13]), witness in a third fault domain ([P13]; [D11]), hosts per AZ (10 §6.1 [P13][P35]),
  *  - Disaster Recovery / Fault Domains and DR: location of a second VCF Instance (00 §6 [S16]; 05 §4.1 [D11]).
  *
+ * Rack limits (rackAwareness.ts, `hardware` part of the result) for the management cluster model, once every host is
+ * mounted: design cluster model vs. the physical rack topology (50 §7a bod 1, 8). WLD cluster model: requirements only
+ * (WLD hosts are not part of the hardware context).
+ *
  * Pure TypeScript: no DOM, no PixiJS.
  */
 import type { ClusterModel } from './architecture';
@@ -57,6 +61,7 @@ import {
   sitesOf,
   unassignedRooms,
 } from './sites';
+import { type ClusterTopology, type RackUnlockAction, deriveClusterTopology, validateClusterModelAgainstTopology } from './rackAwareness';
 import { type ValidationIssue, issue } from './validation';
 
 // ===========================================================================
@@ -98,6 +103,8 @@ export interface HardwareContext {
   readonly fcHbaHostIds: readonly string[];
   /** Site layout summary (sites.ts). */
   readonly sites: SitesContext;
+  /** Rack topology of the hosts (rackAwareness.ts); set by hardwareContext(). */
+  readonly rackTopology?: ClusterTopology;
 }
 
 export interface SitesContext {
@@ -138,6 +145,7 @@ export function hardwareContext(state: PhysicalState, catalog: HardwareCatalog, 
     minNicPorts: hosts.length ? Math.min(...hosts.map((h) => h.nicPorts)) : 0,
     fcHbaHostIds: hosts.filter((h) => h.fcHba).map((h) => h.serverId),
     sites: sitesContext(state, serverIds),
+    rackTopology: deriveClusterTopology(state, servers.map((s) => s.id), catalog),
   };
 }
 
@@ -165,7 +173,9 @@ export type UnlockAction =
   /** Assign one of the rooms to an AZ / fault-domain role (UI: „přiřaď místnost do AZ2“). */
   | { readonly kind: 'assign-room-role'; readonly role: AzRole; readonly roomIds: readonly string[] }
   /** Buy / mount hosts into racks of the rooms of an AZ. */
-  | { readonly kind: 'add-hosts-to-az'; readonly role: AzRole; readonly roomIds: readonly string[]; readonly count: number };
+  | { readonly kind: 'add-hosts-to-az'; readonly role: AzRole; readonly roomIds: readonly string[]; readonly count: number }
+  /** Rack placement / fault domain actions (rackAwareness.ts). */
+  | RackUnlockAction;
 
 export interface HwReason {
   readonly issue: ValidationIssue;
@@ -381,6 +391,18 @@ export function optionAvailabilityWithHardware(
         }
       }
   }
+
+  // Rack topology vs. cluster model (rackAwareness.ts, 50 §7a bod 1, 8). Only once all hosts are mounted – before that
+  // the physical location is unknown and the design is not limited by it. Stretched is covered by the site checks.
+  const topo = hw.rackTopology;
+  if (decision === 'mgmt-cluster-model' && option !== 'stretched' && topo && hw.hostCount > 0 && topo.unmountedHostIds.length === 0) {
+    const storage = next['principal-storage'];
+    const reasons = validateClusterModelAgainstTopology(option as ClusterModel, topo, { role: 'management-default', ...(storage !== undefined ? { storage } : {}) });
+    if (reasons.length) hwDependent = true;
+    for (const r of reasons) (r.issue.severity === 'error' ? errors : warnings).push(r.unlock ? { issue: r.issue, unlock: r.unlock } : { issue: r.issue });
+  }
+  if (decision === 'wld-cluster-model' && (option === 'multi-rack-l2' || option === 'multi-rack-l3'))
+    requirements.push(issue('VSAN_MULTI_RACK_TOO_FEW_RACKS', 'error', 'Multi-Rack vSAN: "Use a minimum of three (3) racks for the cluster." (VCF-VSAN-L3MR-REQD-CFG-002); recommended "Use four (4) Fault domains for vSAN HCI multi-rack" (VCF-VSAN-L3MR-RCMD-CFG-001).', '50 §3.1, §6.1 [V1]', decision));
 
   // Initial management cluster: single vendor (20 §3.2 [S7]) – relevant for any HW-dependent option.
   if (hwDependent && hw.vendors.length > 1)

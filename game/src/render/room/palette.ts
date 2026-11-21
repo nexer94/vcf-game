@@ -1,110 +1,123 @@
 /**
- * Colour palette of the cosy cartoon server room (docs/design/GRAPHICS.md, "Styl").
- * Original palette - bright, saturated, soft. Light comes from the front-left:
- * top faces brightest, +gy (front-left) faces light, +gx (front-right) faces darker.
+ * Colour palette of the cosy cartoon server room (docs/design/GRAPHICS.md "Styl" + "Téma a paleta" T6).
+ * Cool light server room (blue-grey floor and walls), graphite-navy racks, navy switches; warm counterweights
+ * (wooden desk, plant, mug, lamp, amber cable tray). Red only sparingly (avatar hoodie, rack number plate,
+ * wall stripe, extinguisher, poster) - own game values, not an official brand.
+ * Light comes from the front-left: top faces brightest, +gy (front-left) faces light, +gx (front-right) darker.
  * Traffic colours are NOT here - they come from traffic/trafficTypes.ts.
  */
-export const OUTLINE = 0x2e2645;
-export const OUTLINE_SOFT = 0x5a4f78;
+export const OUTLINE = 0x14233a;
+export const OUTLINE_SOFT = 0x4a5b73;
 
-export const ROOM_BG = 0xf4ead8;
+export const ROOM_BG = 0xe4e9f0;
 
 export const FLOOR = {
-  a: 0xe9e5f2,
-  b: 0xdfdaee,
-  grout: 0xc7c0dc,
-  perforated: 0xb3abcf,
-  slabLeft: 0xb9b0d6,
-  slabRight: 0x9e94c4,
+  a: 0xeef1f5,
+  b: 0xe4e8ef,
+  grout: 0xc9d1dc,
+  perforated: 0xb4bfcd,
+  slabLeft: 0xa9b5c5,
+  slabRight: 0x8e9cb0,
 } as const;
 
 export const WALL = {
   /** Right back wall (along gy = 0), its face looks to +gy -> lit. */
-  right: 0x9fdccf,
-  rightDark: 0x86cbbd,
+  right: 0xd5dde8,
+  rightDark: 0xc3cddb,
   /** Left back wall (along gx = 0), its face looks to +gx -> shaded. */
-  left: 0x82c6c9,
-  leftDark: 0x6db3b7,
-  cap: 0xf7f2e8,
-  base: 0x5d8f9a,
+  left: 0xb9c5d5,
+  leftDark: 0xa7b4c6,
+  cap: 0xf7f9fb,
+  base: 0x2b4a78,
+  /** 6 px horizontal stripe at 1/3 wall height - the only large brand element in the scene. */
+  stripe: 0xc41f33,
 } as const;
 
 export const DECOR = {
-  door: 0xf2a65a,
-  doorDark: 0xd98a3d,
-  doorFrame: 0xfff4e0,
+  door: 0x3b5f8f,
+  doorDark: 0x2b4a78,
+  doorFrame: 0xf7f9fb,
   doorWindow: 0xcbeaf6,
   handle: 0xffd34d,
-  ac: 0xfbfbff,
-  acShade: 0xdcdcec,
-  acVent: 0x9aa0bd,
-  acLed: 0x4cc38a,
-  tray: 0xffcf4a,
-  trayDark: 0xe0a92a,
+  ac: 0xfbfcfd,
+  acShade: 0xd5dde8,
+  acVent: 0x8592a3,
+  acLed: 0x3ccf7a,
+  tray: 0xf2b84b,
+  trayDark: 0xd39a2c,
   poster: 0xffffff,
-  posterA: 0xff7a8a,
-  posterB: 0x5b9cf0,
+  posterA: 0xc41f33,
+  posterB: 0x2b4a78,
   posterC: 0x4cc38a,
-  extinguisher: 0xe5484d,
+  extinguisher: 0xd42e3f,
   sign: 0x4cc38a,
   lamp: 0xfff6c8,
 } as const;
 
 export const CABINET = {
-  top: 0x6a6a9a,
-  front: 0x4a4a78,
-  side: 0x383862,
-  inner: 0x27274a,
-  rail: 0x8a8ab8,
+  top: 0x3b4a5f,
+  front: 0x24324a,
+  side: 0x1a2538,
+  inner: 0x111a29,
+  rail: 0x6c7c93,
+  /** Small number plate at the top of the rack front (white number on red, 5.85:1). */
+  label: 0xc41f33,
   /** Low network cabinet for standalone switches. */
-  netTop: 0x7fa8e8,
-  netFront: 0x5b86d0,
-  netSide: 0x4870b8,
+  netTop: 0x4a6a96,
+  netFront: 0x34527c,
+  netSide: 0x284268,
 } as const;
 
 export const DEVICE = {
-  serverFace: 0xeef0f7,
-  serverShade: 0xcfd3e3,
-  bay: 0xb7bcd2,
-  switchFace: 0x3d6fd1,
-  switchShade: 0x2f58aa,
-  port: 0xe8f0ff,
-  ledOk: 0x47d18c,
-  ledAct: 0xffc94d,
+  serverFace: 0xeef1f5,
+  serverShade: 0xcdd4de,
+  bay: 0xb3bdca,
+  switchFace: 0x2b4a78,
+  switchShade: 0x213a60,
+  port: 0xe6edf6,
+  ledOk: 0x3ccf7a,
+  ledAct: 0xffc24a,
+  /** Fault only (4.25:1 on graphite) - always together with an icon / bubble. */
+  ledFault: 0xff5a6a,
 } as const;
 
 export const AVATAR = {
   skin: 0xffd2a8,
   cheek: 0xff9e9e,
   hair: 0x6b3f2a,
-  hoodie: 0xff8a3d,
-  hoodieDark: 0xe0702a,
-  pants: 0x3d5aa8,
-  shoe: 0x2e2645,
+  hoodie: 0xc41f33,
+  hoodieDark: 0x9e1f2e,
+  pants: 0x1f3550,
+  shoe: 0x14233a,
   badge: 0xffffff,
 } as const;
 
 /** Physical cables: neutral body (traffic colour rides on packets / stripe), dark OUTLINE around. */
 export const CABLE = {
-  body: 0xf7f5fc,
+  body: 0xf6f8fa,
 } as const;
 
-export const SHADOW = 0x3a2f5a;
+export const SHADOW = 0x1a2a40;
 export const HOVER_TILE = 0xffffff;
-export const TARGET_TILE = 0xff8a3d;
+/** Selection = blue (5.05:1 on the floor). */
+export const TARGET_TILE = 0x1d63c8;
+/** Invalid tile - always together with hatching (colour is never the only carrier). */
 export const BLOCKED_TILE = 0xe5484d;
 
-/** Illustrative label colours for server tags (vendor = colour/text label only, no logos). */
-export const TAG_COLORS: readonly number[] = [0x3d8bfd, 0x2bb673, 0xe5484d, 0x1fb6c9, 0x9b59e0, 0xf0a14a];
+/** Hot / cold aisles on the floor (subtle tints over the cool floor, always with a text label in the legend). */
+export const AISLE = {
+  cold: 0x6ea8ff,
+  hot: 0xf2a65a,
+} as const;
 
-/**
- * Vendor tag colours (vendor = coloured tag + text only, no logos – GRAPHICS.md). Original game colours, not brand
- * colours.
- */
+/** Vendor tag colours (vendor = coloured tag + text only, no logos). Game colours, white text 5.3-7.1:1. */
 export const VENDOR_TAG: Readonly<Record<'Dell' | 'HPE' | 'Lenovo' | 'Cisco' | 'Supermicro', number>> = {
-  Dell: 0x3d8bfd,
-  HPE: 0x2bb673,
-  Lenovo: 0xe5484d,
-  Cisco: 0x1fb6c9,
-  Supermicro: 0x9b59e0,
+  Dell: 0x2560c4,
+  HPE: 0x187a4e,
+  Lenovo: 0xa3245a,
+  Cisco: 0x0f6f80,
+  Supermicro: 0x6b3fb5,
 };
+
+/** Illustrative label colours for server tags (vendor colours + amber). */
+export const TAG_COLORS: readonly number[] = [0x2560c4, 0x187a4e, 0xa3245a, 0x0f6f80, 0x6b3fb5, 0xb76e00];

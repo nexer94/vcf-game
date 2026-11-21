@@ -122,7 +122,12 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
   - [x] `doc-researcher` – `50-vsan` (37 zdrojů): fault domain = rack; multi-rack min. 3 racky (REQD), doporučeno 4;
     FTT=n → 2n+1 FD; ESA RAID minima, Auto-RAID 9.1 (RAID-6 default); FD ručně ve vCenter, vypnout auto-policy,
     bez Reserved Capacity; L2 vs L3 (per-rack VLAN/subnet/TEP pool/uplink profile/sub-TNP); výpadek racku
-  - [ ] `domain-modeler` – rack awareness: cluster model z rozmístění hostů, fault domains, FTT/RAID, výpadek racku *(běží)*
+  - [x] `domain-modeler` – `model/rackAwareness.ts`: `deriveClusterTopology` (single/multi-rack L2/L3/stretched/
+    inconsistent z rozmístění hostů a cest vmk0), fault domains (doslovné hlášky), ESA RAID tabulka + Auto-RAID 9.1,
+    multi-rack checklist (REQD-CFG-002..005), L3 per rack (uplink profile, TEP pool, sub-TNP, HA isolation address),
+    design vs. fyzika (`RACK_CLUSTER_MODEL_MISMATCH`), `simulateRackFailure`; 29 kódů, 46 testů
+    - otevřené: OQ1 (FD v mgmt default clusteru „Non Supported“ vs L2 podporováno), rezerva na výpadek racku
+      nedokumentovaná, hosty WLD clusteru zatím mimo HardwareContext, UI pro FD/policy (vSphere Client v PC)
   - [ ] `ui-dev` – náhled umístění racku s důvody, 3 velikosti v obchodě a scéně + nové téma (GRAPHICS.md T0–T11)
 - [x] `ux-designer` – téma inspirované Broadcom/VCF (GRAPHICS.md T0–T11): brand červená jen pro CTA, navy/grafit,
   enterprise panely, téma `console` pro PC, AA kontrasty, úprava barev Management/NFS kvůli barvosleposti,

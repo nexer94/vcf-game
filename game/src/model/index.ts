@@ -15,3 +15,4 @@ export * from './sites';
 export * from './roomLayout';
 export * from './roomFixtures';
 export * from './hardwareDesign';
+export * from './rackAwareness';
