@@ -118,7 +118,8 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
   - [x] `engine-dev` – `validateRackPlacement` v `placeRack`/`moveRackToRoom`, nový `rotateRack`, `model/roomFixtures.ts`
     (sdílené dlaždice stolu, tabule, patch panelu, dveří, OOB switche v rohu 0,0), snapshot `placement`/`aisles`/hints,
     kapacita místnosti jen pro umístěné racky
-  - [ ] `ui-dev` – ghost náhled z `placement`, kreslení uliček, OOB switch v rohu, klávesa otočení, sjednotit velikost místnosti
+  - [x] `ui-dev` – ghost z `placement` (modré/šrafované dlaždice s důvodem z modelu), studená/teplá ulička, šipky čela,
+    3 výšky racků, otočení R, OOB switch na zdi, velikost místnosti z enginu
   - [x] `doc-researcher` – `50-vsan` (37 zdrojů): fault domain = rack; multi-rack min. 3 racky (REQD), doporučeno 4;
     FTT=n → 2n+1 FD; ESA RAID minima, Auto-RAID 9.1 (RAID-6 default); FD ručně ve vCenter, vypnout auto-policy,
     bez Reserved Capacity; L2 vs L3 (per-rack VLAN/subnet/TEP pool/uplink profile/sub-TNP); výpadek racku
@@ -128,7 +129,9 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
     design vs. fyzika (`RACK_CLUSTER_MODEL_MISMATCH`), `simulateRackFailure`; 29 kódů, 46 testů
     - otevřené: OQ1 (FD v mgmt default clusteru „Non Supported“ vs L2 podporováno), rezerva na výpadek racku
       nedokumentovaná, hosty WLD clusteru zatím mimo HardwareContext, UI pro FD/policy (vSphere Client v PC)
-  - [ ] `ui-dev` – náhled umístění racku s důvody, 3 velikosti v obchodě a scéně + nové téma (GRAPHICS.md T0–T11)
+  - [x] `ui-dev` – nové téma (GRAPHICS.md T0–T11): navy HUD, brand červená jen CTA, enterprise panely, téma console
+    v PC, vlastní SVG ikony místo emoji, okno „O hře“ s disclaimerem
+    - neověřeno: kontrast přes devtools, grayscale test
 - [x] `ux-designer` – téma inspirované Broadcom/VCF (GRAPHICS.md T0–T11): brand červená jen pro CTA, navy/grafit,
   enterprise panely, téma `console` pro PC, AA kontrasty, úprava barev Management/NFS kvůli barvosleposti,
   tmavší vendor štítky, vlastní SVG ikony; checklist 15 bodů pro ui-dev
