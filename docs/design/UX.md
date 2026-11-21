@@ -1,6 +1,6 @@
 # UX návrh – VCF Game (Sandbox v2 → v3)
 
-Stav: návrh 2026-11-21 (ux-designer), **Část III – Sandbox v3 (2026-11-22, kap. 16–27) má přednost**; doplněna **Část II – interakce v serverovně** (kap. 7–15: tracker, rack, tabule,
+Stav: návrh 2026-11-21 (ux-designer), **Část IV – Provoz v3 (2026-11-22, kap. 28) má přednost před kap. 12, 9.4 a 19.6**; **Část III – Sandbox v3 (2026-11-22, kap. 16–27) má přednost**; doplněna **Část II – interakce v serverovně** (kap. 7–15: tracker, rack, tabule,
 počítač, provoz v2, backlog v3, BMC mimo VCF scope + ESX management). Implementují `ui-dev` (render/UI) a `engine-dev` (příkazy, validace, snapshot).
 Navazuje na `CLAUDE.md` (herní režimy, tok Sandboxu) a `docs/design/GRAPHICS.md` (útulná kreslená izometrie,
 rozložení obrazovky).
@@ -2045,3 +2045,350 @@ zapoj do ToR“ s bublinami a checklistem.
 3. **ToR model** předinstalovaný: návrh `sw-generic-48x25g` (zvládne 10 i 25 GbE NIC sestav). 100G sestavy (LRG)
    by potřebovaly 100G ToR – v Sandboxu v3 nabídnout volbu ToR při stavbě racku (1 dropdown), nebo LRG sestavy
    označit „potřebuje 100G ToR“?
+
+---
+
+# Část IV – Provoz v3 (2026-11-22)
+
+## 28. Provoz v3 – intuitivní a zábavná vizualizace
+
+Stav: návrh ux-designer 2026-11-22 podle zpětné vazby uživatele: *„Kabely a celé zobrazení komunikace se mi moc
+nelíbí. Mělo by to být intuitivnější a zábavnější a vizuálně by mělo být vidět, kolik toho teče.“*
+**Kap. 28 má přednost** před kap. 12 (Provoz v2), 9.4 (vzhled kabelů v racku) a 19.6 (BMC provoz) všude, kde se liší.
+Pravidla faktů platí beze změny: **co teče a odkud kam** je jen ze specu (toky `25 §7`, `20 §7`, `10 §7`,
+model `computeTrafficFlows`), **kolik teče** je `ilustrativní model` (herní hodnoty `ILLUSTRATIVE_LOAD_GBPS`
+v `model/physical.ts`), a UI to tak vždy označí.
+
+Screenshoty 1366×768 (scratchpad `/tmp/claude-1000/-workspaces-vcf-game/79a2ed2c-cd7f-4ffa-b10c-8ab22e1fbc99/scratchpad/`):
+`ux8-1-demo-room.png` (ukázka, 2 racky), `ux8-2-demo-room-zoom.png`, `ux8-6-demo-hover-bundle.png`,
+`ux8-3-scenario-room.png` + `ux8-4-scenario-zoom.png` (Hotový scénář HA Small, 1 rack, vSAN + management),
+`ux8-12-career-racked.png` + `ux8-13-career-racked-zoom.png` (Kariéra L1, 4 servery zaracované, jen BMC),
+`ux8-7-rack.png` / `ux8-8-rack-later.png` (pohled racku, ukázka), `ux8-14-career-rack.png`, `ux8-16-career-host-net.png`
+(rack + panel serveru), `ux8-17-host-detail.png` (detail hosta bez ESX).
+
+### 28.1 Diagnóza – co dnes mate nebo je ošklivé
+
+| # | Kde | Co hráč vidí | Proč to nefunguje | Screenshot |
+|---|---|---|---|---|
+| D1 | všude | Management tok (DHCP, NTP, DNS, Host Client, vCenter) **skoro nikdy nevidí**. | Emise teček je **lineární v Gb/s** (`packetsPerGbps` 0,9 v místnosti / 1,2 v racku). Herní objemy jsou 0,001–0,05 Gb/s → 1 tečka za 20–1000 s. Pravidlo „každý tok min. 1 tečka / 2 s“ (12.6) není implementované. Zároveň vSAN 4 Gb/s = tečky každých ~0,3 s. Rozsah 4 řády se nedá ukázat lineárně. | `ux8-4`, `ux8-12` |
+| D2 | místnost | **Není vidět, kolik teče.** Tloušťka svazku = **počet kabelů** (`bundleWidth`), ne objem. Tlustý svazek s nečinnými kabely vypadá „víc“ než tenký s vSAN. | Jediný nosič objemu je hustota teček – drobných (6 px × 0,62) a na světlé podlaze málo výrazných. | `ux8-1`, `ux8-6` |
+| D3 | místnost | Provoz uvnitř **jednoho racku** (typický malý design: 4 hosty + ToR) je sloupeček teček na hraně skříně. | Trasa port → hrana → hrana → port vede po stejné svislé „stoupačce“ → všechny toky se slijí do 1 čáry 1 px. Hráč nevidí, mezi kým to teče. | `ux8-4` |
+| D4 | místnost | Nejvýraznější „kabel“ ve scéně je **žlutý uplink do Síť firmy**, přitom nese nejmíň. | Žlutá `#ffc94d` je skoro stejná jako barva varování „nad 80 %“ `#f2c94c` → hráč čte „něco je přetížené“. | `ux8-3`, `ux8-12` |
+| D5 | místnost | Servery v racku nejsou z místnosti vidět (tmavé sklo), žádné LED, žádný život. | Rack je černá krabice; jediná zpětná vazba „něco běží“ jsou tečky na hraně. | `ux8-12` |
+| D6 | místnost | Legenda se při prvním provozu **sama rozbalí** na 360×340 px a zakryje třetinu scény; čip „Provoz“ se zalamuje na 2 řádky. | Jednorázové rozbalení (3.3) je u legendy příliš velké; čip vypisuje plné názvy všech typů. | `ux8-1`, `ux8-3` |
+| D7 | místnost | BMC: legenda říká „přenos ISO, šedá čárkovaná“, ale BMC teče **pořád** od zaracování (19.6). V místnosti je to čárkovaná animace, v racku šedé čtverečky – dvě různé řeči pro totéž. | `bmcTransfersOf` = kabely s `oob > 0` → kreslí se jako „ISO přenos“. Čtverečky v racku (světle šedé na šedém kabelu) vypadají jako spojky kabelu, ne jako provoz. | `ux8-12`, `ux8-14` |
+| D8 | rack | V ukázce **žádný provoz** přes zaškrtnuté „provoz“. | Pohled racku bere `linkTrafficOf(state)`, ukázka má jen ilustrativní zdroj místnosti. Navíc D1. | `ux8-8` |
+| D9 | rack | 48 bílých „pilulek“ portů ToR je nejjasnější plocha obrazu; zapojené porty se ztrácí. Všechny kabely mají stejný fialovošedý plášť, BMC kabel vypadá stejně jako datový. | Barva neodlišuje význam (BMC / data / uplink), volné porty nejsou potlačené. | `ux8-7`, `ux8-14` |
+| D10 | rack | Kabely z různých serverů jdou do kanálu v pořadí podle id, ne podle polohy → křížení a „špagety“ u ToR; žádný dojem cable managementu (vázání, hřeben). | `rackRoute` přiřazuje lanes podle id kabelu. | `ux8-7` |
+| D11 | detail hosta | Bez ESX je obrazovka prázdná šedá plocha se 3 řádky textu. S ESX: tečky v kartách jsou CSS „poskakující glyfy“, objem jen jako % pruh (u managementu „< 1 %“). | Chybí jednotný jazyk „šířka = objem“, chybí čísla Gb/s a historie (sparkline). | `ux8-17` |
+| D12 | rack (vedlejší) | Sbalený checklist v pohledu racku překrývá tlačítko „← Místnost“ a název racku. | Zóna checklistu nepočítá s lištou racku (22.1). | `ux8-14`, `ux8-16` |
+| D13 | celkově | Provoz je „pasivní“: žádný okamžik radosti (link naběhl, první paket, host se ozval), žádné drama (zácpa, zahazování) – i když model `deriveLinkTraffic` frontu a dropy umí. | Chybí mikroanimace a čitelná vizualizace přetížení. | – |
+
+**Shrnutí:** dnešní vizualizace je správná (jen toky ze specu, tvar + barva), ale **nekomunikuje objem**,
+**schovává malé toky**, **slévá toky uvnitř racku** a **nemá emoce**. Fyzický kabel, svazek a provoz se kreslí
+skoro stejně (tenké čáry s obrysem), takže hráč nerozliší „tady je drát“ od „tady teče hodně dat“.
+
+### 28.2 Principy v3
+1. **Drát ≠ provoz.** Fyzický kabel / svazek je klidný, neutrální a tenký. **Provoz má vlastní vrstvu**: světlý
+   „proud“ (stuha) po trase, jehož **šířka = objem**. Tečky jedou uvnitř proudu.
+2. **Kolik teče, je vidět bez čtení.** Tři nosiče najednou: šířka proudu, hustota a velikost teček, rychlost
+   blikání LED. Pro přesnost číslo `≈ 4 Gb/s` (u nejvytíženějších vždy, jinak hover).
+3. **Každý tok je vidět.** I 1 Mb/s má min. 0,4 tečky/s a proud 1,7 px. Malé toky jsou „pramínky“, ne neviditelné.
+4. **Klid ve výchozím pohledu, plná data na požádání.** Místnost = „živá serverovna“. Klávesa `N` =
+   **síťový pohled** (místnost ztmavne, toky jako barevné pruhy s čísly).
+5. **Odměna a drama.** Link up = cvak + záblesk LED + „ping“. Přetížení = zácpa teček, červený puls, padající pakety.
+6. **Levné.** Žádné filtry; proudy = 1 `Graphics` na svazek překreslený jen při změně stupně; tečky = 1
+   `ParticleContainer`; LED = sdílená textura + tint; čísla = pool max. 8 `BitmapText`.
+
+### 28.3 Koncepty (varianty) a doporučení
+
+**A – „Potrubí“ (proud na svazku, vždy zapnutý).** Na každém svazku / kabelu se nad neutrální drát kreslí
+poloprůhledná stuha. Šířka = objem (28.4), barva = převládající typ (≥ 60 % objemu), jinak neutrální bílá.
+Tečky jedou uvnitř. U stoupaček racků totéž. *Plus:* objem vidět vždy, levné. *Minus:* víc typů na jednom
+svazku → jen „převládající“ barva; v jednom racku pořád jen 1 stoupačka.
+
+**B – „Síťový pohled“ (lens, přepínač `N`).** Místnost se ztlumí tmavou plochou (alpha 0,8), racky zůstanou jako
+siluety s obrysem, servery jako malé dlaždice s názvem. Toky se kreslí jako **barevné pruhy podle typu vedle sebe**
+(jako linky metra): každý typ vlastní pruh s pevným pořadím, šířka = objem, šipky (chevrony) ukazují směr u
+jednosměrných toků. **Uvnitř racku se rack „rozevře“**: hosty jako svislý sloupec dlaždic vedle racku a toky
+mezi nimi jako oblouky (host ↔ ToR ↔ host), takže je vidět, kdo s kým mluví. Čísla `≈ Gb/s` u všech pruhů ≥
+0,1 Gb/s. Klik na pruh = karta toku (odkud → kam, typ, protokol ze specu, `≈ Gb/s`, sparkline, Zdroj).
+*Plus:* nejsrozumitelnější, řeší D2, D3. *Minus:* další režim, který se musí objevit.
+
+**C – „Jen lepší tečky“.** Zachovat dnešní řeč, opravit kalibraci (log emise, min. rychlost, větší tečky podle
+objemu), LED a čísla. *Plus:* nejméně práce. *Minus:* neřeší „kolik teče“ (D2) ani rack (D3), nedává „wow“.
+
+**Doporučení: A + B (C je jejich součást).** Výchozí místnost = **A** (živá, klidná, objem vidět), detail a
+porozumění = **B** (`N` / tlačítko „Síťový pohled“ v čipu legendy). Kalibrace z C platí ve všech pohledech.
+Pořadí implementace: nejdřív kalibrace + proud (A) – největší efekt za nejmenší cenu – pak B.
+
+### 28.4 Přesná vizuální pravidla – objem (Gb/s) → vizuál
+
+Vstup: `g` = ilustrativní objem v Gb/s (na kabel × typ, nebo součet na svazek), `cap` = kapacita linky
+(`speedGbE`), `u = min(g, cap) / cap`, `q` = naplnění fronty 0..1 (`queueDepth / maxQueueDepth` z
+`deriveLinkTraffic`). Pomocná log úroveň `t = clamp(log10(g · 1000) / 5, 0, 1)` (1 Mb/s → 0, 100 Gb/s → 1).
+
+| Veličina | Vzorec | Pozn. |
+|---|---|---|
+| **Šířka proudu** (místnost, world px při scale 1) | `w = 1,5 + 8,5 · (g / 100)^0,35` | mocninná škála: malé toky tenké, ale 4 vs. 8 Gb/s jde odlišit. Kvantovat na 0,5 px (překreslit jen při změně). Rack: `× 0,7`, lens: `× 1,2` |
+| **Emise teček** (na kabel × typ) | `r = 0,4 + 2,6 · t` teček / s (herní 1×) | **min. 0,4 / s** = každý tok vidět. Rozpočet: místnost 250, rack 200; při přečerpání se škáluje dolů všem, ale ne pod 0,25 / s |
+| **Velikost tečky** | `scale = 0,55 + 0,35 · t` | velké toky = větší „kapky“ |
+| **Rychlost tečky** | `v = 70 px/s · (1 − 0,6 · q)` místnost, `110 px/s` rack | rychlost **nezávisí** na objemu (čitelnost), zpomaluje jen **zácpa**. Zrychlení času dál `√speed` (dnešní pravidlo) |
+| **LED aktivity portu** | blikání `f = 0,5 + 3,5 · t` Hz (max. 4 Hz) | zelená = link, jantarová bliká = provoz. Reduced motion: svítí trvale |
+| **Číslo** | `≈ 840 Mb/s`, `≈ 4,2 Gb/s`; pod 1 Mb/s `≈ < 1 Mb/s` | `≈` = ilustrativní (legenda). Desetinná čárka (cs) |
+
+Referenční hodnoty (herní objemy dnešního modelu, `ILLUSTRATIVE_LOAD_GBPS`):
+
+| Tok (příklad) | ≈ Gb/s | šířka px | teček/s | velikost |
+|---|---|---|---|---|
+| DHCP, NTP | 0,001 | 1,7 | 0,4 | 0,55 |
+| heartbeat, ping | 0,005 | 1,8 | 0,8 | 0,60 |
+| BMC (herní) | 0,01 | – (viz 28.7) | 0,33 fix | 0,55 |
+| Host Client | 0,02 | 1,9 | 1,1 | 0,64 |
+| vCenter ↔ host | 0,05 | 2,1 | 1,3 | 0,67 |
+| vmkping (validace) | 0,2 | 2,5 | 1,6 | 0,71 |
+| NSX overlay | 2 | 3,7 | 2,1 | 0,78 |
+| vSAN | 4 | 4,3 | 2,3 | 0,80 |
+| vMotion | 8 | 5,0 | 2,4 | 0,82 |
+| plná 25G linka | 25 | 6,7 | 2,7 | 0,86 |
+| plná 100G linka | 100 | 10 | 3,0 | 0,90 |
+
+**Vytížení (u) – „jak plná je trubka“** (oddělené od objemu, ne jen barvou):
+| Pásmo | Proud | Tečky | Navíc |
+|---|---|---|---|
+| normální (≤ 80 %) | barva typu / neutrální, alpha 0,45, obrys OUTLINE 1 px | plynulé | – |
+| varování (> 80 %) | lem proudu jantarový `#f2c94c` 1,5 px + **pohyblivá diagonální šrafa** přes proud (posun textury, 4 px / 120 ms) | začínají se **hromadit před úzkým místem** (`q > 0`) | ikona `⚠` u čísla |
+| kritické (> 95 %) | lem červený `#e5484d` (lens `#ff7a85`, rack `#ff5a6a`), **puls** alpha 0,5 ↔ 1 s periodou 1 s | zácpa + **padající pakety** (dnešní pád, tvar ✕ místo kroužku) | ikona `⛔` + číslo „zahazuje ≈ N/s“, krátký zvuk „bzz“ (volitelně) |
+Puls ≤ 1 Hz, žádné blikání velkých ploch (fotosenzitivita). Pásma jsou dnešní `loadStyle.ts` (80 / 95 %, GRAPHICS).
+
+**Směr:** obousměrné toky (většina, `bidirectional` v modelu) = tečky oběma směry, proud bez šipek.
+Jednosměrné (NTP, heartbeat) = chevrony `›` v proudu každých 24 px (lens) / tečky jen jedním směrem (místnost).
+
+### 28.5 Typy provozu – barvy, tvary, pořadí
+- **Barvy a tvary beze změny** (GRAPHICS T5: ověřené pro deuteranopii; ◆ Management, ▲ vMotion, ■ vSAN,
+  ● NFS, ⬟ overlay, ○ VM). Tečka má dál tmavý obrys (světlá podlaha).
+- **Pevné pořadí pruhů** v lens a ve stuze s víc typy (shora / zleva): Management → vMotion → vSAN → NFS →
+  overlay → VM. Hráč si zvykne „vSAN je vždycky třetí“.
+- **Proud ve výchozím pohledu (A)**: barva převládajícího typu (≥ 60 % objemu svazku) v alpha 0,45 + obrys;
+  jinak neutrální `#f6f8fa` (CABLE.body) – tečky uvnitř pak nesou typy.
+- **Lens (B)**: pozadí ztmavené `#0f1b2d` alpha 0,8 → efektivní pozadí ≈ `#3c4655`; všechny typy mají ≥ 3 : 1
+  (Management 4,65, vMotion 4,50, vSAN 4,31, NFS 3,18, overlay 3,05, VM 8,11, BMC šedá 3,02) – splňuje
+  WCAG 1.4.11 i bez obrysu; obrys `#0f1b2d` 1 px se kreslí dál (oddělení sousedních pruhů).
+- **Síť firmy (uplink)** už **ne žlutá** (kolize s „nad 80 %“, D4): neutrální kabel jako ostatní + na stěnovém
+  panelu ikona budovy a v lens šedomodrý pruh s popiskem „Síť firmy · herní“. Žlutá zůstává jen varování.
+
+### 28.6 Co je vidět na které úrovni
+
+| Úroveň | Drát | Proud | Tečky | Čísla | LED | Ostatní |
+|---|---|---|---|---|---|---|
+| **Místnost – oddáleno** (scale < 0,6) | jen svazky mezi racky, 1 px | ano, agregace **rack ↔ rack / Síť firmy**, 1 stuha na svazek | ne (jen posun šrafy / „pomlček“ ve stuze, levné) | jen **top 1** svazek | ne | odznak racku `≈ 8 Gb/s` nad střechou u racků s vnitřním provozem |
+| **Místnost – normál** (0,6–1,2) | svazky + stoupačky | ano, svazek + **stoupačka racku** (vnitřní provoz racku = šířka stoupačky) | ano, agregace zařízení ↔ zařízení | **top 3** svazky v záběru, ostatní hover | řada LED na čele racku: 1 LED na server (link / blikání podle objemu hosta) | hover svazek = rozvinutí kabelů + karta (28.9) |
+| **Místnost – přiblíženo** (≥ 1,2) | + rozvinutí na kabely při hoveru | per kabel při hoveru | ano | top 3 + hover | LED na serverech výraznější (2 px) | – |
+| **Síťový pohled `N`** | ztlumené (jen siluety) | pruhy podle typu (B), rack „rozevřený“ | ano, uvnitř pruhů | všechny pruhy ≥ 0,1 Gb/s, menší na hover | – | panel „Toky“ (DOM seznam, 28.11) |
+| **Rack** | každý kabel (28.8) | tenká stuha na kabelu `w × 0,7` | ano, konkrétní kabel vmnic → port | u ToR skupin portů a na hover kabelu | **na každém portu** (link + aktivita) | hover port = celá trasa + karta |
+| **Host** (detail sítě) | – | „trubka“ v kartě vmnic (DOM) stejná škála | CSS tečky (zachovat, ale velikost podle t) | `≈ Gb/s` + % + sparkline | stav linku | 28.10 |
+
+**Vnitřní provoz racku (D3):** v místnosti se zobrazí jako **šířka stoupačky** na hraně racku + **odznak** nad
+rackem `⇅ ≈ 8 Gb/s uvnitř` (jen když > 0,1 Gb/s) + blikající LED serverů. Kdo s kým mluví, ukáže lens nebo rack.
+
+### 28.7 BMC (mimo VCF scope – herní) – jednotně
+- BMC nenese VCF provoz (`25 §10`), proto **nikdy proud, nikdy šířka podle objemu, nikdy číslo Gb/s**.
+- Vzhled ve všech pohledech stejný: **tenký čárkovaný šedý drát** `#8592a3` (místnost 1 px, rack 1,5 px) +
+  **malé šedé čtverečky ▫** 1 za 3 s, s tmavým obrysem (v racku větší než dnes: 6 px, ať nevypadají jako spojky).
+  Cíl: OOB switch na stěně (místnost) / „↑ OOB switch místnosti“ (rack).
+- **Vzdálená instalace ESX (přenos ISO)**: po BMC kabelu 1 čtvereček za 0,5 s + štítek `✚ ISO 42 %` u serveru.
+  Jen během instalace.
+- Legenda: skupina **„Mimo VCF (herní)“ → „▫ BMC – vzdálená správa serveru“** (opravit dnešní „přenos ISO“).
+  V lens je BMC **skryté** (přepínač „Ukázat mimo-VCF“ v panelu Toky, výchozí vyp.).
+- Čip legendy ukazuje BMC jen jako malý šedý ▫ bez textu, když běží i VCF provoz (šetří místo).
+
+### 28.8 Pohled racku – úhledná kabeláž (cable management)
+Cíl: vypadá to jako pěkně zapojený rack z fotky – kabely svázané, rovnoběžné, bez křížení. Barva jen pro význam.
+
+```
+          ↑ stropní žlab            ↑ síť firmy (herní)       ↑ OOB switch (herní)
+  ┌ r01 · 42U ──────────────────────────────────────────────┐ ║║║║ ┆┆┆┆
+42│ ToR-A  [1][2][3][4]·  ·  ·  ·  ·  · (volné tlumené) [U] │═╝║║║ ┆┆┆┆
+  │          ╰┴┴┴── hřeben: každý kabel kolmo do svého portu │  ║║║ ┆┆┆┆   ║ data (neutrální)
+41│ ╌╌ + druhý ToR (doporučeno) ╌╌                         │  ║║║ ┆┆┆┆   ┆ BMC (šedá čárkovaná)
+  │ ╱╱╱╱╱╱╱  36 U volné  ╱╱╱╱╱╱╱╱                           │ ═╪╪╪═ ← páska (velcro) každých 6 U
+ 4│▌esx04  ●  [n1]╍[n2]  [+]  ▫ │◖ odbočka v pořadí serveru  │  ║║║ ┆┆┆┆
+ 3│▌esx03  ●  [n1]╍[n2]  [+]  ▫ │                            │  ║║  ┆┆┆
+ 2│▌esx02  ●  [n1]╍[n2]  [+]  ▫ │                            │  ║   ┆┆
+ 1│▌esx01  ●  [n1]╍[n2]  [+]  ▫ │                            │      ┆
+  └──────────────────────────────────────────────────────────┘ kanál
+```
+- **Pořadí bez křížení**: lanes v kanálu se přidělují podle **polohy (U) zdrojového portu**, ne podle id
+  (nejvyšší server nejblíž k racku), skupiny shora dolů: data → uplink → BMC. Horizontální odbočka každého serveru
+  vede těsně pod řadou portů do kanálu (lane 2,5 px místo 3, poloměr ohybu 4 px všude stejný).
+- **Hřeben u ToR**: svazek vyjde z kanálu nahoru a kabely se rozvětví do portů v pořadí; každý kabel do portu
+  kolmo shora. „Zapojit doporučeně“ volí port ToR = pořadí serveru (esx01 → p1 …), takže hřeben je rovný.
+- **Pásky**: přes svazek v kanálu každých 6 U malý tmavý obdélník 3 px (velcro) – čistě dekorativní, v jedné
+  statické textuře (cache) spolu s kanálem.
+- **Barvy kabelů (jen význam)**:
+  | Kabel | Plášť | Šířka | Pozn. |
+  |---|---|---|---|
+  | data (NIC ↔ ToR) | světle šedý `#b4bfcd` + OUTLINE | 2,2 px | 6,9 : 1 na čele racku `#24324a` |
+  | uplink do Síť firmy | stejný plášť + štítek `↑ síť firmy (herní)` | 2,2 px | už ne žlutá (28.5) |
+  | BMC | šedý `#8592a3` čárkovaný 4/3 | 1,5 px | 4,1 : 1; ▫ provoz (28.7) |
+  | vybraný / hover | lem `#1d63c8` (výběr) | +2 px | ostatní 40 % |
+  | chyba (nekompatibilní, link down) | `#ff5a6a` čárkovaný + `⛔` u portu | 2,2 px | tvar + ikona, ne jen barva |
+  | kosmetická barva hráče | jen když ji hráč nastaví (9.4) | 2,2 px | kosmetickou **žlutou** z palety 9.4 vyřadit (zbývá černá, bílá, růžová, hnědá) – kolize s varováním vytížení; otázka pro orchestrátora |
+- **Porty**: volné porty ToR ztlumit (alpha 0,45, bez bílé výplně), zapojené plné + LED. Číslo portu nad
+  hřebenem při zoomu ≥ 1 nebo hoveru. Uplink port rámeček `[U]` neutrální navy + ikona budovy (ne žlutá).
+- **Provoz v racku**: stuha na kabelu (`w × 0,7`, barva typu s nejvyšším objemem, alpha 0,5), tečky konkrétního
+  kabelu, **LED portu** (na serveru i ToR) bliká podle `t`. U ToR nad skupinou zapojených portů číslo
+  `≈ 8,4 Gb/s` (součet), u hoveru kabelu karta (28.9).
+- **Ukázka (`/ukazka`)**: pohled racku musí brát stejný ilustrativní zdroj jako místnost (D8).
+
+### 28.9 Karta toku / linky (hover, klik, fokus)
+```
+┌ esx02 vmnic1 → ToR-A p2 · 25 GbE ───────────── ⚠ 84 % ┐
+│ ■ vSAN        ≈ 18,0 Gb/s  ▁▂▃▅▆▇▇█  (60 s)           │
+│ ◆ Management  ≈ 0,05 Gb/s ▁▁▁▁▁▁▁▁                    │
+│ fronta: roste · zahazuje: 0                            │
+│ Toky: vSAN host ↔ host (10 §7 #3) · Zdroj ▾            │
+│ ≈ = ilustrativní model (objemy jsou herní hodnoty)     │
+└────────────────────────────────────────────────────────┘
+```
+- DOM popover (22.2 `placePopover`), otevře se hoverem po 250 ms, klikem zůstane. Klávesnice: v lens a v racku
+  `Tab` přes linky (DOM vrstva cílů 9.7), `Enter` = připnout.
+- Sparkline: posledních 60 s **herního** času, 30 vzorků (1 / 2 s), SVG `polyline` 80×16 px, aktualizace 1 Hz.
+  Barva čáry = barva typu na bílém panelu → kontrast nízký, proto čára 1,5 px `--text-muted` + tvar typu na
+  začátku řádku (tvar nese typ, sparkline jen průběh).
+- Toky se jmenují čitelným názvem a odkazem přes Zdroj popover (kap. 21), ne `[P18]`.
+
+### 28.10 Detail hosta – síť (doplněk 12.4)
+- Karta vmnic: místo pruhu % **„trubka“** 100 % šířky karty: obrys = kapacita linky, uvnitř barevné segmenty
+  podle typů, **šířka segmentu ∝ podíl na kapacitě, ale min. 4 px** pro každý aktivní typ (malé toky vidět).
+  Pod ní `≈ 4,05 Gb/s z 25 GbE · 16 %` a sparkline 60 s.
+- CSS tečky zachovat (levné), velikost podle `t`, rychlost konstantní; při `q > 0` se tečky hromadí u pravého
+  okraje (CSS `animation-timing-function` s pomalým koncem).
+- **Prázdný stav bez ESX** (D11): ilustrace karty s šedou trubkou + text „Síť hosta vznikne instalací ESX.
+  Pak tu uvidíš VMkernel, vSwitch0 a provoz na každé síťovce.“ + tlačítko **Instalovat ESX (konzole)** a seznam NIC
+  s kabeláží. Vycentrovat, max. šířka 560 px.
+- „Tabulka“ přidá sloupce `≈ Gb/s` a `kapacita`.
+
+### 28.11 Síťový pohled (lens) – rozložení a ovládání
+```
+┌ HUD ─────────────────────────────────────────────────────────────────────────────── ┐
+│ ┌ Toky (5) ────────────── × ┐                                                      │
+│ │ ☑ ◆ Management   ≈ 0,1    │     ▓▓ rack r01 (rozevřený) ▓▓                         │
+│ │ ☑ ■ vSAN         ≈ 16     │      esx01 ─◆─────────┐                                 │
+│ │ ☐ ▫ Mimo VCF (herní)      │      esx02 ─■■■■■■────┤═══ ToR-A ══◆═══▶ Síť firmy     │
+│ │ seřadit: objem ▾          │      esx03 ─■■■■■■────┤  ≈ 16 Gb/s                     │
+│ │ esx01 ↔ esx02 ■ ≈ 4 Gb/s ▸│      esx04 ─■■■■■■────┘                                 │
+│ └───────────────────────────┘                                                      │
+│ [Provoz ◆■ · šířka = objem · ● Síťový pohled (N)]                  ≈ ilustrativní model │
+└───────────────────────────────────────────────────────────────────────────────────── ┘
+```
+- Zapnutí: klávesa `N`, tlačítko v čipu legendy, nebo v racku tlačítko „Síťový pohled“. Přechod 200 ms (alpha),
+  reduced motion = okamžitě. Kamera se nemění.
+- Panel **Toky** vlevo (místo checklistu, ten se dočasně sbalí do čipu): filtry typů (stejné jako dnešní filtr
+  legendy), seznam toků seřazený podle objemu (DOM, plnohodnotná cesta pro klávesnici a čtečku), klik =
+  zvýraznit tok ve scéně (ostatní 20 %).
+- Racky se v lens **rozevřou**: vedle siluety racku sloupec dlaždic hostů (28 × 14 px, název), ToR jako dlaždice
+  nahoře; toky host ↔ host přes ToR jako oblouky v pevném pořadí typů. Toky mezi racky po trase svazku (žlab).
+- `Esc` nebo `N` = zpět. Lens si pamatuje filtry v rámci session.
+- Tutoriál: při prvním VCF toku (vmk0 / DHCP) se místo rozbalené legendy (D6) ukáže **malá bublina u proudu**
+  (max. 240 px): „Tohle je provoz. Čím širší proud, tím víc dat teče. Klávesa N ukáže síťový pohled.“
+  Zavře se sama po 8 s nebo klikem; jednou za profil.
+
+### 28.12 Legenda v3 (čip + rozbalení)
+- **Čip** (jedna řádka, max. 420 px): `Provoz  ◆ ■ ▲ ▫ │ ▬ šířka = objem │ ◐ Síťový pohled (N) ▾`.
+  Aktivní typy jen jako **glyfy** (plné názvy v rozbalení / tooltipu). Nikdy se nezalamuje.
+- **Rozbalení** (max. 300 × 320 px, nad čipem, bez automatického otevření):
+  1. *Typ provozu* – tvar + barva + název; neaktivní 45 %; klik = filtr, hover = zvýraznit.
+  2. *Objem* – vzorník šířky: 5 proužků s popisky `1 Mb/s · 100 Mb/s · 1 Gb/s · 10 Gb/s · 100 Gb/s` (podle 28.4).
+  3. *Vytížení linky* – normální · `⚠` šrafa nad 80 % · `⛔` puls + padající ✕ nad 95 %.
+  4. *Mimo VCF (herní)* – ▫ BMC – vzdálená správa serveru.
+  5. Patička: `≈ = ilustrativní model` + „toky podle dokumentace → Zdroj u každého toku“.
+- Dnešní „svazek: tloušťka = počet kabelů“ se ruší (počet kabelů je odznak `×8`, 12.2).
+
+### 28.13 Mikroanimace a zvuk (levné, volitelné)
+| Událost | Animace | Zvuk (⚙, výchozí vyp.) |
+|---|---|---|
+| Kabel zapojen, link naběhl | LED portu 2× záblesk zelená (2 × 120 ms), drát se „vykreslí“ od portu k portu (délka 0 → 100 % za 300 ms) | „cvak“ |
+| **První paket na nové lince** („ping“) | jedna větší tečka (scale 1,2) jede po trase rychlostí 2×, v cíli **kroužek** (sprite, scale 0,5 → 1,6, alpha 1 → 0, 400 ms) | krátké „pink“ |
+| Nový tok začne | proud „naroste“ od zdroje k cíli (600 ms), pak tečky | – |
+| Tok skončí | proud se ztenčí a zmizí (300 ms) | – |
+| Host poprvé online (vmk0 má IP) | LED serveru v místnosti zeleně „nadechne“ (alpha 0,6 → 1, 2×) + toast | „úspěch“ (krátký) |
+| Zácpa (> 80 %) | tečky se seřadí před úzkým místem, šrafa se pohybuje | – |
+| Kritické (> 95 %) | puls 1 Hz, padající ✕ | „bzz“ max. 1× za 10 s |
+| Problém vyřešen (z ⛔ na normál) | proud jednou „blikne“ zeleným lemem (300 ms) | „úspěch“ |
+Vše jen transform / alpha / délka cesty; max. 4 současné kroužky (pool). Reduced motion: žádné kroužky, bez
+růstu proudu, LED svítí trvale, tečky stojí (statické značky hustoty, 3.4).
+
+### 28.14 Výkon (Chromebook, 60 FPS)
+- **Proudy**: 1 `Graphics` na svazek / stoupačku / kabel v racku; překreslení jen když se změní kvantovaná šířka
+  (0,5 px), pásmo vytížení nebo hover. Šrafa a „pomlčky“ ve stuze = `TilingSprite` s posunem `tilePosition`
+  (žádné překreslení geometrie).
+- **Tečky**: 1 `ParticleContainer` (dnešní atlas, + tvar ✕ pro drop a ▫ pro BMC → atlas 9 buněk). Rozpočet
+  místnost 250, rack 200. Culling mimo viewport.
+- **LED**: 1 `ParticleContainer` s LED sprity (tint + alpha), blikání ze sdíleného času (žádné časovače na LED).
+- **Čísla**: pool max. 8 `BitmapText` (předgenerovaný font s číslicemi, `≈`, `,`, `Gb/s`, `Mb/s`), aktualizace 2 Hz.
+- **Lens**: 1 plná plocha `#0f1b2d` alpha 0,8 nad statickým spritem místnosti (bez filtru), siluety racků =
+  obrys z dnešní highlight geometrie; pruhy jako proudy výše.
+- **Sparklines**: ring buffer 30 × Float32 na linku (jen pro linky v kartě / Tocích), SVG update 1 Hz.
+- **Úsporný režim** (12.6 platí): FPS < 50 po 2 s nebo > 32 hostů → bez teček, proudy + posun šrafy zůstanou.
+- Měření: 16 hostů, 2 racky, 40 toků, lens zap/vyp → 60 FPS (debug overlay).
+
+### 28.15 Přístupnost
+- Objem nikdy jen šířkou: vždy i číslo (karta, Toky, top 3), typ tvarem, vytížení ikonou `⚠`/`⛔` + šrafou / pulsem.
+- `N`, `L` klávesy; panel Toky = DOM seznam s `aria-live="polite"` jen pro změny pásma vytížení
+  („esx02 vmnic1: přetížení 97 %“).
+- Kontrast ověřený (28.5, 28.8). Fokus ring na DOM cílech linek (9.7).
+- Reduced motion viz 28.13.
+
+### 28.16 Implementační backlog – `ui-dev` (pořadí = priorita, malé kroky)
+| # | Úkol | Vel. | Řeší |
+|---|---|---|---|
+| P1 | `render/traffic/flowScale.ts` (čisté funkce + testy): `levelT(g)`, `flowWidth(g)`, `emitRate(g)`, `dotScale(g)`, `ledHz(g)`, `formatGbps(g)` (cs, `≈`) podle 28.4 | S | základ |
+| P2 | `PacketSim`: emise po typech `r = emitRate(g)` místo lineární, min. 0,4 / s, globální rozpočet se spodní mezí 0,25 / s, `dotScale` na částici, rychlost `× (1 − 0,6 q)` | S | D1 |
+| P3 | Místnost: vrstva **proudů** – stuha na svazku, stoupačce a uplinku (šířka podle součtu, barva převládajícího typu, alpha 0,45, OUTLINE), kvantovaná, redraw jen při změně; `bundleWidth` jen pro drát (max. 3 px) | M | D2, D3 |
+| P4 | Uplink Síť firmy: neutrální plášť místo žluté (místnost i rack) + ikona budovy na panelu | S | D4 |
+| P5 | Čísla `≈ Gb/s`: top 3 svazky v záběru (místnost), součet u ToR (rack), pool `BitmapText` | S | D2 |
+| P6 | Legenda v3: čip na 1 řádek s glyfy, rozbalení podle 28.12 (vzorník šířky), zrušit automatické rozbalení → bublina 28.11 | S | D6 |
+| P7 | BMC jednotně (28.7): čárkovaný šedý drát + ▫ 1 / 3 s v místnosti i racku; ISO přenos 1 / 0,5 s + štítek; oprava textu legendy | S | D7 |
+| P8 | Pohled racku: barvy kabelů podle 28.8, ztlumené volné porty ToR, uplink port bez žluté | S | D9 |
+| P9 | `rackRoute`: lanes podle U zdroje a skupin (data → uplink → BMC), hřeben u ToR, pásky každých 6 U (statická textura) | M | D10 |
+| P10 | Rack: stuha na kabelu + LED portů blikající podle `ledHz` (ParticleContainer); ukázka bere ilustrativní zdroj | M | D8 |
+| P11 | Místnost: LED serverů na čele racku (1 na server) + odznak `⇅ ≈ N Gb/s uvnitř` nad rackem | S | D3, D5 |
+| P12 | Přetížení: šrafa `TilingSprite` (> 80 %), puls (> 95 %), hromadění teček (`q`), drop tvar ✕ (atlas) | M | D13 |
+| P13 | Karta linky / toku (28.9) s ring-buffer sparklines (render-side, herní čas) | M | D2 |
+| P14 | Mikroanimace (28.13): link up záblesk + růst drátu, první „ping“ s kroužkem, růst / zánik proudu; zvuky za ⚙ | M | D13 |
+| P15 | **Síťový pohled `N`** (28.11): ztmavení, siluety, pruhy podle typu v pevném pořadí, rozevřený rack, panel Toky (DOM), přepínač Mimo-VCF | L | D2, D3 |
+| P16 | Detail hosta: trubka v kartě vmnic, `≈ Gb/s` + sparkline, prázdný stav (28.10) | S | D11 |
+| P17 | Oprava zóny checklistu v pohledu racku (nepřekrývat „← Místnost“) | S | D12 |
+| P18 | Výkonový test 28.14 + úsporný režim napojit na proudy | S | – |
+Milník „Provoz v3 MVP“ = P1–P8 (kalibrace, proudy, čísla, legenda, BMC, barvy kabelů). Lens (P15) až po něm.
+
+### 28.17 Data od `engine-dev`
+| # | Potřeba | Proč | Pozn. |
+|---|---|---|---|
+| E-T1 | **Per-link, per-class objem s rozlišením směru** (`a→b`, `b→a`) v `LinkTraffic` | tečky / chevrony jednosměrných toků správným směrem | dnes `loadGbpsByClass` bez směru; `TrafficFlow.from/to` + `cableIds` to umožní dopočítat |
+| E-T2 | **Časová řada** není nutná v modelu – stačí, aby snapshot nesl `trafficRevision` (číslo změny toků) a herní čas | render si drží ring buffer (sparkline) a pozná začátek / konec toku (mikroanimace) bez diffování celé mapy | čistě technické |
+| E-T3 | **Aktivity s trváním** (`installer-validation`, `vmotion`, `dcui-test`, ISO přenos): `startedAt` + `durationMs` / `progress` (herní hodnoty) | růst a zánik proudu, štítek `ISO 42 %`, sparkline se „zvedne“ a „spadne“ | trvání = herní hodnota, UI označí `herní` |
+| E-T4 | Mapa **zařízení → rack** a **flow → endpoints** pro lens (rozevřený rack: host ↔ ToR ↔ host) | B koncept | dnes v `roomSync`, stačí export do `RoomState` |
+| E-T5 | `linkUp` změny jako událost (kabel zapojen + oba konce up) | „cvak“ a první ping | lze i diffem v UI; engine event je čistší |
+| E-T6 | Ukázka (`/ukazka`) přes stejný kontrakt (`LinkTraffic` mapa i pro rack) | D8 | nebo ui-dev předá demo zdroj do `rackPanel` |
+| E-T7 | (volitelně) „dýchání“ objemu ±10 % deterministickým šumem, označené `ilustrativní` | aby sparkline nebyla plochá čára | herní; lze i v renderu, ale ne v modelu VCF pravidel |
+Žádné nové toky ani objemy jako fakta: existence toků dál jen podle `25 §7`, `20 §7`, `10 §7`.
+
+### 28.18 Review tabulka (shrnutí)
+| Obrazovka | Problém / příležitost | Návrh | Priorita |
+|---|---|---|---|
+| Místnost | Management provoz prakticky neviditelný (lineární emise, D1) | log emise, min. 0,4 tečky/s (28.4, P2) | vysoká |
+| Místnost | Není vidět, kolik teče; svazek = počet kabelů (D2) | proud se šířkou podle objemu + `≈ Gb/s` u top 3 (P3, P5) | vysoká |
+| Místnost | Provoz uvnitř 1 racku = 1 čára na hraně (D3) | šířka stoupačky + odznak `⇅` + LED; lens rozevře rack (P11, P15) | vysoká |
+| Místnost / rack | Žlutý uplink vypadá jako varování (D4) | neutrální + ikona budovy (P4) | vysoká |
+| Místnost | Legenda se sama rozbalí přes 1/3 scény, čip na 2 řádky (D6) | čip 1 řádek, bublina místo rozbalení (P6) | vysoká |
+| Místnost / rack | BMC dvěma různými jazyky, text „přenos ISO“ je chybný (D7) | jednotné ▫ + čárkovaný šedý drát (P7) | střední |
+| Rack | Volné porty ToR dominují, kabely bez významu barvy (D9) | ztlumit volné porty, barvy podle 28.8 (P8) | střední |
+| Rack | Kabely bez cable managementu, křížení (D10) | lanes podle U, hřeben, pásky (P9) | střední |
+| Rack (ukázka) | Žádný provoz přes zapnutý přepínač (D8) | stejný zdroj jako místnost (P10, E-T6) | střední |
+| Místnost | Racky bez života (D5) | LED serverů (P11) | střední |
+| Všude | Žádné emoce: link up, první paket, zácpa (D13) | mikroanimace + přetížení (P12, P14) | střední |
+| Detail hosta | Prázdný stav bez ESX je holý; objem jen % (D11) | trubka, `≈ Gb/s`, sparkline, prázdný stav (P16) | střední |
+| Rack | Checklist překrývá „← Místnost“ (D12) | zóny 22.1 (P17) | vysoká |
+| Místnost | Chybí pohled „kdo s kým a kolik“ | Síťový pohled `N` (P15) | střední (po MVP) |

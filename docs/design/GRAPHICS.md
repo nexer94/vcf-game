@@ -54,7 +54,8 @@ Přechody mezi úrovněmi plynulým zoomem (jako přelet nad mapou).
   | NFS / storage | tmavší tyrkysová `#1fa3b8` (dříve `#3fb8c9`) |
   | NSX overlay | fialová `#a37cf0` |
   | VM / north-south | bílá `#e8edf3` |
-- Tloušťka linky = vytížení, nad 80 % žlutá, nad 95 % červená; zahozené pakety „odpadnou“ a zmizí.
+- ~~Tloušťka linky = vytížení~~ → **v3 (níže): šířka proudu = objem (Gb/s, mocninná škála)**; vytížení linky:
+  nad 80 % jantarový lem + šrafa, nad 95 % červený lem + puls; zahozené pakety „odpadnou“ (tvar ✕) a zmizí.
 - Vždy viditelná legenda, ovládání času (pauza / 1× / 4× / 16×), hover = detail linky
   (throughput, latence, fronta, dropy).
 - Hodnoty, které nejsou přímo z dokumentace, UI označí jako „ilustrativní model“.
@@ -77,6 +78,25 @@ Přechody mezi úrovněmi plynulým zoomem (jako přelet nad mapou).
   - Legenda je „vždy viditelná“ jako **čip vlevo dole** s aktivními typy; plná legenda po rozbalení.
   - Kosmetické barvy kabelů (volba hráče v racku) se nesmí plést s barvami provozu: černá, bílá, žlutá,
     růžová, hnědá (odstíny ui-dev).
+- **Provoz v3 (ux-designer 2026-11-22, `UX.md` kap. 28 – má přednost před v2 výše, kde se liší)**:
+  - **Drát ≠ provoz.** Drát / svazek je klidný a neutrální (svazek max. 3 px, `×N` odznak). Provoz je
+    samostatná **poloprůhledná stuha („proud“)** po trase: šířka `w = 1,5 + 8,5·(Gb/s / 100)^0,35` px, barva
+    převládajícího typu (≥ 60 %) v alpha 0,45 s obrysem OUTLINE, jinak neutrální. Tečky jedou uvnitř.
+  - **Každý tok vidět:** emise teček logaritmicky `0,4 + 2,6·t` / s (`t = log10(Gb/s·1000)/5`), min. 0,4 / s;
+    velikost tečky `0,55 + 0,35·t`; rychlost konstantní, zpomaluje jen zácpa (fronta). Čísla `≈ 4,2 Gb/s`
+    (znak `≈` = ilustrativní model) u top 3 linek v záběru, jinak hover.
+  - **LED portů** blikají podle objemu (0,5–4 Hz), v místnosti 1 LED na server na čele racku (racky „žijí“).
+  - **Síťový pohled (klávesa N)**: místnost ztlumená plochou `#0f1b2d` alpha 0,8 (efektivně ≈ `#3c4655`, všechny
+    barvy provozu ≥ 3 : 1), toky jako barevné pruhy podle typu v pevném pořadí Management → vMotion → vSAN →
+    NFS → overlay → VM, rack „rozevřený“ na sloupec hostů. Kritické vytížení v lens `#ff7a85` (3,8 : 1).
+  - **Síť firmy (uplink) už není žlutá** – žlutá/jantarová patří jen varování vytížení. Uplink = neutrální kabel
+    + ikona budovy na stěnovém panelu.
+  - **BMC jednotně**: tenký čárkovaný šedý drát `#8592a3` + šedé čtverečky ▫ (1 / 3 s), nikdy proud ani Gb/s;
+    přenos ISO jen hustší ▫ + štítek `✚ ISO n %`.
+  - **Rack – cable management**: data kabely světle šedé `#b4bfcd` (6,9 : 1 na čele racku), BMC šedé čárkované,
+    výběr modrý lem, chyba `#ff5a6a` čárkovaně + ikona; lanes podle polohy serveru (bez křížení), hřeben do
+    portů ToR, pásky každých 6 U; volné porty ToR ztlumené (alpha 0,45).
+  - Mikroanimace (link up záblesk, „ping“ kroužek prvního paketu, růst / zánik proudu) jen transform / alpha.
 - **Čelní pohled racku (2D elevace)**: stejný kreslený styl (výrazné obrysy, syté barvy), plochý pohled zepředu,
   **v3: svislý rack, zařízení v měřítku U (1 U = 18 px / 22 px), ToR switch navy nahoře, pravítko U vlevo**
   (`UX.md` 19.3), zkomprimované prázdné úseky ≥ 6 U jako šrafovaný pás s lomem, porty jako zaoblené čtverečky s LED, kabely ortogonálně se

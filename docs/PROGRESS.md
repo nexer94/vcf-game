@@ -33,7 +33,10 @@
 - [x] `ui-dev` – bublina drží u panáčka (každý snímek přes kameru, šipka na okraji mimo obrazovku), v PC/tabuli/konzoli
   checklist jako čip a bez bubliny, v racku lišta s aktuálním krokem; obchod minimální karty + „Detail ▾“ popover;
   rack: zařízení 1,5× vyšší (2U vypadá jako 3U), víc zhuštěná prázdná místa
-- [ ] `ux-designer` – Provoz v3: intuitivní a zábavná vizualizace kabelů a provozu (objem, síťový pohled) *(běží)*
+- [x] `ux-designer` – Provoz v3 (UX.md kap. 28): diagnóza 12 bodů, koncept „Potrubí“ (stuha šířkou podle objemu,
+  log kalibrace, ≈ Gb/s u top 3) + „Síťový pohled“ (N), přetížení, mikroanimace, jednotné BMC, kabely v racku jen
+  podle významu; backlog P1–P18 (MVP P1–P8), data engine E-T1…E-T7
+- [ ] `ui-dev` + `engine-dev` – Provoz v3 MVP (čeká na souhlas uživatele)
 
 ### Hlavní menu: Kariéra · Hotové scénáře · Sandbox (uživatel 2026-11-22)
 - Sandbox bez úkolů a bublin; checklist + bubliny jen v Kariéře
