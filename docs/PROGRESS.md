@@ -46,8 +46,11 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
   výchozí síť ESX (vSwitch0, vmk0, MTU 1500), jumbo frames, MTU validace installeru s doslovnými hláškami; 13 otázek
 - [x] `ui-dev` – serverovna (`render/room/`): místnost, panáček (A*), rack/server/switch jako nábytek, kabely
   s pakety, inventář dole, panel rozhodnutí vpravo, HUD; světlý styl menu; `#/sandbox/mistnost`
-- [ ] `domain-modeler` – fyzická vrstva: server (CPU/RAM/disky/NIC), switch, rack, kabely, MTU, validace HW
-  proti ReadyNode/10-planning; katalog z `15-hardware`; use cases z `25`
+- [ ] `domain-modeler` – fyzická vrstva `model/hardware.ts`: katalog z BCG datasetu (15 B.3), validace REQ/DEV/RCMD,
+  rack/kabely/switch/MTU, síť po instalaci ESX, aktivní toky podle zapojení, HW → bring-up a návrh *(běží – obnoveno po limitu)*
+- [x] `ui-dev` – nálezy z UX review: Hotovo X/N + akordeon, `ui/messages.ts` (4 typy hlášení + 7 štítků), krátké
+  intro → „Vstoupit do serverovny“, světlé menu, neutrální kabely s obrysem a proužkem typu, zkratky času `,`/`.`/P,
+  a11y (focus ring, bez tabindex na štítcích, 390 px), gate fází přes URL (přesměrování)
 - [ ] `engine-dev` – Sandbox v2: nákup (herní měna), stavba, provoz odvozený ze stavu (management flows),
   odemykání kroků; napojit stávající návrh a bring-up
 - [ ] `ui-dev` – obchod, umisťování, kabeláž, konfigurace hostů; pak use case, návrh, deploy v novém stylu
@@ -60,6 +63,12 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
   nezávislý na Pixi (`engine/loop.ts`), deep-freeze stavu (`engine/freeze.ts`), revision se nemění při nečinnosti,
   průběh úloh odděleně (`progressRevision`); render už nemění rychlost hry; chyba startu zobrazena
 - [ ] (z review, zbývá – řeší UI v2) gate fází přes hash a UI návrhu napojit na `SandboxSession`
+
+### Sandbox v2 – interakce v místnosti (uživatel 2026-11-21, GRAPHICS.md „Interaktivní objekty“)
+- [ ] `ux-designer` – návrh: checkpointy/úkoly v Sandboxu (volitelné), rack → zoom → 2D kabeláž, tabule
+  s automatickým HLD + vlastní kresba, počítač s návrhem VCF v dlaždicích, provoz v2 (tečky, karty vmnic) *(běží)*
+- [ ] `doc-researcher` – OOB management (BMC) ve VCF 9.1 – co je dokumentované → `25` *(běží)*
+- [ ] `ui-dev` + `engine-dev` – implementace podle UX (po návrhu)
 
 ### Sandbox v1 (původní tok Návrh → Příprava → Deploy)
 - [x] `ui-dev` – hash router, hlavní menu (Sandbox / Kariéra „Připravujeme“ / Ukázka provozu), úvod Sandboxu,

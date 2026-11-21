@@ -39,7 +39,8 @@ export const careerScreen: ScreenDef = {
           { class: 'muted' },
           'Rozpočet a ceny budou herní mechanika (fiktivní měna), v UI vždy označené jako herní – nejde o údaje z dokumentace.',
         ),
-        h('div', { class: 'actions' }, back),
+        h('div', { class: 'actions' }, back,
+          button('Zatím zkus Sandbox →', () => ctx.navigate({ name: 'sandbox-intro' }), { class: 'btn btn-primary' })),
       ),
     );
     root.appendChild(view);

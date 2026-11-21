@@ -1,9 +1,10 @@
 import { button, h } from '../dom';
 import { loadDesignStepData, type DesignStepData } from '../sandbox/designData';
-import { createLocalDesignState, type DesignStatePort } from '../sandbox/designState';
-import { createDesignViewState, renderDesignStep } from '../sandbox/designStep';
-import { SANDBOX_PHASES, SANDBOX_PHASE_INFO, type SandboxPhaseId } from '../sandbox/phases';
+import { sharedDesignState, type DesignStatePort } from '../sandbox/designState';
+import { createDesignViewState, renderDesignStep, restoreDesignFocus } from '../sandbox/designStep';
+import { gatePhase, SANDBOX_PHASES, SANDBOX_PHASE_INFO, type SandboxPhaseId } from '../sandbox/phases';
 import { createStepper } from '../sandbox/stepper';
+import { proceedBlock, proceedBlockText } from '../sandbox/designProgress';
 import { VCF_VERSION } from '../version';
 import type { ScreenDef } from './screen';
 
@@ -22,12 +23,20 @@ export const sandboxShellScreen: ScreenDef = {
   stageMode: 'off',
   mount(root, ctx, route) {
     // INTEGRATION POINT: swap for a SandboxSession-backed port (see sandbox/designState.ts).
-    const design: DesignStatePort = createLocalDesignState();
+    const design: DesignStatePort = sharedDesignState();
     const designView = createDesignViewState();
     let designData: DesignStepData = loadDesignStepData(design.selection(), design.acknowledged());
-    let phase: SandboxPhaseId = route.name === 'sandbox' ? route.phase : 'navrh';
+    /**
+     * Phase gate: a later phase cannot be entered by URL when it is not enterable.
+     * TODO(SandboxSession): use snapshot.phases[].enterable instead of design validation.
+     */
+    const enterable = (p: SandboxPhaseId): boolean => p === 'navrh' || designData.canProceed;
+    const requested: SandboxPhaseId = route.name === 'sandbox' ? route.phase : 'navrh';
+    let phase: SandboxPhaseId = gatePhase(requested, enterable);
+    // Fix the URL after mount (the router then only calls update() with the same phase).
+    if (phase !== requested) queueMicrotask(() => ctx.navigate({ name: 'sandbox', phase }, { replace: true }));
 
-    const go = (p: SandboxPhaseId): void => ctx.navigate({ name: 'sandbox', phase: p });
+    const go = (p: SandboxPhaseId): void => ctx.navigate({ name: 'sandbox', phase: gatePhase(p, enterable) });
     /** Leaving the design phase. Later: session.advancePhase() decides; the UI only reflects it. */
     const advanceFromDesign = (): void => {
       if (designData.canProceed) go('priprava');
@@ -37,7 +46,8 @@ export const sandboxShellScreen: ScreenDef = {
     const content = h('div', { class: 'phase-content' });
     const panel = h('section', { class: 'phase-panel', 'aria-live': 'polite' }, title, content);
     const prev = button('← Předchozí', () => step(-1), { class: 'btn' });
-    const next = button('Další →', () => step(1), { class: 'btn btn-primary' });
+    const next = button('Další →', () => step(1), { class: 'btn btn-primary', 'aria-describedby': 'shell-next-why' });
+    const nextWhy = h('span', { class: 'shell-next-why small', id: 'shell-next-why' });
     const step = (d: number): void => {
       if (phase === 'navrh' && d > 0) return advanceFromDesign();
       const p = SANDBOX_PHASES[SANDBOX_PHASES.indexOf(phase) + d];
@@ -54,19 +64,22 @@ export const sandboxShellScreen: ScreenDef = {
         onAcknowledge: (keys) => design.acknowledgeWarnings(keys),
         onProceed: advanceFromDesign,
       }, design.acknowledged());
-      if (fk) content.querySelector<HTMLElement>(`[data-fk="${CSS.escape(fk)}"]`)?.focus({ preventScroll: true });
+      restoreDesignFocus(content, fk);
     };
 
     const updateGates = (): void => {
-      for (const p of SANDBOX_PHASES) if (p !== 'navrh') stepper.setEnabled(p, designData.canProceed);
+      for (const p of SANDBOX_PHASES) if (p !== 'navrh') stepper.setEnabled(p, enterable(p), 'Nejdřív dokonči návrh');
       const i = SANDBOX_PHASES.indexOf(phase);
       prev.disabled = i === 0;
       if (phase === 'navrh') {
         next.textContent = 'Pokračovat na Přípravu →';
         next.disabled = !designData.canProceed;
+        const block = proceedBlock(designData, design.acknowledged());
+        nextWhy.textContent = block ? proceedBlockText(block) : '';
       } else {
         next.textContent = 'Další →';
         next.disabled = i === SANDBOX_PHASES.length - 1;
+        nextWhy.textContent = next.disabled ? 'Poslední fáze.' : '';
       }
     };
 
@@ -100,7 +113,7 @@ export const sandboxShellScreen: ScreenDef = {
       ),
       h('div', { class: 'shell-steps' }, stepper.el),
       h('main', { class: 'shell-main' }, panel),
-      h('footer', { class: 'shell-foot' }, prev, next),
+      h('footer', { class: 'shell-foot' }, prev, h('div', { class: 'shell-next' }, nextWhy, next)),
     );
     root.appendChild(view);
     render();
@@ -108,7 +121,10 @@ export const sandboxShellScreen: ScreenDef = {
     return {
       update(r) {
         if (r.name !== 'sandbox' || r.phase === phase) return;
-        phase = r.phase;
+        const allowed = gatePhase(r.phase, enterable);
+        if (allowed !== r.phase) ctx.navigate({ name: 'sandbox', phase: allowed }, { replace: true });
+        if (allowed === phase) return;
+        phase = allowed;
         render();
         title.focus();
       },

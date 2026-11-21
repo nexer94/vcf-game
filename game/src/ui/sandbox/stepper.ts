@@ -5,7 +5,7 @@ export interface Stepper {
   readonly el: HTMLElement;
   setActive(phase: SandboxPhaseId): void;
   /** Disable picking a phase (gating comes from model validation, e.g. design not ready). */
-  setEnabled(phase: SandboxPhaseId, enabled: boolean): void;
+  setEnabled(phase: SandboxPhaseId, enabled: boolean, reason?: string): void;
 }
 
 /**
@@ -25,9 +25,12 @@ export function createStepper(onPick: (phase: SandboxPhaseId) => void): Stepper 
   const el = h('ol', { class: 'stepper', 'aria-label': 'Fáze sandboxu' }, ...items.map((x) => x.li));
   return {
     el,
-    setEnabled(phase, enabled) {
+    setEnabled(phase, enabled, reason) {
       const x = items.find((i) => i.id === phase);
-      if (x) x.btn.disabled = !enabled;
+      if (!x) return;
+      x.btn.disabled = !enabled;
+      if (!enabled && reason) x.btn.title = reason;
+      else x.btn.removeAttribute('title');
     },
     setActive(phase) {
       const at = SANDBOX_PHASES.indexOf(phase);

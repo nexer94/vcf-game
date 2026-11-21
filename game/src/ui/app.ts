@@ -37,6 +37,6 @@ export function startApp(host: HTMLElement, stage: SceneStage, engine: GameEngin
     stage.setMode(def.stageMode);
     current = { name: route.name, screen: def.mount(layer, ctx, route) };
   });
-  const ctx: AppContext = { stage, engine, navigate: (r) => router.navigate(r) };
+  const ctx: AppContext = { stage, engine, navigate: (r, o) => router.navigate(r, o) };
   router.start();
 }

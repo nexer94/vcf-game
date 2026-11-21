@@ -18,3 +18,4 @@ Administration SDKs, APIs, and CLI · Advanced Services
 ## Historie
 - 2026-11-20 – projekt založen, cílová verze 9.1.1.
 - 2026-11-20 – kontrola verzí: nejnovější GA stále 9.1.1; nové patche vSAN File Services 9.1.1.0200 (26. 10.) a vCenter 9.1.1.0200 (19. 11., CVE-2026-123890 / VMSA-2026-0009).
+- 2026-11-21 – kontrola verzí: beze změny (nejnovější GA 9.1.1, poslední patch vCenter 9.1.1.0200 z 19. 11. 2026).

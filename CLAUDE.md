@@ -70,6 +70,10 @@ Oba režimy sdílejí **stejný model a engine** (stejná pravidla VCF ze specu)
      sežerou management komponenty podle sizingu).
   5. **Postupný deploy** (VCF Installer, bring-up, pak workload domény…).
 - Každá volba, prerekvizita a důsledek musí mít oporu ve specu.
+- **Checkpointy / úkoly i v Sandboxu**: hráč vždy ví, co dělat dál (tracker „Další krok“ s průběhem a splněním).
+  Jsou volitelné – dají se odkliknout / skrýt; nic nezamykají, jen vedou.
+- Ovládání v místnosti: rack (zoom → 2D kabeláž), tabule (auto High-Level Design + vlastní kresba), počítač
+  (návrh VCF dlaždicemi, use case, installer) – viz `docs/design/GRAPHICS.md`.
 
 ### 2. Kariéra – hra
 - Postup po **kampaních → misích → úkolech**; mise se odemykají postupně.

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { bezierPoint } from '../geom/bezier';
 import { LOAD_COLORS } from '../traffic/loadStyle';
 import { TRAFFIC_STYLE } from '../traffic/trafficTypes';
-import { roomCableColor, roomCableCurve } from './roomCables';
+import { CABLE } from './palette';
+import { roomCableColor, roomCableCurve, roomCableStripe } from './roomCables';
 
 describe('room cables', () => {
   it('connects the two ports', () => {
@@ -20,9 +21,14 @@ describe('room cables', () => {
     expect(bezierPoint(c, 0.5).y).toBeLessThan(-20);
   });
 
-  it('uses the traffic-type colour unless the link is overloaded', () => {
-    expect(roomCableColor('vsan', 0.5)).toBe(TRAFFIC_STYLE.vsan.color);
-    expect(roomCableColor('vsan', 0.85)).toBe(LOAD_COLORS.warn);
-    expect(roomCableColor('vsan', 0.99)).toBe(LOAD_COLORS.crit);
+  it('keeps the cable neutral unless the link is overloaded', () => {
+    expect(roomCableColor(0.5)).toBe(CABLE.body);
+    expect(roomCableColor(0.85)).toBe(LOAD_COLORS.warn);
+    expect(roomCableColor(0.99)).toBe(LOAD_COLORS.crit);
+  });
+
+  it('shows the traffic colour as a stripe only on a normally loaded cable', () => {
+    expect(roomCableStripe('vsan', 0.5)).toBe(TRAFFIC_STYLE.vsan.color);
+    expect(roomCableStripe('vsan', 0.99)).toBeNull();
   });
 });

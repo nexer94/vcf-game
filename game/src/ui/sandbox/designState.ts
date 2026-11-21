@@ -50,3 +50,14 @@ export function createLocalDesignState(): DesignStatePort {
     },
   };
 }
+
+let shared: DesignStatePort | null = null;
+
+/**
+ * One design state for the whole Sandbox run, shared by the room's design panel
+ * and the phase shell (so the phase gate sees the same choices).
+ * TODO(SandboxSession): replace with the session-backed port.
+ */
+export function sharedDesignState(): DesignStatePort {
+  return (shared ??= createLocalDesignState());
+}

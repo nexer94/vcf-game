@@ -12,6 +12,20 @@
   vybírá a táhne/umisťuje do místnosti; **vpravo panel návrhových rozhodnutí** (design decisions podle
   dokumentace, odkazy, doporučení, co je s aktuálním HW možné) – vysouvací, aby nezakrýval scénu.
   Nahoře tenký HUD (peníze – v Sandboxu ∞, herní čas a rychlost, fáze / další krok).
+- **Interaktivní objekty v serverovně** (uživatel 2026-11-21, inspirace dodanými screenshoty – jen jako nápad,
+  vlastní originální provedení):
+  - **Rack** – při najetí myší lupa/zvýraznění; klik → plynulý zoom na rack a přepnutí do **2D čelního pohledu**
+    (zvětšený rack, servery s porty, LED) – tady probíhá **zapojování kabelů** (port → port). Zpět Esc / tlačítko.
+  - **Tabule (whiteboard)** na stěně – zapojení a návrh automaticky **generují High-Level Design** (diagram:
+    WAN/uplink, switche, hosty, sítě/VLAN, IP rozsahy) ručně kresleným stylem; klik → přiblížení; hráč si může
+    **dokreslovat vlastní poznámky** (volné kreslení, text, smazat).
+  - **Počítač na stole** – klik → „připojení“ na obrazovku počítače: tam se vybírá **návrh VCF pomocí dlaždic**
+    (design decisions jako karty/dlaždice), use case, později VCF Installer / VCF Operations. Panel rozhodnutí
+    vpravo zůstává jako rychlý přehled.
+- **Provoz mezi hosty**: v místnosti se fyzické dráty kreslí jen decentně (může jich být hodně); hlavní je
+  **barevné tečky „létající“ mezi zařízeními** podle typu provozu (styl vizualizace vmnic/uplinků s pakety
+  jako na webových simulátorech – vlastní provedení). Detailní pohled na host = karty vmnic/uplinků
+  s vytížením a pakety. Jako první se rozběhne **management / OOB** komunikace (podle specu).
 - UI panely (obchod, konfigurace, wizardy) světlé a přátelské, ale přehledné; data a odkazy na dokumentaci vždy čitelné.
 - Žádná loga ani přesné kopie UI Broadcomu ani vendorů – vlastní ikony a barvy (vendor jen jako text/barevný štítek).
 

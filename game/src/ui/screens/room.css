@@ -183,3 +183,8 @@
   .room-ui { --side-w: 300px; }
   .room-ui .room-legend { display: none; }
 }
+
+/* Keyboard shortcuts popover in the HUD (HUD clips overflow -> fixed position). */
+.keys-pop > summary { width: 30px; height: 30px; font-size: 15px; }
+.keys-pop .legend-pop-body { position: fixed; top: calc(var(--top-h) + 6px); right: 12px; left: auto; width: 300px; z-index: 30; }
+.room-side-body .design-top { position: sticky; top: -12px; z-index: 5; background: var(--panel); padding: 6px 0; margin-top: -6px; }

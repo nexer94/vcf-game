@@ -1,7 +1,9 @@
 /**
- * Cable runs between devices in the room. Geometry is pure (unit-tested); the
- * colour follows the traffic type of the cable (GRAPHICS.md), thickness = load,
- * above 80 % yellow, above 95 % red (traffic/loadStyle.ts).
+ * Cable runs between devices in the room. Geometry is pure (unit-tested).
+ * Light-room contrast rules (GRAPHICS.md "Světlá serverovna", UX.md §4.5):
+ * the physical cable is NEUTRAL with a dark OUTLINE (>= 3:1 on the floor); the
+ * traffic type is carried by the packets, plus a thin stripe on cables that carry
+ * a single type. Thickness = load, above 80 % yellow, above 95 % red (loadStyle.ts).
  */
 import { Graphics } from 'pixi.js';
 import { polylineLength, sampleBezier, type CubicBezier, type Vec2 } from '../geom/bezier';
@@ -9,7 +11,7 @@ import { LOAD_COLORS, loadBand, loadWidth } from '../traffic/loadStyle';
 import type { PacketPath } from '../traffic/packetSim';
 import type { LinkTraffic } from '../traffic/trafficModel';
 import { TRAFFIC_STYLE, type TrafficType } from '../traffic/trafficTypes';
-import { OUTLINE } from './palette';
+import { CABLE, OUTLINE } from './palette';
 
 export interface PortRef {
   readonly deviceId: string;
@@ -22,7 +24,7 @@ export interface RoomCableSpec {
   readonly id: string;
   readonly from: PortRef;
   readonly to: PortRef;
-  /** Traffic type the cable carries (colour of the idle cable). */
+  /** Traffic type the cable carries (colour of the stripe; packets carry the colour too). */
   readonly type: TrafficType;
   readonly label?: string;
 }
@@ -69,10 +71,15 @@ export function buildRoomCable(spec: RoomCableSpec, p0: Vec2, p3: Vec2, sameCabi
   return { spec, curve, samples, length: polylineLength(samples) };
 }
 
-/** Idle cable colour = traffic type colour; overload bands override it. */
-export function roomCableColor(type: TrafficType, utilization: number): number {
+/** Cable body colour: neutral; overload bands (yellow / red) override it. */
+export function roomCableColor(utilization: number): number {
   const band = loadBand(utilization);
-  return band === 'normal' ? TRAFFIC_STYLE[type].color : LOAD_COLORS[band];
+  return band === 'normal' ? CABLE.body : LOAD_COLORS[band];
+}
+
+/** Stripe colour of a single-type cable (traffic colour); none while overloaded (the band colour wins). */
+export function roomCableStripe(type: TrafficType, utilization: number): number | null {
+  return loadBand(utilization) === 'normal' ? TRAFFIC_STYLE[type].color : null;
 }
 
 const WIDTH_STEP = 0.25;
@@ -87,8 +94,9 @@ export class RoomCableView {
   update(t: LinkTraffic | undefined, hovered: boolean): void {
     const u = t?.utilization ?? 0;
     const width = Math.round((1.5 + loadWidth(u) * 0.7) / WIDTH_STEP) * WIDTH_STEP;
-    const color = roomCableColor(this.geo.spec.type, u);
-    const key = `${color}|${width}|${hovered ? 1 : 0}`;
+    const color = roomCableColor(u);
+    const stripe = roomCableStripe(this.geo.spec.type, u);
+    const key = `${color}|${stripe}|${width}|${hovered ? 1 : 0}`;
     if (key === this.key) return;
     this.key = key;
     const g = this.view;
@@ -98,6 +106,7 @@ export class RoomCableView {
     if (hovered) path().stroke({ color: 0xffffff, width: width + 7, alpha: 0.6, cap: 'round' });
     path().stroke({ color: OUTLINE, width: width + 2.5, cap: 'round' });
     path().stroke({ color, width, cap: 'round' });
+    if (stripe !== null) path().stroke({ color: stripe, width: Math.max(0.8, width * 0.45), cap: 'round' });
     // Connector plugs at both ends.
     g.circle(p0.x, p0.y, 1.8).circle(p3.x, p3.y, 1.8).fill({ color: OUTLINE });
   }

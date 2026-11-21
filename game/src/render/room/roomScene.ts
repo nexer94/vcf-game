@@ -60,11 +60,14 @@ function createShadowTexture(renderer: Renderer): Texture {
   return t;
 }
 
-/** Cartoon packet "pellet": white core with dark rim (tinted per traffic type, readable on light floors). */
+/**
+ * Cartoon packet "pellet": white core (tinted per traffic type) with a dark OUTLINE
+ * rim - the rim stays dark under any tint, so packets keep >= 3:1 on the light floor
+ * (GRAPHICS.md "Světlá serverovna"). One texture -> one batched ParticleContainer.
+ */
 function createPelletTexture(renderer: Renderer): Texture {
   const g = new Graphics();
-  g.circle(6, 6, 4.2).fill({ color: 0xffffff, alpha: 0.35 });
-  g.circle(6, 6, 3).fill({ color: 0xffffff }).stroke({ color: 0x8a86a8, width: 1.2 });
+  g.circle(6, 6, 3.4).fill({ color: 0xffffff }).stroke({ color: OUTLINE, width: 1.6 });
   const t = renderer.generateTexture({ target: g, resolution: 3, antialias: true });
   g.destroy();
   return t;

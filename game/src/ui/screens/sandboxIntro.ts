@@ -1,62 +1,66 @@
 import { button, docLink, h } from '../dom';
-import { ILLUSTRATIVE_LABEL } from '../hud';
-import { SANDBOX_PHASES, SANDBOX_PHASE_INFO } from '../sandbox/phases';
+import { badge } from '../messages';
+import { SANDBOX_FLOW_V2 } from '../sandbox/phases';
 import { VCF_DOCS_URL, VCF_VERSION } from '../version';
 import { disclaimer } from './disclaimer';
 import { onEscape, type ScreenDef } from './screen';
 
 /**
- * What Sandbox is and how it flows. Deliberately contains no concrete VCF facts
- * (components, host counts, design options) - those come from docs/spec/.
+ * Sandbox invitation (UX.md §6: short, 3 bullets, one primary action).
+ * Deliberately contains no concrete VCF facts (components, host counts, design
+ * options) - those come from docs/spec/ through the model.
  */
-const PHASE_BLURB: Record<(typeof SANDBOX_PHASES)[number], string> = {
-  navrh: 'rozmyslíš, jak má prostředí vypadat – volby podle dokumentace.',
-  priprava: 'plánování a příprava: DNS, IP adresy, sítě a hardware.',
-  deploy: 'krok za krokem – VCF Installer, bring-up, workload domény a další.',
-};
+const BULLETS: readonly [string, string][] = [
+  ['Postav serverovnu.', 'Racky, servery, switche a kabely – jako nábytek v útulné místnosti.'],
+  ['Nainstaluj a navrhni.', 'Připrav hosty a rozhodni o architektuře podle dokumentace.'],
+  ['Nasaď podle dokumentace.', 'Hra dovolí jen to, co jde udělat i ve skutečnosti.'],
+];
 
 export const sandboxIntroScreen: ScreenDef = {
   stageMode: 'off',
   mount(root, ctx) {
-    const start = button('Začít – 1. Návrh →', () => ctx.navigate({ name: 'sandbox', phase: 'navrh' }), {
-      class: 'btn btn-primary',
+    const start = button('Vstoupit do serverovny →', () => ctx.navigate({ name: 'sandbox-room', demo: false }), {
+      class: 'btn btn-primary btn-big',
     });
-    const room = button('Serverovna (prototyp)', () => ctx.navigate({ name: 'sandbox-room', demo: false }), { class: 'btn' });
-    const back = button('← Zpět do menu', () => ctx.navigate({ name: 'menu' }), { class: 'btn' });
+    const design = button('Otevřít jen návrh', () => ctx.navigate({ name: 'sandbox', phase: 'navrh' }), {
+      class: 'btn btn-small',
+      title: 'Průvodce návrhovými rozhodnutími bez místnosti',
+    });
+    const back = button('← Menu', () => ctx.navigate({ name: 'menu' }), { class: 'btn btn-ghost' });
 
     const view = h(
       'div',
       { class: 'screen screen-page' },
       h(
         'main',
-        { class: 'page-card' },
-        h('h1', null, 'Sandbox – volná simulace'),
+        { class: 'page-card intro-card', 'aria-labelledby': 'intro-title' },
+        h('h1', { id: 'intro-title' }, 'Sandbox – volná simulace'),
         h('p', { class: 'lead' },
-          'Sandbox je simulace skutečné architektury VMware Cloud Foundation podle oficiální dokumentace Broadcom. ' +
-            'Můžeš v něm dělat to, co jde ve skutečnosti udělat – a nic, co nejde.'),
-        h('ul', { class: 'facts' },
-          h('li', null, h('strong', null, 'Podle dokumentace. '),
-            'Pravidla a prerekvizity vychází z oficiální dokumentace a mají odkaz na příslušnou stránku. ' +
-              'Texty hlášek jsou popisné (ne doslovné), pokud nejsou označené jako citace. ' +
-              'Omezení rozsahu hry a modelová zjednodušení jsou ve hře označená.'),
-          h('li', null, h('strong', null, 'Laboratoř. '),
-            'Žádné mise, žádné peníze, neomezené zdroje. Navrhuj, nasazuj, rozšiřuj i rozbíjej.'),
-          h('li', null, h('strong', null, 'Označené odhady. '),
-            'Hodnoty, které nejsou přímo z dokumentace (např. ilustrativní provoz), jsou vždy označené štítkem ',
-            h('span', { class: 'ui-badge' }, ILLUSTRATIVE_LABEL), '.'),
-        ),
-        h('h2', null, 'Jak to probíhá'),
-        h('ol', { class: 'flow' },
-          ...SANDBOX_PHASES.map((id, i) =>
-            h('li', null,
-              h('span', { class: 'flow-num' }, String(i + 1)),
-              h('span', null, h('strong', null, `${SANDBOX_PHASE_INFO[id].title} – `), PHASE_BLURB[id]),
-            ),
+          'Simulace architektury VMware Cloud Foundation (modelovaná verze ', h('strong', null, VCF_VERSION), ')',
+          ' podle oficiální dokumentace. Žádné mise, neomezené zdroje.'),
+        h('ul', { class: 'intro-bullets' },
+          ...BULLETS.map(([t, d], i) =>
+            h('li', null, h('span', { class: 'flow-num', 'aria-hidden': 'true' }, String(i + 1)), h('span', null, h('strong', null, t), ' ', d)),
           ),
         ),
-        h('p', { class: 'muted' }, 'Modelovaná verze: ', h('strong', null, VCF_VERSION), ' · ',
-          docLink('oficiální dokumentace VCF (TechDocs)', VCF_DOCS_URL)),
-        h('div', { class: 'actions' }, back, h('div', { class: 'actions-right' }, room, start)),
+        h('div', { class: 'actions intro-actions' }, start, design),
+        h('details', { class: 'more intro-more' },
+          h('summary', null, 'Jak to probíhá'),
+          h('ol', { class: 'flow-inline' },
+            ...SANDBOX_FLOW_V2.map((f) => h('li', null, h('strong', null, f.title), h('span', { class: 'muted' }, ` – ${f.blurb}`))),
+          ),
+        ),
+        h('details', { class: 'more intro-more' },
+          h('summary', null, 'Jak hra pracuje s dokumentací'),
+          h('ul', { class: 'facts' },
+            h('li', null, 'Pravidla a prerekvizity vychází z oficiální dokumentace a mají odkaz na příslušnou stránku. ',
+              'Texty hlášek jsou popisné (ne doslovné), pokud nejsou označené jako citace.'),
+            h('li', null, 'Hodnoty, které nejsou z dokumentace, jsou označené – např. ', badge('illustrative'), ' nebo ',
+              badge('game-price'), '. Co hra zatím neumí, řekne otevřeně jako omezení hry.'),
+          ),
+          h('p', { class: 'muted small' }, docLink('Oficiální dokumentace VCF (TechDocs)', VCF_DOCS_URL)),
+        ),
+        h('div', { class: 'intro-foot' }, back),
         disclaimer(),
       ),
     );

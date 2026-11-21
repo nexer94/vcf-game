@@ -19,9 +19,10 @@ import { ILLUSTRATIVE_LABEL } from '../hud';
 import { createLegend } from '../legend';
 import { createLinkTooltip } from '../linkTooltip';
 import { loadDesignStepData } from '../sandbox/designData';
-import { createLocalDesignState } from '../sandbox/designState';
-import { createDesignViewState, renderDesignStep } from '../sandbox/designStep';
+import { sharedDesignState } from '../sandbox/designState';
+import { createDesignViewState, renderDesignStep, restoreDesignFocus } from '../sandbox/designStep';
 import { createTimeControls } from '../timeControls';
+import { message } from '../messages';
 import { VCF_VERSION } from '../version';
 import { onEscape, type ScreenDef } from './screen';
 import './room.css';
@@ -77,6 +78,26 @@ const REASON: Record<Exclude<PlaceResult, { ok: true }>['reason'], string> = {
   slot: 'V racku už není místo.',
 };
 
+/** Keyboard shortcuts of the room (UX.md §4.3). Digits are reserved for the inventory. */
+const ROOM_KEYS: readonly [string, string][] = [
+  ['Mezerník / P', 'pauza'],
+  [', / .', 'zpomalit / zrychlit čas (1× · 4× · 16×)'],
+  ['1–6', 'kategorie inventáře (když má fokus inventář)'],
+  ['D', 'panel Návrh'],
+  ['Esc', 'zrušit výběr → zpět'],
+  ['kolečko / tah', 'zoom / posun · dvojklik = celá místnost'],
+];
+
+function keysHelp(): HTMLElement {
+  return h('details', { class: 'legend-pop keys-pop' },
+    h('summary', { 'aria-label': 'Klávesové zkratky', title: 'Klávesové zkratky' }, '⌨'),
+    h('div', { class: 'legend-pop-body' },
+      h('strong', null, 'Klávesové zkratky'),
+      h('dl', null, ...ROOM_KEYS.flatMap(([k, v]) => [h('dt', null, h('kbd', null, k)), h('dd', null, v)])),
+    ),
+  );
+}
+
 const HOVER_TOLERANCE_PX = 8;
 const TOOLTIP_INTERVAL_MS = 200;
 const TOP_H = 52;
@@ -115,11 +136,12 @@ export const sandboxRoomScreen: ScreenDef = {
       h('div', { class: 'hud-chip', title: 'Herní měna – v Sandboxu neomezená (není fakt z dokumentace)' }, h('span', { class: 'coin', 'aria-hidden': 'true' }), '∞ ', h('small', null, 'herní')),
       h('div', { class: 'hud-chip phase-chip', title: 'Aktuální fáze a další krok' }, h('strong', null, '1. Fyzická stavba'), h('span', { class: 'muted' }, ' → postav rack')),
       timeSlot,
+      keysHelp(),
       h('label', { class: 'hud-chip demo-toggle', for: 'room-demo', title: 'Debug: rozmístí ukázkový rack, 2 servery, switch a kabely' }, demoToggle, ' Ukázka ', h('span', { class: 'ui-badge' }, 'ilustrativní')),
     );
     ui.append(hud, toast);
-    const time = createTimeControls(timeSlot, engine);
-    const legend = createLegend(ui);
+    const time = createTimeControls(timeSlot, engine, 'stepped');
+    const legend = createLegend(ui, { neutralCables: true });
     legend.classList.add('room-legend');
     const tooltip = createLinkTooltip(ui);
 
@@ -137,17 +159,26 @@ export const sandboxRoomScreen: ScreenDef = {
       if (designMounted) return;
       designMounted = true;
       // INTEGRATION POINT: later the SandboxSession port + filtering by current HW.
-      const design = createLocalDesignState();
+      const design = sharedDesignState();
       const view = createDesignViewState();
+      const notice = message({
+        type: 'game-limit',
+        compact: true,
+        title: 'Návrh zatím nepočítá s místností',
+        body: 'Dostupnost voleb podle hardwaru, který tu postavíš, simulace zatím nemodeluje.',
+      });
       const render = (): void => {
         const data = loadDesignStepData(design.selection(), design.acknowledged());
+        const fk = (document.activeElement as HTMLElement | null)?.dataset?.['fk'];
         renderDesignStep(sideBody, {
           data,
           view,
+          notice,
           onSelect: (d, o) => design.select(d, o),
           onAcknowledge: (keys) => design.acknowledgeWarnings(keys),
           onProceed: () => ctx.navigate({ name: 'sandbox', phase: 'priprava' }),
         }, design.acknowledged());
+        restoreDesignFocus(sideBody, fk);
       };
       offDesign = design.subscribe(render);
       render();
@@ -200,12 +231,22 @@ export const sandboxRoomScreen: ScreenDef = {
       }, { class: 'inv-tab', role: 'tab', 'aria-selected': String(cat.id === activeCat) });
       tabs.appendChild(t);
     }
-    const inv = h('footer', { class: 'room-inv', 'aria-label': 'Inventář a obchod' },
+    const inv = h('footer', { class: 'room-inv', 'aria-label': 'Inventář a obchod (klávesy 1–6 = kategorie)' },
       h('div', { class: 'inv-head' }, tabs, h('span', { class: 'inv-note' }, 'Katalog je zatím ukázkový – ', h('span', { class: 'ui-badge' }, ILLUSTRATIVE_LABEL))),
       items,
     );
     ui.appendChild(inv);
     renderItems();
+    // 1–6 = inventory categories while the inventory has focus (UX.md §4.3; time uses , / .).
+    inv.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+      const n = Number(e.key);
+      const tab = Number.isInteger(n) && n >= 1 ? (tabs.children[n - 1] as HTMLButtonElement | undefined) : undefined;
+      if (!tab) return;
+      e.preventDefault();
+      tab.click();
+      tab.focus();
+    });
 
     const say = (text: string, bad = false): void => {
       toast.textContent = text;
@@ -288,6 +329,13 @@ export const sandboxRoomScreen: ScreenDef = {
         if (t) tooltip.show(hover.sx, hover.sy, cable.label ?? cable.id, t);
       }
     });
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target;
+      if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return;
+      if (e.key === 'd' || e.key === 'D') setSide(!sideOpen);
+    };
+    window.addEventListener('keydown', onKey);
     const offEsc = onEscape(() => {
       if (selected) selectItem(null);
       else ctx.navigate({ name: 'sandbox-intro' });
@@ -303,6 +351,7 @@ export const sandboxRoomScreen: ScreenDef = {
       },
       dispose() {
         offEsc();
+        window.removeEventListener('keydown', onKey);
         offFrame();
         offDesign?.();
         camera.dispose();

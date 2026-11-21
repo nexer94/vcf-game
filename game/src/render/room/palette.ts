@@ -84,6 +84,11 @@ export const AVATAR = {
   badge: 0xffffff,
 } as const;
 
+/** Physical cables: neutral body (traffic colour rides on packets / stripe), dark OUTLINE around. */
+export const CABLE = {
+  body: 0xf7f5fc,
+} as const;
+
 export const SHADOW = 0x3a2f5a;
 export const HOVER_TILE = 0xffffff;
 export const TARGET_TILE = 0xff8a3d;

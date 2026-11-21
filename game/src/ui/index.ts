@@ -8,3 +8,4 @@ export * from './linkTooltip';
 export * from './version';
 export * from './router';
 export * from './app';
+export * from './messages';

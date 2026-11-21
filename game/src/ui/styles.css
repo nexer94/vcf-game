@@ -13,7 +13,7 @@
   --ink: #2a2440;
   --text: #3b3555;
   --muted: #6a6585;
-  --faint: #807a96;
+  --faint: #6d6887; /* >= 4.4:1 on all panel backgrounds (was #807a96, 3.7:1) */
   --outline: #2e2645;
   --accent: #5b4fd6;
   --accent-2: #4a3fc0;
@@ -49,7 +49,9 @@
 }
 .ui-badge {
   display: inline-block;
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.35;
+  cursor: help;
   font-weight: 600;
   padding: 1px 7px;
   border-radius: 999px;
@@ -60,7 +62,7 @@
 .hud { top: 12px; left: 12px; }
 .hud h1 { margin: 0 0 4px; font-size: 15px; color: var(--ink); font-weight: 700; }
 .hud .row { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--muted); }
-.hud .hint { margin-top: 6px; font-size: 11px; color: var(--faint); }
+.hud .hint { margin-top: 6px; font-size: 12.5px; color: var(--muted); }
 
 .time { top: 12px; right: 12px; display: flex; gap: 6px; align-items: center; }
 .time .clock { font-variant-numeric: tabular-nums; min-width: 64px; color: var(--ink); font-weight: 700; margin-right: 4px; }
@@ -84,6 +86,7 @@
 .legend li { display: flex; align-items: center; gap: 8px; margin: 3px 0; font-size: 12px; }
 .legend .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; outline: 1.5px solid var(--outline); box-shadow: none !important; }
 .legend .bar { width: 22px; border-radius: 2px; flex: none; outline: 1px solid var(--outline); }
+.legend .bar-neutral { background: #f7f5fc; outline: 1.5px solid var(--outline); box-shadow: inset 0 -1px 0 #4cc38a, inset 0 1px 0 #4cc38a; }
 .legend .foot { margin-top: 8px; }
 
 .tooltip { min-width: 220px; pointer-events: none; display: none; }

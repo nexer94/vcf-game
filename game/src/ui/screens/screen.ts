@@ -6,7 +6,8 @@ import type { Route } from '../router';
 export interface AppContext {
   readonly stage: SceneStage;
   readonly engine: GameEngine;
-  navigate(route: Route): void;
+  /** `replace` = replace the current history entry (redirects, gates). */
+  navigate(route: Route, opts?: { readonly replace?: boolean }): void;
 }
 
 /** A mounted screen. Created by a ScreenFactory, disposed on navigation. */

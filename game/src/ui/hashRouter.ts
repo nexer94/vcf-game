@@ -11,9 +11,13 @@ export class HashRouter {
     this.onHash();
   }
 
-  navigate(route: Route): void {
+  navigate(route: Route, opts?: { readonly replace?: boolean }): void {
     const hash = formatRoute(route);
     if (window.location.hash === hash) this.onHash();
-    else window.location.hash = hash;
+    else if (opts?.replace) {
+      // replaceState does not fire hashchange -> notify explicitly.
+      window.history.replaceState(window.history.state, '', hash);
+      this.onHash();
+    } else window.location.hash = hash;
   }
 }
