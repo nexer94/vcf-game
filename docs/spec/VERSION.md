@@ -4,7 +4,7 @@
 |---|---|
 | Modelovaná verze | **VCF 9.1.1** |
 | Nejnovější verze při poslední kontrole | VCF 9.1.1 (GA 3. 9. 2026; poslední patche komponent: vSAN File Services 9.1.1.0200 26. 10. 2026, vCenter 9.1.1.0200 19. 11. 2026) |
-| Poslední kontrola | 2026-11-20 |
+| Poslední kontrola | 2026-11-21 |
 | Hlavní zdroj | https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1.html |
 
 ## Sekce dokumentace (TechDocs 9.1.x)

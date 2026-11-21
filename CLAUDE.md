@@ -16,6 +16,9 @@ Výjimka: drobné úpravy `docs/PROGRESS.md` a tohoto souboru děláš sám.
   (nebo knowledge.broadcom.com). Pro porty a protokoly (sekce „Síťový provoz“) je povolený i oficiální
   web Broadcom **Ports and Protocols**, na který TechDocs odkazuje – vždy s odkazem na konkrétní stránku/produkt.
   Pro API (endpointy, payloady, API workflow) je povolený **developer.broadcom.com** – jen pro API, s odkazem.
+  Pro hardware (servery, disky, NIC) je povolený **Broadcom Compatibility Guide** (compatibilityguide.broadcom.com,
+  vSAN ESA ReadyNodes / certifikované servery pro VCF 9.x) – jen konfigurace certifikované tam, s odkazem.
+  Vendoři serverů ve hře: **Dell, HPE, Lenovo, Cisco, Supermicro**. Switche jsou generické „no-name“.
 - **VCF Upgrade Planner** (https://vmware.github.io/vcf-upgrade-planner/) slouží jako **rozcestník**: výběr situací
   pro kampaně, struktura a pořadí kroků. Fakta z něj se nepřebírají – ověřují se na techdocs/knowledge stránce,
   na kterou planner odkazuje.
@@ -43,14 +46,23 @@ Oba režimy sdílejí **stejný model a engine** (stejná pravidla VCF ze specu)
 
 ### 1. Sandbox – volná simulace
 - Hráč může dělat cokoliv, co dovoluje architektura a dokumentace (navrhnout fleet, nasadit, rozšiřovat, rozbíjet…).
-- Žádné mise ani peníze; neomezené zdroje. Validace a chybové stavy přesně podle specu.
-- Slouží i jako „laboratoř“ pro testování modelu.
-- Úvodní obrazovka Sandboxu vysvětlí, že jde o simulaci reálné architektury VCF podle dokumentace
-  (co všechno jde reálně udělat), s odkazem na modelovanou verzi.
-- Postup kopíruje reálný průběh: **1. návrh (design)** – rozhodnutí podle Design Library (např. samostatná
-  management doména vs. workloady sdílené v management doméně, deployment model fleet, cluster/storage/síťový
-  model, Simple vs. HA) → **2. příprava** (planning: DNS, IP, HW) → **3. postupný deploy** (VCF Installer,
-  bring-up, pak workload domény…). Každá volba a její důsledky musí mít oporu ve specu (`05-design` a další).
+- Žádné mise; peníze se zobrazují, ale jsou **neomezené** (ceny = fiktivní herní měna). Validace a chybové stavy
+  přesně podle specu. Slouží i jako „laboratoř“ pro testování modelu.
+- Úvodní obrazovka vysvětlí, že jde o simulaci reálné architektury VCF podle dokumentace, s modelovanou verzí.
+- **Začátek: panáček (avatar) v prázdné serverovně.** Postup kopíruje realitu a odemyká se postupně:
+  1. **Fyzická stavba** – koupit servery (vendor + certifikovaná konfigurace z BCG: CPU, RAM, disky, NIC),
+     koupit generické switche, zarackovat, zapojit kabely. Začíná se jednoduše (základní komponenty),
+     detaily (disky, NIC, MTU…) jdou postupně editovat. Výchozí nastavení jako v realitě (např. menší MTU),
+     hráč je ladí podle požadavků ze specu.
+  2. **Hosty** – instalace ESX 9, síť, NTP, DNS… Jakmile jsou hosty zapojené do managementu, ve scéně se
+     rozběhne management provoz (toky podle specu, „Síťový provoz“).
+  3. **Volba cesty / use case** podle VCF Installeru a dokumentace (např. nový fleet přes VCF Installer, nebo
+     nejdřív vSphere/vCenter a pak konvergence) – se správným pořadím kroků a prerekvizitami pro daný use case.
+  4. **Návrhová rozhodnutí** (`05-design`) – nabízí jen volby, které jsou s aktuálním HW (počet hostů, disky,
+     NIC…) možné, a ukazuje doporučení; vždy s odkazem na dokumentaci. Ukazuje i nároky (např. kolik RAM/vCPU
+     sežerou management komponenty podle sizingu).
+  5. **Postupný deploy** (VCF Installer, bring-up, pak workload domény…).
+- Každá volba, prerekvizita a důsledek musí mít oporu ve specu.
 
 ### 2. Kariéra – hra
 - Postup po **kampaních → misích → úkolech**; mise se odemykají postupně.

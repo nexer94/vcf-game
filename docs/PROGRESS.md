@@ -27,7 +27,22 @@
   HA admission control, vCPU:pCPU ≤ 2:1, resource check installeru = warning [9.0.x]; 13 otevřených otázek
 
 ## Další kroky
-### Sandbox (priorita uživatele, 2026-11-20)
+### Sandbox v2 – serverovna s panáčkem (rozhodnutí uživatele 2026-11-21, viz CLAUDE.md)
+Tok: fyzická stavba (koupit servery z BCG, switche, rack, kabely, MTU) → hosty (ESX 9, management provoz
+se rozběhne) → volba use case podle VCF Installeru → návrh omezený aktuálním HW → postupný deploy.
+Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v Sandboxu neomezené peníze.
+- [ ] `doc-researcher` – `15-hardware` (BCG: Dell, HPE, Lenovo, Cisco, Supermicro; ReadyNode profily) *(běží)*
+- [ ] `doc-researcher` – `25-usecases-and-physical` (use cases VCF Installeru a jejich pořadí, planning
+  workflow / nároky, výchozí síť ESX po instalaci, MTU) *(běží)*
+- [ ] `ui-dev` – nový styl: izometrická serverovna, avatar, objekty jako „nábytek“, světlejší UI *(běží)*
+- [ ] `domain-modeler` – fyzická vrstva: server (CPU/RAM/disky/NIC), switch, rack, kabely, MTU, validace HW
+  proti ReadyNode/10-planning; katalog z `15-hardware`; use cases z `25`
+- [ ] `engine-dev` – Sandbox v2: nákup (herní měna), stavba, provoz odvozený ze stavu (management flows),
+  odemykání kroků; napojit stávající návrh a bring-up
+- [ ] `ui-dev` – obchod, umisťování, kabeláž, konfigurace hostů; pak use case, návrh, deploy v novém stylu
+- [ ] `fact-checker` – Sandbox v2
+
+### Sandbox v1 (původní tok Návrh → Příprava → Deploy)
 - [x] `ui-dev` – hash router, hlavní menu (Sandbox / Kariéra „Připravujeme“ / Ukázka provozu), úvod Sandboxu,
   stepper Návrh → Příprava → Deploy (placeholdery); extension point `ui/sandbox/designData.ts` →
   `loadDesignStepData()` + typy `DesignDecision`/`DesignOption` (povinné `sources`)
@@ -44,7 +59,7 @@
   model, předvyplnění wizardu z návrhu (zamčená pole), úlohy s průběhem (`engine/tasks.ts`, ilustrativní trvání)
   - otevřené: selhání nasazení/retry nemodelováno (spec 20 §8 q6), rozdělení provozu mezi VDS ilustrativní
 - [x] `ui-dev` – fáze Návrh: 8 kroků z modelu, odchylky RCMD, důsledky, souhrn + izometrický náhled; úvod upraven
-- [ ] `ui-dev` – napojení na `SandboxSession`, fáze Příprava (hosty, DNS, installer, depot) a Deploy (wizard 9.1.1) *(běží)*
+- [~] `ui-dev` – napojení na `SandboxSession`, Příprava a Deploy – přerušeno limitem; nahrazeno Sandboxem v2
 - [ ] `fact-checker` – Sandbox: návrh + bring-up proti specu
 
 ### Ostatní

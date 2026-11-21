@@ -1,10 +1,14 @@
 # Grafický design – VCF Game
 
 ## Styl
-- **2,5D izometrie** (úhel ~30°), čistý „low-poly / flat“ styl – inspirace hravostí minimapa.cz,
-  ale žádné 3D, žádný realistický terén.
-- Tmavé, klidné pozadí (podlaha datacentra / mapa), objekty světlé, výrazné jen to, co je důležité.
-- Žádná loga ani přesné kopie UI Broadcomu – vlastní ikony a barvy.
+- **Útulná kreslená izometrie** (úhel ~30°, rozhodnutí uživatele 2026-11-21): žánr „tycoon / simulátor místnosti“
+  – místnost s dvěma stěnami a dlaždicovou podlahou, jasné syté barvy, měkké stíny, lehce pixel-art / cartoon
+  objekty s výraznými obrysy, hravé. Vlastní originální grafika – nekopírovat assety ani vzhled konkrétní hry.
+- Hlavní scéna Sandboxu: **serverovna** (podlaha, stěny, dveře, okno/klimatizace), **panáček (avatar)**, který
+  chodí k objektům; racky, servery, switche a kabely jako „nábytek“, který hráč kupuje a umisťuje.
+- Čitelnost má přednost: důležité objekty (racky, kabely, provoz) výrazné, dekorace tlumené.
+- UI panely (obchod, konfigurace, wizardy) světlé a přátelské, ale přehledné; data a odkazy na dokumentaci vždy čitelné.
+- Žádná loga ani přesné kopie UI Broadcomu ani vendorů – vlastní ikony a barvy (vendor jen jako text/barevný štítek).
 
 ## Úrovně zoomu
 | Úroveň | Co je vidět |
