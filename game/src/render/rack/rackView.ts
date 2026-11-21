@@ -32,6 +32,8 @@ export interface RackCableData {
 export interface RackDeviceState {
   /** ESX installed -> status LED ● green; otherwise ■ grey "bez OS". */
   readonly esxInstalled: boolean;
+  /** Switch port connected to the company network (GAME abstraction) – framed + "⇧ síť firmy" mark. */
+  readonly companyUplinkPort?: number;
 }
 
 export interface PendingCable {
@@ -294,7 +296,19 @@ export class RackElevationView {
     }
     for (const p of this.layoutCache.ports.values()) {
       if (p.deviceId !== d.id) continue;
-      this.drawPort(g, p, linked.get(p.id), d.kind === 'switch' && p.port === d.switchPorts - 1);
+      const up = st?.companyUplinkPort;
+      const isUplink = d.kind === 'switch' && p.port === (up ?? d.switchPorts - 1);
+      this.drawPort(g, p, up !== undefined && isUplink ? true : linked.get(p.id), isUplink);
+      if (up !== undefined && isUplink) {
+        // Company uplink: short cable up to the tray + label (GAME abstraction "Síť firmy").
+        const ty = this.layoutCache.trayY;
+        g.moveTo(p.x, p.y - p.h / 2).lineTo(p.x, ty + 12).stroke({ color: OUTLINE, width: 3.2, cap: 'round' });
+        g.moveTo(p.x, p.y - p.h / 2).lineTo(p.x, ty + 12).stroke({ color: 0xffc94d, width: 1.6, cap: 'round' });
+        const lab = txt('⇧ síť firmy (herní)', 9, OUTLINE, '800');
+        lab.anchor.set(0.5, 1);
+        lab.position.set(p.x, ty - 13);
+        layer.addChild(lab);
+      }
       if (d.kind === 'switch' && typeof p.port === 'number') {
         const n = txt(String(p.port + 1), 7, 0xdfe8ff, '700');
         n.anchor.set(0.5, p.stubY < p.y ? 1 : 0);

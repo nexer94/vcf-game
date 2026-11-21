@@ -50,6 +50,7 @@ export function objectivesOf(v: ObjectivesView | undefined): { items: ObjectiveV
         group: g.title,
         ...(o.progress ? { progress: { done: o.progress.current, total: o.progress.target } } : {}),
         ...(o.why ? { specRef: o.why.specRef, docUrl: o.why.url } : {}),
+        ...(o.showMe ? { showMe: o.showMe } : {}),
       });
     }
   return { items, hidden: v.hidden, ...(v.next ? { nextId: v.next.id } : {}) };
@@ -177,5 +178,7 @@ export function roomStateFromSnapshot(raw: unknown): RoomState | null {
     ...(obj.nextId ? { nextObjectiveId: obj.nextId } : {}),
     objectivesHidden: obj.hidden,
     spent: p.economy.spent,
+    undo: p.undo,
+    ...(p.companyNetwork ? { companyNetwork: { switchId: p.companyNetwork.switchId, port: p.companyNetwork.port } } : {}),
   };
 }

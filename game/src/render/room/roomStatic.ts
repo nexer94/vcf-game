@@ -125,21 +125,6 @@ function drawDoor(g: Graphics, room: RoomSize): void {
   poly(g, wallRect(lw, ev - 0.1, ev + 0.1, 26, 32), 0xffffff, false);
 }
 
-function drawPoster(g: Graphics): void {
-  const u0 = 1.4;
-  const u1 = 3.3;
-  poly(g, wallRect(rw, u0, u1, 54, 112), DECOR.poster);
-  // Original cartoon "network map": three nodes joined by lines.
-  const n1 = rw(u0 + 0.45, 96);
-  const n2 = rw(u1 - 0.45, 92);
-  const n3 = rw((u0 + u1) / 2, 70);
-  g.moveTo(n1.x, n1.y).lineTo(n2.x, n2.y).lineTo(n3.x, n3.y).lineTo(n1.x, n1.y).stroke({ color: OUTLINE, width: 1.5 });
-  poly(g, wallCircle(rw, u0 + 0.45, 96, 0.16, 6), DECOR.posterA);
-  poly(g, wallCircle(rw, u1 - 0.45, 92, 0.16, 6), DECOR.posterB);
-  poly(g, wallCircle(rw, (u0 + u1) / 2, 70, 0.16, 6), DECOR.posterC);
-  poly(g, wallRect(rw, u0 + 0.2, u1 - 0.2, 58, 61), 0xc9c2dc, false);
-}
-
 function drawClock(g: Graphics): void {
   poly(g, wallCircle(rw, 4.6, 92, 0.42, 14, 24), 0xffffff);
   const c = rw(4.6, 92);
@@ -170,6 +155,30 @@ function drawAc(g: Graphics, room: RoomSize): void {
   g.stroke({ color: 0xffffff, width: 2, alpha: 0.7, cap: 'round' });
 }
 
+/** "Síť firmy" wall patch panel (GAME abstraction of the customer network): right wall, near the far corner. */
+export const WALL_JACK = { u0: 9.55, u1: 10.55, h0: 40, h1: 74 } as const;
+/** Wall-jack geometry for a room (clamped to small rooms). */
+export function wallJack(room: RoomSize): { u0: number; u1: number; h0: number; h1: number; port: P; label: P } {
+  const shift = Math.min(0, room.cols - 0.45 - WALL_JACK.u1);
+  const u0 = WALL_JACK.u0 + shift;
+  const u1 = WALL_JACK.u1 + shift;
+  return { u0, u1, h0: WALL_JACK.h0, h1: WALL_JACK.h1, port: rw((u0 + u1) / 2, WALL_JACK.h1 - 12), label: rw((u0 + u1) / 2, WALL_JACK.h0 - 4) };
+}
+
+function drawWallJack(g: Graphics, room: RoomSize): void {
+  const j = wallJack(room);
+  // Original art: a small cream patch panel with a coloured stripe and a row of RJ-45 style sockets.
+  poly(g, wallRect(rw, j.u0 - 0.06, j.u1 + 0.06, j.h0 - 3, j.h1 + 3), OUTLINE);
+  poly(g, wallRect(rw, j.u0, j.u1, j.h0, j.h1), 0xf4efe1);
+  poly(g, wallRect(rw, j.u0, j.u1, j.h1 - 7, j.h1), 0xffc94d, false);
+  for (let i = 0; i < 4; i++) {
+    const a = j.u0 + 0.14 + i * 0.2;
+    poly(g, wallRect(rw, a, a + 0.13, j.h1 - 20, j.h1 - 12), 0x3a3550);
+  }
+  // Conduit from the panel down into the floor ("the company network comes from outside").
+  poly(g, wallRect(rw, (j.u0 + j.u1) / 2 - 0.05, (j.u0 + j.u1) / 2 + 0.05, 0, j.h0 - 3), DECOR.trayDark, true, 0.8);
+}
+
 function drawTrays(g: Graphics, room: RoomSize): void {
   const colors = { top: DECOR.tray, front: DECOR.trayDark, side: DECOR.trayDark };
   // Along the right wall, then the left wall (ladder trays hanging under the ceiling).
@@ -194,9 +203,10 @@ export function drawStaticRoom(room: RoomSize): Graphics {
   drawFloor(g, room);
   drawWalls(g, room);
   drawDoor(g, room);
-  drawPoster(g);
+  // Poster replaced by the interactive whiteboard (render/room/fixtures.ts).
   drawClock(g);
   drawAc(g, room);
+  drawWallJack(g, room);
   drawTrays(g, room);
   return g;
 }

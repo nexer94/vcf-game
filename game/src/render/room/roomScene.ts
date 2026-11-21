@@ -23,10 +23,11 @@ import { diamond, up, type P } from './draw';
 import { createDotAtlas, type DotShape } from './dotAtlas';
 import { CABINETS, canMount, drawCabinet, firstFreeU, devicePortPoint, type CabinetKind, type CabinetSpec, type RoomDeviceSpec } from './furniture';
 import { BLOCKED_TILE, CABLE, DECOR, HOVER_TILE, OUTLINE, SHADOW, TARGET_TILE } from './palette';
-import { bundleWidth, devicePath, faceEdgePoint, flatten, pairKey, polyLength, riserTop, trayRoute } from './roomBundles';
+import { BUNDLE_Z, bundleWidth, devicePath, faceEdgePoint, flatten, pairKey, polyLength, riserTop, trayPoint, trayRoute } from './roomBundles';
 import type { RoomCableSpec } from './roomCables';
 import { depthOf, nearestReachable, Occupancy, worldToTile, type Footprint, type RoomSize, type Tile } from './roomGrid';
-import { drawStaticRoom, SLAB_H, WALL_H, WALL_T } from './roomStatic';
+import { drawStaticRoom, SLAB_H, WALL_H, WALL_T, wallJack } from './roomStatic';
+import { DESK, isFixtureId, RoomFixtures, type FixtureId } from './fixtures';
 
 export const DEFAULT_ROOM: RoomSize = { cols: 11, rows: 9 };
 
@@ -132,9 +133,16 @@ export class RoomScene {
   private readonly magnifierTex: Texture;
   private readonly magnifier: Sprite;
   private readonly highlightFx = new Graphics();
+  /** Fixed objects: desk + computer, whiteboard (Sprint 2B, render/room/fixtures.ts). */
+  readonly fixtures: RoomFixtures;
   private highlighted: string | null = null;
   private readonly overhead = new Container();
   private readonly bmcFx = new Graphics();
+  /** "Síť firmy" uplink cable (switch -> wall patch panel), GAME abstraction. */
+  private readonly uplinkLayer = new Container();
+  private readonly uplinkFx = new Graphics();
+  private uplinkLabel: Text | null = null;
+  private uplink: { deviceId: string; port: number } | null = null;
   private bmcActive = new Set<string>();
   private dashMs = 0;
   private dashPhase = 0;
@@ -170,6 +178,8 @@ export class RoomScene {
     avatarStart: Tile = { gx: Math.floor(size.cols / 2), gy: size.rows - 2 },
   ) {
     this.grid = new Occupancy(size);
+    this.fixtures = new RoomFixtures(renderer);
+    this.grid.set(DESK, true);
     this.avatar = new AvatarMotion(avatarStart);
     this.staticGfx = drawStaticRoom(size);
     this.shadowTex = createShadowTexture(renderer);
@@ -191,8 +201,10 @@ export class RoomScene {
     this.objects.sortableChildren = true;
     this.objects.addChild(this.avatarSprite, this.ghostSprite);
     this.shadows.addChild(this.avatarShadow, this.ghostShadow);
-    this.objects.addChild(this.highlightFx);
-    this.world.addChild(this.shadows, this.floorFx, this.markerFx, this.objects, this.overhead, this.bmcFx, this.magnifier);
+    this.objects.addChild(this.highlightFx, this.fixtures.desk);
+    this.world.addChild(this.fixtures.wall, this.shadows, this.floorFx, this.markerFx, this.objects, this.overhead, this.uplinkLayer, this.bmcFx, this.magnifier);
+    this.uplinkLayer.addChild(this.uplinkFx);
+    this.drawUplink();
     this.bakeStatic(2);
     this.syncAvatar(0);
   }
@@ -590,6 +602,42 @@ export class RoomScene {
     }
   }
 
+  /** Company network uplink (switch port -> wall patch panel). null = not connected. Redrawn on every call (state changes only). */
+  setCompanyUplink(link: { deviceId: string; port: number } | null): void {
+    this.uplink = link ? { ...link } : null;
+    this.drawUplink();
+  }
+
+  private drawUplink(): void {
+    const g = this.uplinkFx;
+    g.clear();
+    const j = wallJack(this.size);
+    if (!this.uplinkLabel) {
+      this.uplinkLabel = new Text({ text: 'Síť firmy · herní zjednodušení', style: { fontFamily: 'system-ui, sans-serif', fontSize: 9, fontWeight: '800', fill: OUTLINE, stroke: { color: 0xffffff, width: 3 } }, resolution: 3 });
+      this.uplinkLabel.anchor.set(0.5, 0);
+      this.uplinkLabel.position.set(j.label.x, j.label.y);
+      this.uplinkLayer.addChild(this.uplinkLabel);
+    }
+    const link = this.uplink;
+    const pw = link ? this.portWorld(link.deviceId, link.port) : null;
+    // Link LED on the panel: green when connected.
+    g.circle(j.port.x + 10, j.port.y - 8, 2.4).fill(pw ? 0x4cc38a : 0x9a96ad).stroke({ color: OUTLINE, width: 1 });
+    if (!link || !pw) return;
+    const cab = pw.cabinet.spec;
+    const ju = (j.u0 + j.u1) / 2;
+    const tp = trayPoint(cab);
+    const corner = up(isoToScreen(ju, cab.gy + 1), BUNDLE_Z);
+    const wall = up(isoToScreen(ju, 0.3), BUNDLE_Z);
+    const pts: P[] = [pw.p, faceEdgePoint(cab, pw.p), riserTop(cab), tp, corner, wall, j.port];
+    const path = (): Graphics => {
+      g.moveTo(pts[0]!.x, pts[0]!.y);
+      for (let i = 1; i < pts.length; i++) g.lineTo(pts[i]!.x, pts[i]!.y);
+      return g;
+    };
+    path().stroke({ color: OUTLINE, width: 3.6, cap: 'round', join: 'round' });
+    path().stroke({ color: 0xffc94d, width: 1.8, cap: 'round', join: 'round' });
+  }
+
   /** Remove everything except the avatar. */
   clear(): void {
     for (const id of [...this.cabinets.keys()]) this.removeCabinet(id);
@@ -685,6 +733,16 @@ export class RoomScene {
   }
 
   /** World rect of a cabinet sprite (camera flight target). */
+  /** Fixed object (desk with the computer / whiteboard) under a world point. */
+  fixtureAtWorld(wx: number, wy: number): FixtureId | null {
+    return this.fixtures.at(wx, wy);
+  }
+
+  /** World rect of a fixed object (camera flight target: the monitor / the board). */
+  fixtureRect(id: FixtureId): { x: number; y: number; width: number; height: number } {
+    return this.fixtures.rect(id);
+  }
+
   cabinetRect(id: string): { x: number; y: number; width: number; height: number } | null {
     const e = this.cabinets.get(id);
     if (!e) return null;
@@ -710,6 +768,18 @@ export class RoomScene {
     const g = this.highlightFx;
     g.clear();
     const e = id ? this.cabinets.get(id) : undefined;
+    if (!e && isFixtureId(id)) {
+      // Fixed objects (desk / whiteboard): same rim + magnifier.
+      const f = this.fixtures.silhouette(id);
+      const sil = f.pts.flatMap((p) => [p.x, p.y]);
+      g.poly(sil).stroke({ color: 0xffffff, width: 6, join: 'round', alpha: 0.95 });
+      g.poly(sil).stroke({ color: OUTLINE, width: 2, join: 'round' });
+      g.zIndex = f.z + 0.004;
+      g.visible = true;
+      this.magnifier.position.set(f.top.x, f.top.y);
+      this.magnifier.visible = true;
+      return;
+    }
     if (!e) {
       g.visible = false;
       this.magnifier.visible = false;

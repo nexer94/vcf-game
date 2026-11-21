@@ -1,0 +1,40 @@
+/* Whiteboard view (UX.md §10). The board itself is PixiJS; these are the DOM bars around it. */
+.wb-ui { position: absolute; inset: 0; pointer-events: none; }
+.wb-bar {
+  position: absolute; top: var(--top-h, 52px); left: 0; right: 0; height: 44px; box-sizing: border-box;
+  display: flex; gap: 10px; align-items: center; padding: 0 12px; background: var(--panel);
+  border-bottom: 2px solid var(--outline); pointer-events: auto; font-size: 13px; white-space: nowrap; overflow: hidden;
+}
+.wb-bar > :last-child { margin-left: 0; }
+.wb-tabs { display: flex; gap: 4px; }
+.wb-tab { padding: 4px 12px; border-radius: 999px; border: 2px solid var(--line-2); background: var(--panel-2); color: var(--ink); font: inherit; cursor: pointer; }
+.wb-tab[aria-selected='true'] { background: var(--accent); color: #fff; border-color: var(--outline); }
+.wb-check { display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
+.wb-stamp { margin-left: auto; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+.wb-ink { color: #1f3477; font-weight: 700; }
+.wb-shelf {
+  position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); display: flex; gap: 6px; align-items: center;
+  padding: 6px 10px; background: #dfe3ea; border: 2px solid var(--outline); border-radius: 12px; pointer-events: auto;
+  box-shadow: var(--shadow); max-width: calc(100% - 20px); overflow-x: auto; white-space: nowrap;
+}
+.wb-tool, .wb-color, .wb-width {
+  font: inherit; font-size: 13px; padding: 4px 9px; border-radius: 8px; border: 2px solid transparent; background: #fff; color: var(--ink); cursor: pointer;
+}
+.wb-tool[aria-pressed='true'], .wb-color[aria-pressed='true'], .wb-width[aria-pressed='true'] { border-color: var(--outline); background: var(--accent-soft); }
+.wb-dot { display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--outline); vertical-align: middle; }
+.wb-w { display: inline-block; width: 18px; background: var(--ink); border-radius: 4px; vertical-align: middle; }
+.wb-sep { width: 1px; height: 24px; background: var(--line-2); margin: 0 2px; }
+.wb-fill { margin-left: 4px; }
+.wb-tip { position: absolute; left: 0; top: 0; max-width: 300px; pointer-events: none; font-size: 12px; display: block; padding: 8px 10px; }
+.wb-ui .wb-tip.tooltip { display: block; }
+.wb-ui .wb-tip.tooltip[hidden] { display: none; }
+.wb-input {
+  position: absolute; left: 0; top: 0; min-width: 180px; pointer-events: auto; border: 2px dashed var(--line-2);
+  background: rgba(255, 255, 255, 0.9); font-family: 'Patrick Hand', 'Comic Neue', 'Comic Sans MS', 'Segoe Print', cursive; padding: 0 4px;
+}
+.wb-desc {
+  position: absolute; right: 12px; top: calc(var(--top-h, 52px) + 54px); width: 360px; max-height: calc(100% - 180px); overflow: auto;
+  padding: 10px 14px; pointer-events: auto; font-size: 13px;
+}
+.wb-desc h3 { font-size: 13px; margin: 10px 0 4px; }
+.wb-desc ul { margin: 0; padding-left: 18px; }

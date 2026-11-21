@@ -8,7 +8,8 @@ import { badge, chip } from '../messages';
 import { VENDOR_TAG } from '../../render/room/palette';
 import type { InventoryEntry, RoomState, ShopPartItem, ShopRackItem, ShopServerItem, ShopSwitchItem } from './sessionPort';
 
-export type ShopTab = 'backpack' | 'racks' | 'servers' | 'switches' | 'cables' | 'drives' | 'nics';
+import type { ShopTab } from './panelData';
+export type { ShopTab };
 
 const TABS: readonly [ShopTab, string][] = [
   ['backpack', 'V batohu'],
@@ -143,7 +144,7 @@ export function createShop(opts: ShopOptions): ShopHandle {
     comparePanel.append(
       h('div', { class: 'compare-head' }, h('strong', null, 'Porovnání'), button('✖', () => toggleCompare(false), { class: 'btn btn-small', 'aria-label': 'Zavřít porovnání' })),
       h('table', { class: 'compare-table' },
-        h('thead', null, h('tr', null, h('th', null, ''), ...list.map((s) => h('th', null, `${s.vendor} ${s.model}`)))),
+        h('thead', null, h('tr', null, h('th', null, ''), ...list.map((s) => h('th', null, `${s.vendor} ${s.model}`, h('div', { class: 'card-variant' }, s.id))))),
         h('tbody', null, ...rows.map(([label, f]) => h('tr', null, h('th', { scope: 'row' }, label), ...list.map((s) => h('td', null, f(s)))))),
       ),
       h('p', { class: 'muted small' }, 'Splnění požadavků VCF se ukáže až podle zvoleného návrhu (bez návrhu neradíme naslepo). Cena: ', badge('game-price')),
@@ -161,11 +162,12 @@ export function createShop(opts: ShopOptions): ShopHandle {
       render();
     });
     const dataDate = state?.catalog.datasetFetchedAt.slice(0, 10) ?? '';
-    return h('article', { class: 'shop-card', 'aria-label': `${s.vendor} ${s.model}` },
+    return h('article', { class: 'shop-card', 'aria-label': `${s.vendor} ${s.model} (${s.id})` },
       h('div', { class: 'card-title' },
         h('span', { class: 'vendor-tag', style: `background:${css(VENDOR_TAG[s.vendor])}` }, s.vendor),
         h('span', { class: 'card-model', title: s.model }, s.model),
       ),
+      h('div', { class: 'card-line card-variant', title: 'Sestava (konfigurace) z katalogu – stejný model může mít víc sestav' }, `sestava ${s.id}`),
       h('div', { class: 'card-line' }, `${s.rackUnits}U · ${sum.cpu} · ${sum.ram}`),
       h('div', { class: 'card-line', title: s.drives.map((d) => d.label).join(', ') }, sum.disks),
       h('div', { class: 'card-line', title: s.nics.map((n) => n.label).join(', ') }, sum.nics),

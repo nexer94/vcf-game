@@ -16,6 +16,11 @@ import { loadDesignStepData } from '../sandbox/designData';
 import { sharedDesignState } from '../sandbox/designState';
 import { createDesignViewState, renderDesignStep, restoreDesignFocus } from '../sandbox/designStep';
 import { buildDemoRoom } from '../sandbox/demoRoom';
+// Sprint 2B: desk + computer and whiteboard (ui/pc/roomHooks.ts).
+import { createRoomObjectHooks, isFixtureId } from '../pc/roomHooks';
+import { createHostDetail, type HostDetail } from '../sandbox/hostDetail';
+import { createObjectPanels } from '../sandbox/objectPanels';
+import { resolveShowMe } from '../sandbox/panelData';
 import { createRackPanel, type RackPanel } from '../sandbox/rackPanel';
 import { bmcTransfersOf, linkTrafficOf, roomContentsOf, StaticTrafficSource } from '../sandbox/roomSync';
 import { parentView, ROOM_VIEW, sameView, viewLabel, type RoomView } from '../sandbox/roomViews';
@@ -32,12 +37,15 @@ const ROOM_KEYS: readonly [string, string][] = [
   ['Mezerník / P', 'pauza'],
   [', / .', 'zpomalit / zrychlit čas (1× · 4× · 16×)'],
   ['1–7', 'kategorie obchodu (když má fokus obchod)'],
-  ['E / Enter', 'otevřít rack pod kurzorem / ve fokusu'],
+  ['E / Enter', 'otevřít rack / tabuli / počítač pod kurzorem'],
+  ['Shift+D', 'počítač → Návrh VCF'],
   ['Esc / Backspace', 'zrušit → o úroveň zpět'],
   ['D', 'panel Návrh'],
   ['L', 'legenda provozu'],
   ['T / Shift+T', 'úkoly rozbalit / skrýt'],
   ['S (v racku)', 'seznam zapojení'],
+  ['Enter / klik na server či switch', 'panel zařízení (v racku)'],
+  ['Ctrl+Z / Ctrl+Y', 'vrátit / zopakovat změnu místnosti'],
   ['kolečko / tah · + − 0', 'zoom / posun / celá místnost'],
 ];
 
@@ -111,11 +119,15 @@ export const sandboxRoomScreen: ScreenDef = {
         button('Úkoly zobrazit / skrýt (Shift+T)', () => setHidden(!(state?.objectivesHidden ?? false)), { class: 'btn btn-small' }),
       ),
     );
+    const undoBtn = button('⟲', () => undoRedo('undo'), { class: 'btn btn-small', title: 'Vrátit změnu místnosti (Ctrl+Z)', 'aria-label': 'Vrátit změnu místnosti (Ctrl+Z)', disabled: true });
+    const redoBtn = button('⟳', () => undoRedo('redo'), { class: 'btn btn-small', title: 'Zopakovat změnu (Ctrl+Y)', 'aria-label': 'Zopakovat změnu místnosti (Ctrl+Y)', disabled: true });
+    const dnsBtn = button('DNS', () => panels.openDns(), { class: 'btn btn-small', title: 'DNS server firmy (mimo VCF)' });
     const hud = h('header', { class: 'room-hud' },
       button('← Sandbox', () => ctx.navigate({ name: 'sandbox-intro' }), { class: 'btn btn-small', title: 'Odejít ze serverovny' }),
       h('div', { class: 'room-title' }, h('strong', null, 'Serverovna'), h('span', { class: 'muted' }, ` · ${VCF_VERSION}`)),
       h('div', { class: 'hud-chip', title: 'Herní měna – v Sandboxu neomezená. Ceny jsou herní, nejsou z dokumentace.' }, h('span', { class: 'coin', 'aria-hidden': 'true' }), '∞ ', spentEl),
       nextChip,
+      h('span', { class: 'hud-group' }, undoBtn, redoBtn, dnsBtn),
       timeSlot,
       keysHelp(),
       settings,
@@ -123,6 +135,62 @@ export const sandboxRoomScreen: ScreenDef = {
     const tracker = h('section', { class: 'room-tracker', id: 'room-tracker', hidden: true, 'aria-label': 'Úkoly', role: 'region' });
     ui.append(hud, tracker, toast, live, liveBad);
     const time = createTimeControls(timeSlot, engine, 'stepped');
+    const panels = createObjectPanels({ ui, port: () => port, announce: (t, bad) => say(t, bad), onOpenHost: (id) => openHost(id) });
+    function undoRedo(which: 'undo' | 'redo'): void {
+      const ops = port?.ops;
+      if (!ops) return say('Vracení změn funguje jen v tvé serverovně, ne v ukázce.', true);
+      const r = ops.dispatch({ type: which === 'undo' ? 'undoRoom' : 'redoRoom' });
+      say(r.ok ? (which === 'undo' ? 'Vráceno.' : 'Zopakováno.') : r.message, !r.ok);
+    }
+    const rackTools = (): HTMLElement[] => {
+      const u = button('⟲', () => undoRedo('undo'), { class: 'btn btn-small rack-undo', title: 'Vrátit (Ctrl+Z)', 'aria-label': 'Vrátit změnu (Ctrl+Z)' });
+      const r = button('⟳', () => undoRedo('redo'), { class: 'btn btn-small rack-redo', title: 'Zopakovat (Ctrl+Y)', 'aria-label': 'Zopakovat změnu (Ctrl+Y)' });
+      const d = button('DNS', () => panels.openDns(), { class: 'btn btn-small', title: 'DNS server firmy (mimo VCF)' });
+      u.disabled = !state?.undo?.canUndo;
+      r.disabled = !state?.undo?.canRedo;
+      d.hidden = !port?.ops;
+      return [u, r, d];
+    };
+    function openDevice(id: string): void {
+      const d = state?.devices.find((x) => x.id === id);
+      if (!d) return;
+      if (d.kind === 'server') panels.openServer(id);
+      else panels.openSwitch(id);
+    }
+    function openHost(id: string): void {
+      const rackId = state?.devices.find((x) => x.id === id)?.mount?.rackId;
+      if (!rackId) return say('Server není v racku.', true);
+      panels.close();
+      goTo({ kind: 'host', rackId, hostId: id });
+    }
+    function showMe(o: ObjectiveView): void {
+      const ops = port?.ops;
+      if (!ops) return say('„Ukaž mi“ funguje jen v tvé serverovně.', true);
+      const a = resolveShowMe(o.showMe, ops.snapshot(), o.id);
+      switch (a.kind) {
+        case 'view':
+          if (!sameView(a.view, view)) goTo(a.view);
+          return;
+        case 'server':
+          if (a.rackId && !(view.kind === 'rack' && view.rackId === a.rackId)) goTo({ kind: 'rack', rackId: a.rackId });
+          panels.openServer(a.serverId, a.tab);
+          return;
+        case 'switch':
+          if (a.rackId && !(view.kind === 'rack' && view.rackId === a.rackId)) goTo({ kind: 'rack', rackId: a.rackId });
+          panels.openSwitch(a.switchId);
+          return;
+        case 'dns':
+          panels.openDns();
+          return;
+        case 'inventory':
+          if (view.kind !== 'room') goTo(ROOM_VIEW);
+          shop.setTab(a.tab);
+          shop.el.querySelector<HTMLElement>(`[data-tab="${a.tab}"]`)?.focus();
+          return;
+        case 'none':
+          say(a.reason, true);
+      }
+    }
 
     // ------------------------------------------------------------ right panel (design decisions)
     const sideBody = h('div', { class: 'room-side-body', id: 'room-side-body' });
@@ -176,6 +244,12 @@ export const sandboxRoomScreen: ScreenDef = {
     // Hidden keyboard / screen-reader list of interactive objects (UX §4.5).
     const objList = h('ul', { class: 'sr-only room-objects', 'aria-label': 'Objekty v místnosti' });
     ui.appendChild(objList);
+    // Sprint 2B hook: computer + whiteboard views.
+    const objHooks = createRoomObjectHooks({
+      stage, ui, gameTimeMs: () => engine.snapshot().clock.gameTimeMs, port: () => port, goTo: (v) => goTo(v),
+      roomCamera: () => savedRoomCam ?? camera?.camera ?? null, say: (t, bad) => say(t, bad),
+      openShopServers: () => { goTo(ROOM_VIEW); shop.setTab('servers'); },
+    });
 
     // ------------------------------------------------------------ object views (placeholders)
     const placeholder = h('div', { class: 'view-placeholder', hidden: true });
@@ -233,6 +307,7 @@ export const sandboxRoomScreen: ScreenDef = {
           h('span', { class: 'obj-icon', 'aria-hidden': 'true' }, o.kind === 'game-optional' ? '◇' : OBJ_ICON[o.status]),
           h('span', { class: 'obj-title' }, o.title, o.progress ? ` ${o.progress.done}/${o.progress.total}` : '', o.kind === 'doc-recommended' ? ' ★' : ''),
           o.kind === 'game-optional' ? h('span', { class: 'ui-badge badge-outscope' }, 'mimo VCF scope – herní') : null,
+          o.showMe && o.status !== 'done' ? button('Ukaž mi', () => showMe(o), { class: 'btn btn-small btn-showme', 'aria-label': `Ukaž mi: ${o.title}` }) : null,
           o.docUrl ? h('a', { href: o.docUrl, target: '_blank', rel: 'noopener noreferrer', class: 'doc-link', title: o.specRef ?? '' }, 'Proč? ↗') : null,
           o.status !== 'done' && o.status !== 'skipped' ? button('⤼', () => port?.skipObjective(o.id), { class: 'btn btn-small', title: 'Přeskočit vedení (nic nemění ve hře ani ve validacích)', 'aria-label': `Přeskočit: ${o.title}` }) : null,
         ))),
@@ -307,6 +382,8 @@ export const sandboxRoomScreen: ScreenDef = {
         return;
       }
       if (cab) return openRack(cab.id);
+      const fx = objHooks.fixtureAt(pos.wx, pos.wy); // Sprint 2B hook
+      if (fx) return goTo(objHooks.viewOf(fx));
       if (tile && !room.walkTo(tile)) say('Tam se nedá dojít.', true);
     }
 
@@ -319,6 +396,7 @@ export const sandboxRoomScreen: ScreenDef = {
 
     // ------------------------------------------------------------ view stack + transitions (UX §7)
     let rackPanel = null as RackPanel | null;
+    let hostDetail = null as HostDetail | null;
     let savedRoomCam: Camera | null = null;
     let transition = null as { dir: TransitionDirection; t: number; from: Camera; to: Camera; done: () => void } | null;
 
@@ -347,6 +425,7 @@ export const sandboxRoomScreen: ScreenDef = {
         rv.visible = f.viewAlpha > 0.001;
       }
       placeholder.style.opacity = String(f.viewAlpha);
+      objHooks.current?.setTransition(f.viewAlpha, f.viewScale); // Sprint 2B hook
       if (f.done) {
         transition = null;
         tr.done();
@@ -358,6 +437,7 @@ export const sandboxRoomScreen: ScreenDef = {
       view = next;
       tip.hidden = true;
       room.setHighlightedCabinet(null);
+      if (objHooks.switchApp(prev, next)) return; // Sprint 2B hook: pc app -> pc app
       if (next.kind === 'room') {
         closeObjectView(prev, animate);
         return;
@@ -376,7 +456,19 @@ export const sandboxRoomScreen: ScreenDef = {
           goTo(ROOM_VIEW);
           return;
         }
-        rackPanel = createRackPanel({
+        if (next.kind === 'host' && port.ops) {
+          hostDetail = createHostDetail({
+            ui,
+            ops: port.ops,
+            hostId: next.hostId,
+            rackId: next.rackId,
+            announce: say,
+            onBack: () => goTo({ kind: 'rack', rackId: next.rackId }),
+            onOpenServer: (id, tab) => panels.openServer(id, tab),
+            onOpenSwitch: (id) => panels.openSwitch(id),
+            reducedMotion: () => reducedMotion,
+          });
+        } else rackPanel = createRackPanel({
           ui,
           canvas,
           view: stage.rack,
@@ -387,12 +479,15 @@ export const sandboxRoomScreen: ScreenDef = {
           onOpenRack: (id) => goTo({ kind: 'rack', rackId: id }),
           reducedMotion: () => reducedMotion,
           dpr: stage.app.renderer.resolution,
+          onOpenDevice: openDevice,
+          onOpenHost: openHost,
+          toolbarExtra: rackTools(),
         });
-        if (next.kind === 'host') say('Detail hosta (karty vmnic) připravujeme – zatím pohled racku.');
-      } else {
+        if (next.kind === 'host') say('Detail hosta je jen v tvé serverovně (ne v ukázce).', true);
+      } else if (!objHooks.open(next)) {
         showPlaceholder(next);
       }
-      const rect = next.kind === 'rack' || next.kind === 'host' ? room.cabinetRect(next.rackId) : null;
+      const rect = next.kind === 'rack' || next.kind === 'host' ? room.cabinetRect(next.rackId) : objHooks.rect(next);
       const from = savedRoomCam;
       const to = rect ? cameraOnto(rect, { x: 0, y: TOP_H, width: canvas.clientWidth, height: canvas.clientHeight - TOP_H - BOTTOM_H }) : from;
       if (!animate) {
@@ -419,7 +514,10 @@ export const sandboxRoomScreen: ScreenDef = {
     function closeObjectView(prev: RoomView, animate: boolean, keepRoomHidden = false): void {
       rackPanel?.dispose();
       rackPanel = null;
+      hostDetail?.dispose();
+      hostDetail = null;
       placeholder.hidden = true;
+      objHooks.closeView(); // Sprint 2B hook
       if (keepRoomHidden) return;
       shop.el.hidden = false;
       chip.el.hidden = false;
@@ -432,7 +530,7 @@ export const sandboxRoomScreen: ScreenDef = {
         attachRoomControls(back);
       };
       if (!animate || prev.kind === 'room') return restore();
-      const rect = prev.kind === 'rack' || prev.kind === 'host' ? room.cabinetRect(prev.rackId) : null;
+      const rect = prev.kind === 'rack' || prev.kind === 'host' ? room.cabinetRect(prev.rackId) : objHooks.rect(prev);
       const from = rect ? cameraOnto(rect, { x: 0, y: TOP_H, width: canvas.clientWidth, height: canvas.clientHeight - TOP_H - BOTTOM_H }) : back;
       room.world.visible = true;
       room.world.alpha = 0;
@@ -472,6 +570,18 @@ export const sandboxRoomScreen: ScreenDef = {
       if (!demoTraffic) room.setBmcTransfers(bmcTransfersOf(state));
       shop.update(state, picked?.id ?? null);
       renderHud(state);
+      room.setCompanyUplink(state.companyNetwork ? { deviceId: state.companyNetwork.switchId, port: state.companyNetwork.port } : null);
+      undoBtn.disabled = !state.undo?.canUndo;
+      redoBtn.disabled = !state.undo?.canRedo;
+      dnsBtn.hidden = !port.ops;
+      for (const b of ui.querySelectorAll<HTMLButtonElement>('.rack-undo')) b.disabled = !state.undo?.canUndo;
+      for (const b of ui.querySelectorAll<HTMLButtonElement>('.rack-redo')) b.disabled = !state.undo?.canRedo;
+      panels.refresh();
+      if (hostDetail && port.ops) {
+        const snap = port.ops.snapshot();
+        hostDetail.update(snap, snap.revision !== hostRev);
+        hostRev = snap.revision;
+      }
       objList.replaceChildren(...state.racks.filter((r) => r.tile).map((r) =>
         h('li', null, button(`Otevřít rack ${r.label}`, () => openRack(r.id), { 'data-rack': r.id, class: 'sr-focusable' })),
       ));
@@ -479,9 +589,11 @@ export const sandboxRoomScreen: ScreenDef = {
         b.addEventListener('focus', () => room.setHighlightedCabinet(b.dataset['rack'] ?? null));
         b.addEventListener('blur', () => room.setHighlightedCabinet(null));
       }
+      objList.append(...objHooks.srButtons()); // Sprint 2B hook
       if (picked && !state.inventory.some((e) => e.id === picked!.id)) pick(null);
     };
     let demoTraffic = false;
+    let hostRev = -1;
     const usePort = (p: RoomPort, isDemo: boolean): void => {
       if (disposed) return;
       offPort?.();
@@ -493,6 +605,7 @@ export const sandboxRoomScreen: ScreenDef = {
         room.setTrafficSource(built.traffic);
         room.setBmcTransfers(built.bmcCables);
       }
+      objHooks.bindPort(p, isDemo); // Sprint 2B hook
       offPort = p.subscribe(applyState);
       applyState();
       if (view.kind === 'room') camera?.set(fitRoom());
@@ -539,17 +652,19 @@ export const sandboxRoomScreen: ScreenDef = {
       }
       const cab = hover ? room.cabinetAtWorld(hover.wx, hover.wy) : null;
       const cabId = cab?.kind === 'rack' ? cab.id : null;
-      if (cabId !== hoverCab) {
-        hoverCab = cabId;
+      const fxId = hover && !cabId && !picked ? objHooks.fixtureAt(hover.wx, hover.wy) : null; // Sprint 2B hook
+      if ((cabId ?? fxId) !== hoverCab) {
+        hoverCab = cabId ?? fxId;
         hoverMs = 0;
       }
-      room.setHighlightedCabinet(cabId);
+      room.setHighlightedCabinet(cabId ?? fxId);
       const bundle = hover && !cabId ? room.bundleAtWorld(hover.wx, hover.wy, 8 / camera.camera.scale) : null;
       room.setHoveredBundle(bundle?.key ?? null);
-      canvas.style.cursor = picked ? (picked.kind === 'rack' || cabId ? 'copy' : 'not-allowed') : cabId ? 'zoom-in' : '';
+      canvas.style.cursor = picked ? (picked.kind === 'rack' || cabId ? 'copy' : 'not-allowed') : cabId || fxId ? 'zoom-in' : '';
       hoverMs += real;
-      if (hover && hoverMs >= TOOLTIP_DELAY_MS && (cabId || bundle)) {
+      if (hover && hoverMs >= TOOLTIP_DELAY_MS && (cabId || fxId || bundle)) {
         if (cabId) showTip(hover.sx, hover.sy, rackTooltip(cabId));
+        else if (fxId) showTip(hover.sx, hover.sy, objHooks.tooltip(fxId));
         else if (bundle && state) {
           const s = state;
           const lab = (d: string, p: number): string => {
@@ -563,14 +678,25 @@ export const sandboxRoomScreen: ScreenDef = {
 
     // ------------------------------------------------------------ keys
     const onKey = (e: KeyboardEvent): void => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
       const t = e.target;
       const typing = t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement;
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !typing && (view.kind === 'room' || view.kind === 'rack')) {
+        const k = e.key.toLowerCase();
+        if (k === 'z' || k === 'y') {
+          e.preventDefault();
+          undoRedo(k === 'y' || e.shiftKey ? 'redo' : 'undo');
+          return;
+        }
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (transition) {
         finishTransition();
         if (e.key !== 'Escape') return;
       }
       if (e.key === 'Escape' || (e.key === 'Backspace' && !typing)) {
+        if (panels.escape()) return;
+        if (hostDetail?.escape()) return;
+        if (objHooks.current?.escape()) return; // Sprint 2B hook
         if (rackPanel?.escape()) return;
         if (settings.open) {
           settings.open = false;
@@ -586,12 +712,16 @@ export const sandboxRoomScreen: ScreenDef = {
         return;
       }
       if (typing) return;
-      if (e.key === 'd' || e.key === 'D') {
+      if (e.key === 'D' && e.shiftKey) goTo({ kind: 'pc', app: 'navrh' }); // Sprint 2B hook (UX §7.3)
+      else if (e.key === 'd' || e.key === 'D') {
         if (view.kind === 'room') setSide(!sideOpen);
       } else if (e.key === 'l' || e.key === 'L') chip.toggle();
       else if (e.key === 't') toggleTracker();
       else if (e.key === 'T') setHidden(!(state?.objectivesHidden ?? false));
-      else if ((e.key === 'e' || e.key === 'E' || e.key === 'Enter') && view.kind === 'room' && hoverCab && !(t instanceof HTMLButtonElement)) openRack(hoverCab);
+      else if ((e.key === 'e' || e.key === 'E' || e.key === 'Enter') && view.kind === 'room' && hoverCab && !(t instanceof HTMLButtonElement)) {
+        if (isFixtureId(hoverCab)) goTo(objHooks.viewOf(hoverCab));
+        else openRack(hoverCab);
+      }
       else if (e.key === '0' && view.kind === 'room') camera?.set(fitRoom());
     };
     window.addEventListener('keydown', onKey);
@@ -634,12 +764,15 @@ export const sandboxRoomScreen: ScreenDef = {
         disposed = true;
         finishTransition();
         rackPanel?.dispose();
+        hostDetail?.dispose();
+        panels.dispose();
         offPort?.();
         window.removeEventListener('keydown', onKey);
         window.removeEventListener('resize', onResize);
         window.removeEventListener('pointerdown', onPointerDown, true);
         offFrame();
         offDesign?.();
+        objHooks.dispose(); // Sprint 2B hook
         camera?.dispose();
         canvas.removeEventListener('dblclick', onDbl);
         canvas.removeEventListener('contextmenu', onCtx);
@@ -650,6 +783,7 @@ export const sandboxRoomScreen: ScreenDef = {
         room.setHighlightedCabinet(null);
         room.setTrafficFilter(null);
         room.setBmcTransfers([]);
+        room.setCompanyUplink(null);
         room.world.alpha = 1;
         room.world.visible = true;
         stage.rack.root.visible = false;

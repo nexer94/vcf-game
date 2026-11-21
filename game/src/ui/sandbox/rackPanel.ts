@@ -51,6 +51,12 @@ export interface RackPanelOptions {
   readonly onOpenRack: (rackId: string) => void;
   readonly reducedMotion: () => boolean;
   readonly dpr: number;
+  /** Open the object panel of a device (server / switch). */
+  readonly onOpenDevice?: (deviceId: string) => void;
+  /** Open the host network detail (UX §9.6). */
+  readonly onOpenHost?: (serverId: string) => void;
+  /** Extra toolbar items (undo / redo, DNS…), owned by the caller. */
+  readonly toolbarExtra?: readonly HTMLElement[];
 }
 
 export interface RackPanel {
@@ -99,7 +105,9 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
     otherRacks,
     h('label', { class: 'inv-check', for: 'rack-traffic' }, trafficToggle, ' provoz'),
     listBtn,
+    ...(o.toolbarExtra ?? []),
   );
+  const deviceLayer = h('div', { class: 'rack-devbtns', 'aria-label': 'Zařízení v racku' });
   const portLayer = h('div', { class: 'rack-ports', 'aria-label': 'Porty zařízení' });
   const badgeLayer = h('div', { class: 'rack-badges' });
   const popover = h('div', { class: 'cable-pop', role: 'dialog', 'aria-label': 'Kabel', hidden: true });
@@ -111,7 +119,7 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
     h('div', { class: 'rack-bottom-col' }, h('strong', null, 'Kabely'), ' ', chip('zdarma – herní zjednodušení', 'badge-generic'), hint, mountBox),
     problems,
   );
-  const root = h('div', { class: 'rack-ui' }, portLayer, badgeLayer, bar, list, popover, bottom);
+  const root = h('div', { class: 'rack-ui' }, deviceLayer, portLayer, badgeLayer, bar, list, popover, bottom);
   ui.appendChild(root);
 
   // ------------------------------------------------------------- camera
@@ -171,7 +179,7 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
       linkUp: c.linkUp,
       bmc: c.bmc,
     }));
-    const devState = new Map(state.devices.map((d) => [d.id, { esxInstalled: d.esxInstalled }]));
+    const devState = new Map(state.devices.map((d) => [d.id, { esxInstalled: d.esxInstalled, ...(state.companyNetwork?.switchId === d.id ? { companyUplinkPort: state.companyNetwork.port } : {}) }]));
     const before = view.layout;
     view.setData(racks, cables, devState);
     view.setTraffic(linkTrafficOf(state), showTraffic);
@@ -189,6 +197,7 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
     );
     if (selectedCable && !state.cables.some((c) => c.id === selectedCable)) selectCable(null);
     renderPorts();
+    renderDeviceButtons();
     renderBadges();
     renderProblems();
     renderMount();
@@ -341,6 +350,24 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
     const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
     controls?.set(zoomAt(cam, Math.exp(-dy * 0.0015), e.clientX - r.left, e.clientY - r.top, 0.3, 3));
   }, { passive: false });
+
+  // ------------------------------------------------------------- device buttons (open object panel)
+  function renderDeviceButtons(): void {
+    deviceLayer.replaceChildren();
+    if (!o.onOpenDevice) return;
+    for (const d of view.layout.devices.values()) {
+      const dev = deviceOf(d.id);
+      if (!dev) continue;
+      const b = button('', () => o.onOpenDevice!(d.id), {
+        class: 'dev-btn',
+        'data-devbtn': d.id,
+        title: `${dev.label}: otevřít panel (Enter)${dev.kind === 'server' ? ' · dvojklik = síť hosta' : ''}`,
+        'aria-label': `${dev.kind === 'server' ? 'Server' : 'Switch'} ${dev.label} – otevřít panel`,
+      });
+      if (dev.kind === 'server' && o.onOpenHost) b.addEventListener('dblclick', () => o.onOpenHost!(d.id));
+      deviceLayer.appendChild(b);
+    }
+  }
 
   // ------------------------------------------------------------- badges + problems (model issues)
   function issuesOf(deviceId: string): ValidationIssue[] {
@@ -514,6 +541,16 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
       b.style.width = `${p.cell.w * s}px`;
       b.style.height = `${p.cell.h * s}px`;
     }
+    for (const b of deviceLayer.children) {
+      const id = (b as HTMLElement).dataset['devbtn'];
+      const d = id ? view.layout.devices.get(id) : undefined;
+      if (!d) continue;
+      const w = d.kind === 'server' ? 210 : 74;
+      const el = b as HTMLElement;
+      el.style.transform = `translate(${cam.x + (d.x + 14) * s}px, ${cam.y + (d.y + 1) * s}px)`;
+      el.style.width = `${w * s}px`;
+      el.style.height = `${Math.max(12, (d.h - 2) * s)}px`;
+    }
     for (const b of badgeLayer.children) {
       const id = (b as HTMLElement).dataset['device'];
       const d = id ? view.layout.devices.get(id) : undefined;
@@ -551,7 +588,9 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
       const hit = rowAt(view.layout, l.x, l.y);
       if (armed && hit && hit.row.kind === 'empty' && hit.column.rackId === o.rackId) return mountArmed(hit.row.bottomU);
       if (armed && hit && hit.row.kind === 'empty') return mountArmed(undefined);
-      selectCable(view.cableAt(l.x, l.y, 8 / cam.scale));
+      const cab = view.cableAt(l.x, l.y, 8 / cam.scale);
+      if (!cab && hit && hit.row.kind === 'device' && o.onOpenDevice) return o.onOpenDevice(hit.row.deviceId);
+      selectCable(cab);
     },
   });
   applyCamera(controls.camera);

@@ -53,11 +53,45 @@ export function createLocalDesignState(): DesignStatePort {
 
 let shared: DesignStatePort | null = null;
 
+// ---------------------------------------------------------------------------
+// Swappable backing (Sprint 2B): the shared state delegates to the local state until the room binds the
+// SandboxSession (ui/pc/sessionDesignState.ts). Subscribers of the shared port survive the swap.
+// ---------------------------------------------------------------------------
+let localBacking: DesignStatePort | null = null;
+let backing: DesignStatePort | null = null;
+let offBacking: (() => void) | null = null;
+const sharedSubs = new Set<() => void>();
+const emitShared = (): void => sharedSubs.forEach((f) => f());
+
 /**
- * One design state for the whole Sandbox run, shared by the room's design panel
- * and the phase shell (so the phase gate sees the same choices).
- * TODO(SandboxSession): replace with the session-backed port.
+ * One design state for the whole Sandbox run, shared by the room's design panel, the computer app
+ * "Návrh VCF" and the phase shell (so the phase gate sees the same choices).
  */
 export function sharedDesignState(): DesignStatePort {
-  return (shared ??= createLocalDesignState());
+  if (shared) return shared;
+  localBacking = createLocalDesignState();
+  backing = localBacking;
+  offBacking = backing.subscribe(emitShared);
+  shared = {
+    selection: () => backing!.selection(),
+    acknowledged: () => backing!.acknowledged(),
+    select: (d, o) => backing!.select(d, o),
+    acknowledgeWarnings: (k) => backing!.acknowledgeWarnings(k),
+    subscribe(fn) {
+      sharedSubs.add(fn);
+      return () => sharedSubs.delete(fn);
+    },
+  };
+  return shared;
+}
+
+/** Point the shared design state at another backing (session); null = back to the local state. */
+export function bindSharedDesignState(next: DesignStatePort | null): void {
+  sharedDesignState();
+  const target = next ?? localBacking!;
+  if (target === backing) return;
+  offBacking?.();
+  backing = target;
+  offBacking = backing.subscribe(emitShared);
+  emitShared();
 }

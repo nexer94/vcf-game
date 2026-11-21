@@ -15,6 +15,8 @@
  *    session API lands. It holds no VCF rules of its own.
  */
 import type { FlowTrafficClass, HwVendor, EsaProfileId, ValidationIssue } from '../../model';
+import type { SandboxSnapshot } from '../../modes/sandbox/snapshot';
+import type { SandboxCommand } from '../../modes/sandbox/types';
 import type { Tile } from '../../render/room/roomGrid';
 import { roomStateFromSnapshot } from './sessionMapper';
 
@@ -164,6 +166,8 @@ export interface ObjectiveView {
   readonly docUrl?: string;
   /** Tracker group title (engine objectives). */
   readonly group?: string;
+  /** "Ukaž mi" hint of the objective (opaque data from scenarios/objectives, interpreted by ui/sandbox/showMe.ts). */
+  readonly showMe?: Readonly<Record<string, string>>;
 }
 
 export interface InventoryEntry {
@@ -192,10 +196,14 @@ export interface RoomState {
   readonly objectivesHidden: boolean;
   /** Game currency spent (Sandbox money is unlimited). */
   readonly spent: number;
+  /** Room undo / redo availability (session only). */
+  readonly undo?: { readonly canUndo: boolean; readonly canRedo: boolean };
+  /** Switch port connected to the company network (GAME abstraction "Síť firmy"). */
+  readonly companyNetwork?: { readonly switchId: string; readonly port: number };
 }
 
 export type PortResult =
-  | { readonly ok: true; readonly id?: string }
+  | { readonly ok: true; readonly id?: string; readonly warnings?: readonly ValidationIssue[] }
   | { readonly ok: false; readonly message: string; readonly issues?: readonly ValidationIssue[] };
 
 export interface RoomPort {
@@ -215,6 +223,17 @@ export interface RoomPort {
   setCableMeta(cableId: string, meta: { readonly color?: CableColorId; readonly label?: string }): PortResult;
   skipObjective(id: string): PortResult;
   setObjectivesHidden(hidden: boolean): PortResult;
+  /**
+   * Full session access for the object panels (server / switch / DNS / host detail). Only the session backend has
+   * it; the local fallback (demo room) does not – panels then show a game-limit note.
+   */
+  readonly ops?: SessionOps;
+}
+
+/** Session commands + snapshot for the object panels. Every VCF decision stays in the engine / model. */
+export interface SessionOps {
+  snapshot(): SandboxSnapshot;
+  dispatch(cmd: SandboxCommand): PortResult;
 }
 
 // ---------------------------------------------------------------------------
@@ -301,6 +320,16 @@ function sessionBackend(session: SessionLike): RoomPort {
     const rej = r.rejection ?? {};
     return { ok: false, message: rej.message ?? rej.issues?.[0]?.message ?? 'Akce se nepovedla.', ...(rej.issues ? { issues: rej.issues } : {}) };
   };
+  const ops: SessionOps = {
+    snapshot: () => session.snapshot() as SandboxSnapshot,
+    dispatch: (cmd) => {
+      const r = session.dispatch(cmd as unknown as { readonly type: string } & Record<string, unknown>) as R & { warnings?: readonly ValidationIssue[] };
+      if (r.ok) return { ok: true, ...(r.created?.[0] !== undefined ? { id: r.created[0] } : {}), ...(r.warnings?.length ? { warnings: r.warnings } : {}) };
+      const rej = r.rejection ?? {};
+      const issues = rej.issues ?? rej.errors;
+      return { ok: false, message: rej.message ?? issues?.[0]?.message ?? 'Akce se nepovedla.', ...(issues ? { issues } : {}) };
+    },
+  };
   const toPortRef = (p: PortKey): Record<string, unknown> => ({ deviceId: p.deviceId, port: p.port });
   const memo: { snap?: unknown; state?: RoomState } = {};
   const empty: RoomState = {
@@ -310,6 +339,7 @@ function sessionBackend(session: SessionLike): RoomPort {
   };
   return {
     source: 'session',
+    ops,
     state() {
       const snap = session.snapshot();
       if (memo.state && memo.snap === snap) return memo.state;

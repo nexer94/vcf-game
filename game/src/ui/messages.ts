@@ -84,7 +84,10 @@ export type BadgeKind =
   | 'paraphrase'
   | 'unverified'
   | 'irreversible'
-  | 'day2';
+  | 'day2'
+  | 'documented'
+  | 'out-of-scope'
+  | 'game-simplification';
 
 export interface BadgeInfo {
   readonly label: string;
@@ -121,6 +124,18 @@ export const BADGES: Readonly<Record<BadgeKind, BadgeInfo>> = {
     label: 'Day 2',
     description: 'Podle dokumentace až po nasazení (Day 2) – není součástí návrhu Day 0.',
   },
+  documented: {
+    label: 'dokumentace',
+    description: 'Výchozí hodnota podle dokumentace (odkaz na specifikaci v popisku).',
+  },
+  'out-of-scope': {
+    label: 'mimo VCF scope – herní',
+    description: 'Dokumentace VCF tento krok vyřazuje ze svého rozsahu. Ve hře je to volitelný krok z reálné serverovny, který nic neblokuje.',
+  },
+  'game-simplification': {
+    label: 'herní zjednodušení',
+    description: 'Herní abstrakce reality (např. síť firmy za jedním portem) – není to údaj z dokumentace.',
+  },
 };
 
 export const BADGE_ORDER: readonly BadgeKind[] = [
@@ -131,6 +146,9 @@ export const BADGE_ORDER: readonly BadgeKind[] = [
   'unverified',
   'irreversible',
   'day2',
+  'documented',
+  'out-of-scope',
+  'game-simplification',
 ];
 
 const descId = (kind: BadgeKind): string => `badge-desc-${kind}`;
