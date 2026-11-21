@@ -133,7 +133,7 @@ describe('session-backed site port', () => {
     const { session, port, open } = setup();
     await open();
     port.choose('two-buildings', null);
-    const r = session.dispatch({ type: 'placeRack', itemId: 'rack-generic-42u', tile: { gx: 1, gy: 1 }, roomId: 'room-b1' });
+    const r = session.dispatch({ type: 'placeRack', itemId: 'rack-generic-42u', tile: { gx: 2, gy: 2 }, roomId: 'room-b1' });
     const rack = r.ok ? r.created![0]! : '';
     expect(port.roomOfRack(rack)).toBe('room-b1');
     expect(port.assignRack(rack, 'room-a1').ok).toBe(true);

@@ -21,6 +21,7 @@ import {
   layoutsSupporting,
   minStretchedHosts,
   moveRackToRoom,
+  validateRoomCapacity,
   roomPath,
   setSiteLink,
   siteStateFor,
@@ -152,6 +153,24 @@ describe('rooms, racks and layout changes', () => {
     expect(s.racks[0]?.roomId).toBe('room-b1');
     s = u(addRack(s, catalog, 'r2', 'rack-generic-42u', 'room-c1'));
     expect(moveRackToRoom(s, 'r1', 'room-c1')).toMatchObject({ ok: false, error: { code: 'SITE_ROOM_FULL' } });
+  });
+
+  it('occupiesSlot: racks that take no slot (inventory) are not counted and are not limited (game)', () => {
+    const placed = new Set(['r1']);
+    const opts = { occupiesSlot: (id: string) => placed.has(id) };
+    let s = u(chooseSiteLayout(emptyPhysicalState(), 'two-buildings'));
+    s = u(addRack(s, catalog, 'r1', 'rack-generic-42u', 'room-c1', opts)); // room-c1: 1 slot
+    s = u(addRack(s, catalog, 'r2', 'rack-generic-42u', 'room-c1', opts)); // inventory rack: no slot
+    expect(validateRoomCapacity(s, 'room-c1', 'r3', opts)).toEqual([]);
+    placed.add('r3');
+    expect(validateRoomCapacity(s, 'room-c1', 'r3', opts).map((i) => i.code)).toEqual(['SITE_ROOM_FULL']);
+    s = u(addRack(s, catalog, 'r4', 'rack-generic-42u', 'room-a1', opts));
+    placed.add('r4');
+    expect(moveRackToRoom(s, 'r4', 'room-c1', opts)).toMatchObject({ ok: false, error: { code: 'SITE_ROOM_FULL' } });
+    placed.delete('r1');
+    expect(moveRackToRoom(s, 'r4', 'room-c1', opts).ok).toBe(true);
+    // default (no predicate): every assigned rack counts
+    expect(validateRoomCapacity(s, 'room-c1').map((i) => i.code)).toEqual(['SITE_ROOM_FULL']);
   });
 
   it('AZ assignment drives availability zones and hosts per AZ', () => {

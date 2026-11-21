@@ -10,6 +10,7 @@ import { createRng } from '../util/rng';
 import { poly, prism, up, type P } from './draw';
 import { DECOR, FLOOR, OUTLINE, SHADOW, WALL } from './palette';
 import type { RoomSize } from './roomGrid';
+import { WALL_JACK as SHARED_WALL_JACK, doorSpan, wallJackSpan } from '../../model/roomFixtures';
 
 export const WALL_H = 150;
 export const WALL_T = 0.28;
@@ -106,14 +107,13 @@ function drawWalls(g: Graphics, room: RoomSize): void {
  * there) and its world-space bounding box (click target). Multi-room sites use it to move between rooms.
  */
 export function roomDoor(room: RoomSize): { v0: number; v1: number; tile: { gx: number; gy: number }; rect: { x: number; y: number; width: number; height: number } } {
-  const v0 = Math.max(1, room.rows - 3.4);
-  const v1 = v0 + 1.5;
+  const { v0, v1, tile } = doorSpan(room); // shared with the engine's rack placement rules (model/roomFixtures.ts)
   const pts = wallRect(lw, v0 - 0.15, v1 + 0.15, 0, 112);
   const xs = pts.map((p) => p.x);
   const ys = pts.map((p) => p.y);
   const x = Math.min(...xs);
   const y = Math.min(...ys);
-  return { v0, v1, tile: { gx: 0, gy: Math.min(room.rows - 1, Math.floor(v0 + 0.75)) }, rect: { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y } };
+  return { v0, v1, tile, rect: { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y } };
 }
 
 function drawDoor(g: Graphics, room: RoomSize): void {
@@ -170,12 +170,10 @@ function drawAc(g: Graphics, room: RoomSize): void {
 }
 
 /** "Síť firmy" wall patch panel (GAME abstraction of the customer network): right wall, near the far corner. */
-export const WALL_JACK = { u0: 9.55, u1: 10.55, h0: 40, h1: 74 } as const;
+export const WALL_JACK = SHARED_WALL_JACK;
 /** Wall-jack geometry for a room (clamped to small rooms). */
 export function wallJack(room: RoomSize): { u0: number; u1: number; h0: number; h1: number; port: P; label: P } {
-  const shift = Math.min(0, room.cols - 0.45 - WALL_JACK.u1);
-  const u0 = WALL_JACK.u0 + shift;
-  const u1 = WALL_JACK.u1 + shift;
+  const { u0, u1 } = wallJackSpan(room);
   return { u0, u1, h0: WALL_JACK.h0, h1: WALL_JACK.h1, port: rw((u0 + u1) / 2, WALL_JACK.h1 - 12), label: rw((u0 + u1) / 2, WALL_JACK.h0 - 4) };
 }
 

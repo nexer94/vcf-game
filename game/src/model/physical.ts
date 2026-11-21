@@ -34,7 +34,7 @@
 import { type EsxHost, type EsxHostNetwork, type StorageType, configureHostNetwork, installEsx, newBareMetalHost } from './bringup';
 import { type ServerConfig, BMC_LABEL, BMC_PORT_SPEEDS_GBE, configFingerprint, nicMaxSpeed } from './hardware';
 import type { HardwareCatalog } from './hardwareCatalog';
-import { type SiteLayoutId, type SiteState, crossRoomCable, defaultRoomId, siteStateFor, sitesOf, validateRoomCapacity } from './sites';
+import { type RoomCapacityOptions, type SiteLayoutId, type SiteState, crossRoomCable, defaultRoomId, siteStateFor, sitesOf, validateRoomCapacity } from './sites';
 import { type TransitionResult, type ValidationIssue, issue } from './validation';
 
 // ===========================================================================
@@ -309,13 +309,16 @@ export function linkStatus(state: PhysicalState, catalog: HardwareCatalog, cable
 
 const fail = <S>(i: ValidationIssue): TransitionResult<S> => ({ ok: false, error: i });
 
-/** Adds a rack into `roomId` (default: first room of the site layout). [GAME] room rack capacity (sites.ts). */
-export function addRack(state: PhysicalState, catalog: HardwareCatalog, id: string, modelId = 'rack-generic-42u', roomId?: string): TransitionResult<PhysicalState> {
+/**
+ * Adds a rack into `roomId` (default: first room of the site layout). [GAME] room rack capacity (sites.ts); with
+ * `opts.occupiesSlot` a rack that takes no slot yet (Sandbox inventory) is not limited by the capacity.
+ */
+export function addRack(state: PhysicalState, catalog: HardwareCatalog, id: string, modelId = 'rack-generic-42u', roomId?: string, opts: RoomCapacityOptions = {}): TransitionResult<PhysicalState> {
   const m = catalog.racks.get(modelId);
   if (!m || byId(state.racks, id)) return fail(issue('PHYS_DEVICE_INVALID', 'error', `Cannot add rack ${id} (${modelId}).`, 'game: room rules', id, 'game-scope'));
   const sites = sitesOf(state);
   const room = roomId ?? defaultRoomId(sites) ?? '';
-  const cap = validateRoomCapacity(state, room)[0];
+  const cap = validateRoomCapacity(state, room, id, opts)[0];
   if (cap) return fail(cap);
   return { ok: true, state: { ...state, sites, racks: [...state.racks, { id, modelId, heightU: m.heightU, roomId: room }] } };
 }

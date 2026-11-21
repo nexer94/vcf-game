@@ -96,7 +96,8 @@ describe('Sandbox room – placement', () => {
     const { rack, hosts } = room(s, 2);
     const v = s.snapshot().physical.racks.find((r) => r.id === rack)!;
     expect(v.placed).toBe(true);
-    expect(v.tile).toEqual({ gx: 2, gy: 3 });
+    expect(v.tile).toEqual({ gx: 2, gy: 3, rotation: 0 });
+    expect(v.facing).toBe('S');
     expect(v.uMap[0]).toBe(hosts[0]);
     expect(v.uMap[2]).toBe(hosts[1]);
     expect(v.uMap[41]).toBe('sw01');
@@ -111,7 +112,7 @@ describe('Sandbox room – placement', () => {
     const rack = created(must(s, { type: 'buyItem', itemId: 'rack-generic-42u' }))[0]!;
     const srv = created(must(s, { type: 'buyItem', itemId: 'dell-r670-med' }))[0]!;
     expect(reject(s, { type: 'mountDevice', inventoryId: srv, rackId: rack })).toMatchObject({ reason: 'rack-not-placed' });
-    must(s, { type: 'placeRack', inventoryId: rack, tile: { gx: 0, gy: 0 } });
+    must(s, { type: 'placeRack', inventoryId: rack, tile: { gx: 2, gy: 3 } });
     must(s, { type: 'mountDevice', inventoryId: srv, rackId: rack });
     expect(reject(s, { type: 'removeItem', id: rack })).toMatchObject({ reason: 'rack-not-empty' });
   });

@@ -578,20 +578,34 @@ export function setSiteLink(state: PhysicalState, linkId: string, patch: { reado
   return { ok: true, state: { ...state, sites: { ...s, links: s.links.map((x) => (x.id === linkId ? { ...x, rttMs: rtt, bandwidthGbps: bw } : x)) } } };
 }
 
-/** [GAME] room rack capacity check for adding / moving a rack into `roomId`. */
-export function validateRoomCapacity(state: PhysicalState, roomId: string, ignoreRackId?: string): ValidationIssue[] {
+/**
+ * [GAME] which racks take a slot of a room. Default: every rack assigned to the room. A caller with an inventory
+ * (Sandbox: racks without a floor tile) passes a predicate so that only placed racks count – racks waiting in the
+ * inventory take no slot, and adding / moving such a rack is not limited by the room capacity.
+ */
+export interface RoomCapacityOptions {
+  readonly occupiesSlot?: (rackId: string) => boolean;
+}
+
+/**
+ * [GAME] room rack capacity check for adding / moving `rackId` into `roomId` (`rackId` itself is not counted).
+ * With `occupiesSlot`, a rack that takes no slot passes and only slot-taking racks of the room are counted.
+ */
+export function validateRoomCapacity(state: PhysicalState, roomId: string, rackId?: string, opts: RoomCapacityOptions = {}): ValidationIssue[] {
   const s = sitesOf(state);
   const r = roomById(s, roomId);
   if (!r) return [issue('SITE_ROOM_NOT_FOUND', 'error', `Room ${roomId} does not exist in layout ${s.layoutId}.`, 'game: site layouts', roomId, 'game-scope')];
-  const used = racksInRoom(state, roomId).filter((id) => id !== ignoreRackId).length;
+  const occupies = opts.occupiesSlot ?? (() => true);
+  if (rackId !== undefined && !occupies(rackId)) return [];
+  const used = racksInRoom(state, roomId).filter((id) => id !== rackId && occupies(id)).length;
   return used >= r.rackSlots ? [issue('SITE_ROOM_FULL', 'error', `${r.label} has room for ${r.rackSlots} rack(s) only.`, 'game: site layouts', roomId, 'game-scope')] : [];
 }
 
 /** Moves a rack (with its devices) to another room. Cables to other rooms are then subject to the room rules. */
-export function moveRackToRoom(state: PhysicalState, rackId: string, roomId: string): TransitionResult<PhysicalState> {
+export function moveRackToRoom(state: PhysicalState, rackId: string, roomId: string, opts: RoomCapacityOptions = {}): TransitionResult<PhysicalState> {
   const rack = state.racks.find((r) => r.id === rackId);
   if (!rack) return fail(issue('PHYS_DEVICE_INVALID', 'error', `Unknown rack ${rackId}.`, 'game: room rules', rackId, 'game-scope'));
-  const cap = validateRoomCapacity(state, roomId, rackId)[0];
+  const cap = validateRoomCapacity(state, roomId, rackId, opts)[0];
   if (cap) return fail(cap);
   return { ok: true, state: { ...state, racks: state.racks.map((r) => (r.id === rackId ? { ...r, roomId } : r)) } };
 }

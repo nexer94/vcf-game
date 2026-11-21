@@ -16,6 +16,7 @@ import type {
   BringupRules,
   BringupSpec,
   DeploymentEvent,
+  Facing,
   DeploymentState,
   DeploymentStatus,
   DepotConnection,
@@ -92,7 +93,11 @@ export interface SandboxEnvironment {
 // Server room (game data around the model's PhysicalState)
 // ---------------------------------------------------------------------------
 
-/** Floor tile of a rack in the room (same shape as render/room Tile). Room placement rules live in the render layer. */
+/**
+ * Floor tile of a rack in the room (same shape as render/room Tile). Placement rules: model roomLayout.ts via
+ * rackLayout.ts. `rotation` (clockwise): 0 = front towards +gy (S, default), 90 = W, 180 = N, 270 = E
+ * (model rotationToFacing).
+ */
 export interface RoomTile {
   readonly gx: number;
   readonly gy: number;
@@ -313,10 +318,14 @@ export type SandboxCommand =
   /** Buy `qty` (default 1) of a catalog item (starter server, `bcg-*` model, drive, NIC, switch, rack). */
   | { readonly type: 'buyItem'; readonly itemId: string; readonly qty?: number }
   /**
-   * Place a rack: an inventory rack (`inventoryId` / `rackId`) or buy one (`itemId`). `roomId` = room of the site
-   * layout (omitted: the rack's current room); tiles collide per room.
+   * Place or move a rack: an inventory rack / a placed rack (`inventoryId` / `rackId`) or buy one (`itemId`).
+   * `roomId` = room of the site layout (omitted: the rack's current room). `facing` = where the rack front points
+   * (omitted: `tile.rotation`, else the current facing of a placed rack, else 'S'). [GAME] room layout rules
+   * (model validateRackPlacement) – rejected with their issues unchanged.
    */
-  | { readonly type: 'placeRack'; readonly inventoryId?: string; readonly rackId?: string; readonly itemId?: string; readonly tile: RoomTile; readonly roomId?: string }
+  | { readonly type: 'placeRack'; readonly inventoryId?: string; readonly rackId?: string; readonly itemId?: string; readonly tile: RoomTile; readonly roomId?: string; readonly facing?: Facing }
+  /** Turn a placed rack in place (front towards `facing`); [GAME] room layout rules apply. */
+  | { readonly type: 'rotateRack'; readonly rackId: string; readonly facing: Facing }
   /** Move a rack (with its devices) into another room of the site (model moveRackToRoom); a placed rack keeps its tile. */
   | { readonly type: 'moveRackToRoom'; readonly rackId: string; readonly roomId: string }
   /** Assign a room to an AZ / fault-domain role (model assignRoomRole); null = unassign. */

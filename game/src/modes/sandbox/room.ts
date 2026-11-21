@@ -21,6 +21,7 @@
 import {
   type Cable,
   type EsxHostNetwork,
+  type Facing,
   type HwVendor,
   type PhysicalServer,
   type PhysicalState,
@@ -51,7 +52,6 @@ import {
   validateServerConfig,
   assignRoomRole,
   moveRackToRoom,
-  roomById,
   roomOfRack,
   sitesOf,
   validateRoomCapacity,
@@ -59,9 +59,10 @@ import {
 import { CABLE_ITEM_ID, itemPrice, serverConfigPrice } from '../economy';
 import { netContextOf } from './roomNet';
 import { isOobSwitch, syncOob } from './oob';
-import { isAzRole, roomFloorSize } from './site';
+import { isAzRole } from './site';
+import { checkRackPlacement, facingOfTile, isFacing, occupiesSlot, tileWithFacing } from './rackLayout';
 import { type SandboxContext, Tx, flow, invalid, no, ok } from './tx';
-import type { CableEndInput, CommandResult, SandboxCommand, SandboxRoomState, SandboxState, SwitchPortInput } from './types';
+import type { CableEndInput, CommandResult, RoomTile, SandboxCommand, SandboxRoomState, SandboxState, SwitchPortInput } from './types';
 
 /** ESX version recorded when the player does not choose one and no `rules.requiredEsxVersion` is set (GAME label). */
 export const ESX_VERSION_GAME_DEFAULT = '9.1 (verze podle VCF Release Notes – herní označení)';
@@ -109,6 +110,7 @@ const ROOM_TYPES = [
   'setVmkMtu',
   'configureBmc',
   'moveRackToRoom',
+  'rotateRack',
   'assignRoomRole',
 ] as const;
 type RoomType = (typeof ROOM_TYPES)[number];
@@ -134,6 +136,7 @@ const UNDOABLE: ReadonlySet<string> = new Set([
   'configureServer',
   'configureBmc',
   'moveRackToRoom',
+  'rotateRack',
   'assignRoomRole',
 ]);
 
@@ -255,25 +258,30 @@ function mergePort(cur: SwitchPortConfig, input: SwitchPortInput): SwitchPortCon
 }
 
 /**
- * Room a newly bought rack is assigned to: the first room of the layout with a free [GAME] rack slot (model
- * validateRoomCapacity); when every room is full, the first room (the model then rejects the purchase).
+ * Room a newly bought rack is assigned to: the first room of the layout with a free [GAME] rack slot (only placed racks
+ * take a slot – model validateRoomCapacity with occupiesSlot); when every room is full, the first room. A bought rack
+ * waits in the inventory and takes no slot, so buying never fails on the room capacity.
  */
-function roomForNewRack(p: PhysicalState): string | undefined {
+function roomForNewRack(room: SandboxRoomState): string | undefined {
+  const p = room.physical;
   const rooms = sitesOf(p).rooms;
-  return rooms.find((r) => validateRoomCapacity(p, r.id).length === 0)?.id ?? rooms[0]?.id;
+  const counts = { occupiesSlot: occupiesSlot(room) };
+  return rooms.find((r) => validateRoomCapacity(p, r.id, undefined, counts).length === 0)?.id ?? rooms[0]?.id;
 }
 
-/** [GAME] tile rules of a room: inside the room floor (illustrative size) and not taken by another rack of the room. */
-function tileProblem(room: SandboxRoomState, rackId: string, roomId: string, t: { readonly gx: number; readonly gy: number }) {
-  const def = roomById(sitesOf(room.physical), roomId);
-  if (def) {
-    const f = roomFloorSize(def.rackSlots);
-    if (t.gx >= f.cols || t.gy >= f.rows) return flow('invalid-input', `Dlaždice ${t.gx},${t.gy} je mimo místnost ${def.label} (${f.cols} × ${f.rows}, herní rozměr).`);
-  }
-  for (const [other, tile] of Object.entries(room.rackTiles))
-    if (other !== rackId && tile.gx === t.gx && tile.gy === t.gy && roomOfRack(room.physical, other) === roomId)
-      return flow('tile-occupied', `Na dlaždici ${t.gx},${t.gy} už stojí rack ${other}.`);
-  return undefined;
+/** Adds a bought rack to the inventory (assigned to `roomId`, no tile, takes no slot). */
+function addInventoryRack(room: SandboxRoomState, catalog: SandboxContext['catalog'], id: string, modelId: string, roomId?: string) {
+  return addRack(room.physical, catalog, id, modelId, roomId ?? roomForNewRack(room), { occupiesSlot: occupiesSlot(room) });
+}
+
+/**
+ * [GAME] rack placement rules of the room (model validateRackPlacement: bounds, door / fixtures, occupied tile,
+ * cold / hot aisle clearance, rows, capacity). Issues are passed through unchanged (scope 'game-scope').
+ */
+function placementProblem(room: SandboxRoomState, rackId: string, roomId: string, t: RoomTile, facing: Facing) {
+  const r = checkRackPlacement(room, roomId, rackId, t, facing);
+  if (!r) return flow('invalid-input', `Místnost ${roomId} neexistuje.`);
+  return r.ok ? undefined : invalid(r.issues);
 }
 
 const notInstalled = (id: string): ValidationIssue => issue('ESX_NOT_INSTALLED', 'error', `Host ${id}: ESX is not installed.`, '20 §4.1.1 [S8]', id);
@@ -372,7 +380,7 @@ function applyRoomInner(tx: Tx, cmd: RoomCommand, ctx: SandboxContext): CommandR
           created.push(id);
         } else if (item?.kind === 'rack') {
           const id = nextId(tx, 'rack', 'r', 2, (x) => byId(next.physical.racks, x) !== undefined);
-          const r = addRack(next.physical, catalog, id, item.id, roomForNewRack(next.physical));
+          const r = addInventoryRack(next, catalog, id, item.id);
           if (!r.ok) return no(invalid([r.error]));
           next = charge(tx, withPhysical(next, r.state), 'buy', item.id, 1, itemPrice(catalog, item.id, prices) ?? 0);
           created.push(id);
@@ -390,6 +398,8 @@ function applyRoomInner(tx: Tx, cmd: RoomCommand, ctx: SandboxContext): CommandR
     case 'placeRack': {
       const t = cmd.tile;
       if (!Number.isInteger(t.gx) || !Number.isInteger(t.gy) || t.gx < 0 || t.gy < 0) return no(flow('invalid-input', 'Dlaždice musí mít nezáporné celé souřadnice.'));
+      if (cmd.facing !== undefined && !isFacing(cmd.facing)) return no(flow('invalid-input', `Neznámá orientace racku ${String(cmd.facing)}.`));
+      if (t.rotation !== undefined && ![0, 90, 180, 270].includes(t.rotation)) return no(flow('invalid-input', `Neplatné otočení racku ${String(t.rotation)}.`));
       let next = room;
       let id = cmd.inventoryId ?? cmd.rackId;
       const created: string[] = [];
@@ -397,36 +407,52 @@ function applyRoomInner(tx: Tx, cmd: RoomCommand, ctx: SandboxContext): CommandR
         const item = cmd.itemId !== undefined ? catalog.items.get(cmd.itemId) : undefined;
         if (!item || item.kind !== 'rack') return no(flow('unknown-item', `Rack ${cmd.itemId ?? '(nezadán)'} není v katalogu.`));
         const newId = nextId(tx, 'rack', 'r', 2, (x) => byId(next.physical.racks, x) !== undefined);
-        const r = addRack(next.physical, catalog, newId, item.id, cmd.roomId ?? roomForNewRack(next.physical));
+        const r = addInventoryRack(next, catalog, newId, item.id, cmd.roomId);
         if (!r.ok) return no(invalid([r.error]));
         next = charge(tx, withPhysical(next, r.state), 'buy', item.id, 1, itemPrice(catalog, item.id, prices) ?? 0);
         id = newId;
         created.push(newId);
       } else if (!byId(p.racks, id)) return no(flow('unknown-rack', `Rack ${id} neexistuje.`));
       else if (cmd.roomId !== undefined && roomOfRack(p, id) !== cmd.roomId) {
-        // Model: room exists + [GAME] room rack capacity.
-        const r = moveRackToRoom(p, id, cmd.roomId);
+        if (p.servers.some((x) => x.mount?.rackId === id && (serverTask(s, x.id) || serverInDeployedDomain(s, x))))
+          return no(flow('device-busy', `V racku ${id} je server s běžící úlohou nebo v nasazené management domain.`));
+        // Model: room exists + [GAME] room rack capacity (placed racks only).
+        const r = moveRackToRoom(p, id, cmd.roomId, { occupiesSlot: occupiesSlot(room) });
         if (!r.ok) return no(invalid([r.error]));
         next = withPhysical(next, r.state);
       }
+      const current = room.rackTiles[id];
+      // Facing: explicit > tile.rotation > the rack's current facing (moving) > default S (rotation 0).
+      const facing = cmd.facing ?? (t.rotation !== undefined ? facingOfTile(t) : current ? facingOfTile(current) : 'S');
       const target = roomOfRack(next.physical, id) ?? '';
-      const bad = tileProblem(next, id, target, t);
+      const bad = placementProblem(next, id, target, t, facing);
       if (bad) return no(bad);
-      const tile = { gx: t.gx, gy: t.gy, ...(t.rotation !== undefined ? { rotation: t.rotation } : {}) };
-      setRoom(tx, { ...next, rackTiles: { ...next.rackTiles, [id]: tile } }, undoable);
+      setRoom(tx, { ...next, rackTiles: { ...next.rackTiles, [id]: tileWithFacing(t.gx, t.gy, facing) } }, undoable);
       return { ok: true, warnings: [], created };
+    }
+    case 'rotateRack': {
+      if (!isFacing(cmd.facing)) return no(flow('invalid-input', `Neznámá orientace racku ${String(cmd.facing)}.`));
+      if (!byId(p.racks, cmd.rackId)) return no(flow('unknown-rack', `Rack ${cmd.rackId} neexistuje.`));
+      const cur = room.rackTiles[cmd.rackId];
+      if (!cur) return no(flow('rack-not-placed', `Rack ${cmd.rackId} ještě nestojí v místnosti.`));
+      if (facingOfTile(cur) === cmd.facing) return no(flow('nothing-to-do', `Rack ${cmd.rackId} už je otočený na ${cmd.facing}.`));
+      const bad = placementProblem(room, cmd.rackId, roomOfRack(p, cmd.rackId) ?? '', cur, cmd.facing);
+      if (bad) return no(bad);
+      setRoom(tx, { ...room, rackTiles: { ...room.rackTiles, [cmd.rackId]: tileWithFacing(cur.gx, cur.gy, cmd.facing) } }, undoable);
+      return ok();
     }
     case 'moveRackToRoom': {
       if (!byId(p.racks, cmd.rackId)) return no(flow('unknown-rack', `Rack ${cmd.rackId} neexistuje.`));
       if (roomOfRack(p, cmd.rackId) === cmd.roomId) return no(flow('nothing-to-do', `Rack ${cmd.rackId} už je v této místnosti.`));
       if (p.servers.some((x) => x.mount?.rackId === cmd.rackId && (serverTask(s, x.id) || serverInDeployedDomain(s, x))))
         return no(flow('device-busy', `V racku ${cmd.rackId} je server s běžící úlohou nebo v nasazené management domain.`));
-      const r = moveRackToRoom(p, cmd.rackId, cmd.roomId);
+      const r = moveRackToRoom(p, cmd.rackId, cmd.roomId, { occupiesSlot: occupiesSlot(room) });
       if (!r.ok) return no(invalid([r.error]));
       const moved = withPhysical(room, r.state);
       const tile = room.rackTiles[cmd.rackId];
       if (tile) {
-        const bad = tileProblem(moved, cmd.rackId, cmd.roomId, tile);
+        // A placed rack keeps its tile and facing: the target room's placement rules apply there.
+        const bad = placementProblem(moved, cmd.rackId, cmd.roomId, tile, facingOfTile(tile));
         if (bad) return no(bad);
       }
       setRoom(tx, moved, undoable);
@@ -759,6 +785,8 @@ export function describeRoom(cmd: RoomCommand): string {
       return `Rack ${cmd.inventoryId ?? cmd.rackId ?? cmd.itemId ?? ''} na dlaždici ${cmd.tile.gx},${cmd.tile.gy}${cmd.roomId ? ` (${cmd.roomId})` : ''}`;
     case 'moveRackToRoom':
       return `Rack ${cmd.rackId} → místnost ${cmd.roomId}`;
+    case 'rotateRack':
+      return `Rack ${cmd.rackId} otočen čelem na ${cmd.facing}`;
     case 'assignRoomRole':
       return `Místnost ${cmd.roomId}: role ${cmd.role ?? 'žádná'}`;
     case 'mountDevice':

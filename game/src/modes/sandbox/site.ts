@@ -10,7 +10,7 @@
  *  - the blueprint's documented design choices are pre-selected only in the design phase and before a bring-up
  *    (after it the design is history, validateRedesign); choosing the same blueprint again keeps the player's choices.
  *
- * GAME values: room floor sizes (tiles) – illustrative, derived from the model's [GAME] rack slots.
+ * GAME values: room floor sizes (tiles) – illustrative, rackLayout.roomFloorSize.
  */
 import {
   type AzRole,
@@ -19,7 +19,7 @@ import {
   type BlueprintId,
   type DesignChoices,
   type DesignDecisionId,
-  type PhysicalState,
+  type HardwareCatalog,
   type SiteLayoutId,
   type SiteLinkKind,
   type SiteState,
@@ -41,26 +41,9 @@ import {
   sitesOf,
 } from '../../model';
 import { type IssueGroups, groupIssues } from './design';
+import { type RoomFloor, type RoomPlacementView, roomFloorSize, roomPlacementView } from './rackLayout';
 import { type Tx, flow, invalid, no, ok } from './tx';
 import type { CommandResult, SandboxCommand, SandboxState } from './types';
-
-// ===========================================================================
-// Game data: room floor
-// ===========================================================================
-
-export interface RoomFloor {
-  readonly cols: number;
-  readonly rows: number;
-}
-
-/** [GAME] floor size (tiles) of a room from the model's [GAME] rack slots – illustrative, drawing + tile bounds. */
-export function roomFloorSize(rackSlots: number): RoomFloor {
-  if (rackSlots <= 1) return { cols: 7, rows: 8 };
-  if (rackSlots <= 4) return { cols: 8, rows: 8 };
-  if (rackSlots <= 6) return { cols: 10, rows: 8 };
-  if (rackSlots <= 8) return { cols: 11, rows: 9 };
-  return { cols: 14, rows: 11 };
-}
 
 // ===========================================================================
 // Blueprint -> design defaults
@@ -151,6 +134,11 @@ export interface SiteRoomView {
   readonly rackIds: readonly string[];
   /** Servers mounted in racks of the room. */
   readonly hostIds: readonly string[];
+  /**
+   * [GAME] rack placement rules of the room (rackLayout.ts / model roomLayout.ts): floor grid with door + fixtures,
+   * standing racks with facing, free slots, ghost hints per rack model and cold / hot aisle tiles.
+   */
+  readonly placement: RoomPlacementView;
   readonly gameDefault: true;
 }
 
@@ -229,7 +217,8 @@ export function blueprintView(id: BlueprintId): BlueprintView {
   return { ...bp, designDefaults: blueprintDesignChoices(id), totalHosts: bp.hostGroups.reduce((a, g) => a + g.esxHosts, 0) };
 }
 
-function layoutSnapshot(p: PhysicalState, sites: SiteState): SiteLayoutSnapshot {
+function layoutSnapshot(room: SandboxState['room'], catalog: HardwareCatalog, sites: SiteState): SiteLayoutSnapshot {
+  const p = room.physical;
   const l = SITE_LAYOUTS[sites.layoutId];
   const rackRooms: Record<string, string> = {};
   for (const r of p.racks) rackRooms[r.id] = roomOfRack(p, r.id) ?? r.roomId;
@@ -249,6 +238,7 @@ function layoutSnapshot(p: PhysicalState, sites: SiteState): SiteLayoutSnapshot 
         role: sites.azAssignment[r.id] ?? null,
         rackIds,
         hostIds: p.servers.filter((x) => x.mount && rackIds.includes(x.mount.rackId)).map((x) => x.id),
+        placement: roomPlacementView(room, catalog, r.id)!,
         gameDefault: true,
       };
     }),
@@ -261,7 +251,7 @@ function layoutSnapshot(p: PhysicalState, sites: SiteState): SiteLayoutSnapshot 
   };
 }
 
-export function siteView(s: SandboxState): SiteView {
+export function siteView(s: SandboxState, catalog: HardwareCatalog): SiteView {
   const p = s.room.physical;
   const sites = sitesOf(p);
   const bp = s.blueprintId ? blueprintView(s.blueprintId) : undefined;
@@ -286,7 +276,7 @@ export function siteView(s: SandboxState): SiteView {
   return {
     ...(bp ? { blueprint: bp } : {}),
     deviations,
-    layout: layoutSnapshot(p, sites),
+    layout: layoutSnapshot(s.room, catalog, sites),
     azs,
     interAz: { status: inter.status, ...(inter.rttMs !== undefined ? { rttMs: inter.rttMs } : {}), ...(inter.bandwidthGbps !== undefined ? { bandwidthGbps: inter.bandwidthGbps } : {}) },
     checks: { stretched, secondaryInstance, interAz, witness, secondary, hostsPerAz },

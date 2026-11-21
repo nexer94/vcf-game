@@ -13,15 +13,19 @@ import { BOARD_H, NOTES_X } from '../whiteboard/notes';
 import { poly, prism, sideQuad, up, type P } from './draw';
 import { OUTLINE } from './palette';
 import { depthOf, type Footprint } from './roomGrid';
+import { BOARD_WALL as SHARED_BOARD_WALL, DESK_FOOTPRINT } from '../../model/roomFixtures';
 
 export type FixtureId = '@pc' | '@board';
 export const FIXTURE_IDS: readonly FixtureId[] = ['@board', '@pc'];
 export const isFixtureId = (id: string | null | undefined): id is FixtureId => id === '@pc' || id === '@board';
 
-/** Desk footprint (left wall, between the corner and the door). Blocks these tiles for racks and walking. */
-export const DESK: Footprint = { gx: 0, gy: 2, w: 1, d: 2 };
-/** Whiteboard on the right wall (gy = 0): u = tiles along +gx, h = px above the floor. */
-export const BOARD_WALL = { u0: 1.0, u1: 4.05, h0: 54, h1: 114 } as const;
+/**
+ * Desk footprint (left wall, between the corner and the door). Blocks these tiles for racks and walking.
+ * Shared game data with the engine's rack placement rules (model/roomFixtures.ts – single source).
+ */
+export const DESK: Footprint = DESK_FOOTPRINT;
+/** Whiteboard on the right wall (gy = 0): u = tiles along +gx, h = px above the floor (model/roomFixtures.ts). */
+export const BOARD_WALL = SHARED_BOARD_WALL;
 /** Flat board space mapped onto the wall (px of the 2D board drawing). */
 const BW = 172;
 const BH = 92;

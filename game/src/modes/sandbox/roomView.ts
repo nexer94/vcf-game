@@ -6,6 +6,7 @@
  * unchanged; this file only assembles data for the UI. Prices come from the economy layer (fictional).
  */
 import {
+  type Facing,
   type BmcState,
   type CatalogItem,
   type DerivedEsaProfile,
@@ -65,6 +66,7 @@ import { type IssueGroups, groupIssues } from './design';
 import { physicalBringupIssues } from './reducer';
 import { BMC_REMOTE_INSTALL_REF, BMC_REMOTE_INSTALL_VENDORS, serverInDeployedDomain, serverTask } from './room';
 import { isOobSwitch, oobRoomOf } from './oob';
+import { facingOfTile } from './rackLayout';
 import { derivedEndpoints, flowContextOf, netContextOf, plannedHostNetworks, specServerIds } from './roomNet';
 import type { SandboxContext } from './tx';
 import type { CableEndInput, CableMeta, CompanyNetworkLink, LedgerEntry, MgmtTestResult, RoomTile, SandboxState } from './types';
@@ -188,6 +190,8 @@ export interface RackView {
   readonly heightU: number;
   readonly placed: boolean;
   readonly tile?: RoomTile;
+  /** Placed racks: where the rack front points ([GAME], from tile.rotation – rackLayout.ts). */
+  readonly facing?: Facing;
   /** Index 0 = U1 … device id occupying the U, or null. */
   readonly uMap: readonly (string | null)[];
   readonly devices: readonly { readonly deviceId: string; readonly kind: 'server' | 'switch'; readonly fromU: number; readonly toU: number }[];
@@ -455,7 +459,7 @@ export function physicalView(s: SandboxState, ctx: SandboxContext): PhysicalView
       label: catalog.racks.get(r.modelId)?.label ?? r.modelId,
       heightU: r.heightU,
       placed: tile !== undefined,
-      ...(tile ? { tile } : {}),
+      ...(tile ? { tile, facing: facingOfTile(tile) } : {}),
       uMap,
       devices: occ.map((o) => ({ deviceId: o.deviceId, kind: p.servers.some((x) => x.id === o.deviceId) ? ('server' as const) : ('switch' as const), fromU: o.from, toU: o.to })),
       freeU: uMap.filter((x) => x === null).length,

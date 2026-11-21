@@ -14,7 +14,8 @@
  *   shared GameEngine clock (pause / 1x / 4x / 16x). Pausing the engine stops all tasks.
  */
 import { type GameEngine, type GameSystem, type Listener, type Unsubscribe, EventBus, deepFreeze } from '../../engine';
-import type { DesignDecisionId } from '../../model';
+import type { DesignDecisionId, Facing, RackTileSuggestion } from '../../model';
+import { rackPlacementHints } from './rackLayout';
 import { type SandboxOptions, advanceSandbox, initialSandboxState, reduceSandbox } from './reducer';
 import { type SandboxSnapshot, type SandboxSnapshotBase, buildSnapshotBase, withProgress } from './snapshot';
 import { type SandboxContext, sandboxContext } from './tx';
@@ -87,6 +88,15 @@ export class SandboxSession implements GameSystem {
   /** Drive timed tasks from the shared engine clock. Returns a detach function. */
   attachTo(engine: Pick<GameEngine, 'attach'>): Unsubscribe {
     return engine.attach(this);
+  }
+
+  /**
+   * [GAME] ghost hints for placing / moving one rack in `roomId` (model suggestRackTiles): `rackId` = a placed rack
+   * being moved (its own tile counts as free), `facing` restricts the hints to one facing. New racks: use
+   * `snapshot().site.layout.rooms[].placement.placement`. Undefined for an unknown room.
+   */
+  rackPlacementHints(roomId: string, opts: { readonly rackId?: string; readonly facing?: Facing } = {}): RackTileSuggestion[] | undefined {
+    return rackPlacementHints(this.current.room, roomId, opts);
   }
 
   // --- convenience wrappers --------------------------------------------------

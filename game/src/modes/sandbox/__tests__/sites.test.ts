@@ -85,12 +85,15 @@ describe('Sandbox sites – room-scoped racks', () => {
     const s = withBlueprint('vcf-fleet-multiple-sites-single-region', 'two-buildings');
     const a = placeRack(s, 'room-a1', 2, 2);
     const b = placeRack(s, 'room-b1', 2, 2); // same tile, other room
-    expect(reject(s, { type: 'placeRack', itemId: 'rack-generic-42u', tile: { gx: 2, gy: 2 }, roomId: 'room-a1' })).toMatchObject({ reason: 'tile-occupied' });
-    expect(reject(s, { type: 'placeRack', itemId: 'rack-generic-42u', tile: { gx: 40, gy: 2 }, roomId: 'room-a1' })).toMatchObject({ reason: 'invalid-input' });
+    // [GAME] room layout rules (model validateRackPlacement): issues passed through unchanged
+    const occupied = reject(s, { type: 'placeRack', itemId: 'rack-generic-42u', tile: { gx: 2, gy: 2 }, roomId: 'room-a1' });
+    expect(occupied.kind === 'validation' && codes(occupied.issues)).toEqual(['ROOM_TILE_OCCUPIED']);
+    const outside = reject(s, { type: 'placeRack', itemId: 'rack-generic-42u', tile: { gx: 40, gy: 2 }, roomId: 'room-a1' });
+    expect(outside.kind === 'validation' && codes(outside.issues)).toEqual(['ROOM_OUT_OF_BOUNDS']);
     const unknown = reject(s, { type: 'placeRack', itemId: 'rack-generic-42u', tile: { gx: 1, gy: 1 }, roomId: 'room-zz' });
     expect(unknown.kind === 'validation' && codes(unknown.issues)).toEqual(['SITE_ROOM_NOT_FOUND']);
-    placeRack(s, 'room-c1', 1, 1); // witness room: 1 rack slot ([GAME])
-    const full = reject(s, { type: 'placeRack', itemId: 'rack-generic-42u', tile: { gx: 3, gy: 3 }, roomId: 'room-c1' });
+    placeRack(s, 'room-c1', 2, 3); // witness room: 1 rack slot ([GAME])
+    const full = reject(s, { type: 'placeRack', itemId: 'rack-generic-42u', tile: { gx: 4, gy: 5 }, roomId: 'room-c1' });
     expect(full.kind === 'validation' && codes(full.issues)).toEqual(['SITE_ROOM_FULL']);
     const rr = s.snapshot().site.layout.rackRooms;
     expect(rr[a]).toBe('room-a1');
@@ -103,7 +106,8 @@ describe('Sandbox sites – room-scoped racks', () => {
     must(s, { type: 'placeRack', inventoryId: inv, tile: { gx: 3, gy: 3 }, roomId: 'room-b1' });
     expect(s.snapshot().site.layout.rackRooms[inv]).toBe('room-b1');
     const other = placeRack(s, 'room-a1', 3, 3);
-    expect(reject(s, { type: 'moveRackToRoom', rackId: other, roomId: 'room-b1' })).toMatchObject({ reason: 'tile-occupied' });
+    const taken = reject(s, { type: 'moveRackToRoom', rackId: other, roomId: 'room-b1' });
+    expect(taken.kind === 'validation' && codes(taken.issues)).toEqual(['ROOM_TILE_OCCUPIED']);
     must(s, { type: 'moveRackToRoom', rackId: inv, roomId: 'room-c1' });
     expect(s.snapshot().site.layout.rooms.find((r) => r.id === 'room-c1')!.rackIds).toEqual([inv]);
     // room edits are undoable

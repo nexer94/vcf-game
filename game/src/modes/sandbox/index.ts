@@ -15,3 +15,4 @@ export * from './roomView';
 export * from './objectives';
 export * from './useCases';
 export * from './site';
+export * from './rackLayout';

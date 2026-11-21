@@ -230,7 +230,7 @@ export function buildSnapshotBase(s: SandboxState, revision: number, ctx: Sandbo
     ...(s.fleet ? { fleet: s.fleet } : {}),
     ...(s.useCase ? { useCase: useCaseView(s.useCase, s.spec) } : {}),
     physical: physicalView(s, ctx),
-    site: siteView(s),
+    site: siteView(s, ctx.catalog),
     flows: flowsView(s, ctx.catalog),
     hw: hwDesignView(s, ctx.catalog, decisions),
     log: s.log,

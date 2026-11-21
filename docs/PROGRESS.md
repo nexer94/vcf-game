@@ -115,7 +115,10 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
   - [x] `domain-modeler` – 3 racky (24U/42U/48U, herní ceny), `model/roomLayout.ts`: orientace, studená/teplá
     ulička, zákaz racku před jiným, řady se stejnou orientací, dveře/vybavení, kapacita; `suggestRackTiles` pro náhled
     - otevřené (herní): průchod od dveří ke každé uličce, širší uličky, 48U větší půdorys
-  - [ ] `engine-dev` + `ui-dev` – napojit `validateRackPlacement` do `placeRack` a ghost náhledu (po doběhnutí engine-dev)
+  - [x] `engine-dev` – `validateRackPlacement` v `placeRack`/`moveRackToRoom`, nový `rotateRack`, `model/roomFixtures.ts`
+    (sdílené dlaždice stolu, tabule, patch panelu, dveří, OOB switche v rohu 0,0), snapshot `placement`/`aisles`/hints,
+    kapacita místnosti jen pro umístěné racky
+  - [ ] `ui-dev` – ghost náhled z `placement`, kreslení uliček, OOB switch v rohu, klávesa otočení, sjednotit velikost místnosti
   - [x] `doc-researcher` – `50-vsan` (37 zdrojů): fault domain = rack; multi-rack min. 3 racky (REQD), doporučeno 4;
     FTT=n → 2n+1 FD; ESA RAID minima, Auto-RAID 9.1 (RAID-6 default); FD ručně ve vCenter, vypnout auto-policy,
     bez Reserved Capacity; L2 vs L3 (per-rack VLAN/subnet/TEP pool/uplink profile/sub-TNP); výpadek racku
