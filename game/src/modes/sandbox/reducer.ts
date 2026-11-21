@@ -10,9 +10,17 @@
  *  - wizard and deployment actions only in the deploy phase;
  *  - the wizard cannot change design-derived fields (DESIGN_LOCKED_FIELDS) – change the design;
  *  - prep actions on hosts of a deployed / deploying management domain are locked
- *    (Day 2 host operations are not modelled yet).
+ *    (Day 2 host operations are not modelled yet);
+ *  - server room commands (room.ts) and host prep on PHYSICAL servers work in every phase (the room is always
+ *    reachable, UX Sandbox v2 flow starts in the room); abstract planning hosts keep the planning/deploy gate;
+ *  - objectives tracker commands only change the player's tracker preferences (never the game state).
+ *
+ * Physical servers (room) are part of the bring-up environment: `bringupEnvOf` adds them as EsxHost records
+ * (hardwareDesign.toBringupHosts). The bring-up validation task adds the model's physical network and hardware
+ * validations for the physical hosts of the wizard (validatePhysicalNetworkForBringup,
+ * validateManagementClusterHardware).
  */
-import { createTimedTask, advanceTimedTasks, taskProgress } from '../../engine';
+import { advanceTimedTasks, taskProgress } from '../../engine';
 import {
   type BringupEnvironment,
   type BringupRules,
@@ -21,54 +29,63 @@ import {
   type DesignChoices,
   type DesignContext,
   type EsxHost,
+  type StorageType,
   type TransitionResult,
   type ValidationIssue,
   type VcfBinary,
   VCF_BINARIES,
+  applyBringupHostNetworking,
   buildFleetFromBringup,
   configureDepot,
   configureHostNetwork,
   configureHostNtp,
+  configureServerManagementNetwork,
   deployInstallerOva,
   errorsOf,
   initialDepotState,
   initialDeploymentState,
   initialInstallerState,
   installEsx,
+  installEsxOnServer,
   installerAfterDeployment,
   newBareMetalHost,
   parseIpv4,
   regenerateHostCertificate,
   setBinaryStatus,
   setHostSsh,
-  transitionDeployment,
+  testManagementNetwork,
+  toBringupHosts,
+  updateServerEsx,
   validateBringupSpec,
   validateConfigureOfflineDepot,
   validateConfigureOnlineDepot,
   validateDeployInstallerOva,
   validateDesign,
   validateInstallerCanDeploy,
+  validateManagementClusterHardware,
+  validatePhysicalNetworkForBringup,
   validateRedesign,
   warningsOf,
 } from '../../model';
 import { designGate, derivedParamsOf } from './design';
 import { ILLUSTRATIVE_TASK_DURATIONS_MS } from './durations';
 import { addDnsRecord, removeDnsRecord } from './planning';
+import { applyRoom, commitRoomChange, deployedHostFqdns, describeRoom, emptyRoom, isRoomCommand, serverInDeployedDomain, serverTask } from './room';
+import { netContextOf, plannedHostNetworks, specServerIds } from './roomNet';
+import { type SandboxContext, Tx, defaultSandboxContext, flow, invalid, no, ok } from './tx';
 import {
   type CommandResult,
-  type FlowReason,
   type SandboxCommand,
   type SandboxEvent,
-  type SandboxLogEntry,
   type SandboxPhase,
-  type SandboxRejection,
   type SandboxState,
   type SandboxTask,
   type SandboxTaskKind,
-  type SandboxTaskPayload,
   SANDBOX_PHASES,
 } from './types';
 import { applyDesignToSpec, changedLockedFields, initialSpecDraft, issueKey } from './wizard';
+
+export { deployedHostFqdns } from './room';
 
 export interface SandboxOptions {
   readonly designContext?: DesignContext;
@@ -80,8 +97,6 @@ export interface SandboxOptions {
   /** Override the ILLUSTRATIVE task durations (tests, accessibility). */
   readonly taskDurationsMs?: Partial<Record<SandboxTaskKind, number>>;
 }
-
-const LOG_LIMIT = 500;
 
 export function initialSandboxState(opts: SandboxOptions = {}): SandboxState {
   const base: SandboxState = {
@@ -102,11 +117,19 @@ export function initialSandboxState(opts: SandboxOptions = {}): SandboxState {
     spec: initialSpecDraft(),
     deployment: initialDeploymentState('wizard'),
     tasks: [],
+    room: emptyRoom(),
+    roomHistory: { undo: [], redo: [] },
+    objectives: { skipped: [], everDone: [], hidden: false },
     log: [],
-    seq: { host: 0, task: 0, log: 0 },
+    seq: { host: 0, task: 0, log: 0, switch: 0, rack: 0, cable: 0, part: 0, ledger: 0 },
     taskDurationsMs: { ...ILLUSTRATIVE_TASK_DURATIONS_MS, ...opts.taskDurationsMs },
   };
   return opts.initialChoices ? withDesign(base, opts.initialChoices) : base;
+}
+
+/** Abstract planning hosts + physical servers of the room (as EsxHost records, hardwareDesign.toBringupHosts). */
+export function allHostsOf(s: SandboxState): EsxHost[] {
+  return s.room.physical.servers.length ? [...s.env.hosts, ...toBringupHosts(s.room.physical)] : [...s.env.hosts];
 }
 
 /** BringupEnvironment for model validations. */
@@ -114,7 +137,7 @@ export function bringupEnvOf(s: SandboxState): BringupEnvironment {
   return {
     installer: s.env.installer,
     depot: s.env.depot,
-    hosts: s.env.hosts,
+    hosts: allHostsOf(s),
     dns: s.env.dns,
     unreachableFromInstaller: s.env.unreachableFromInstaller,
     ...(s.env.physicalNetworkLagReady !== undefined ? { physicalNetworkLagReady: s.env.physicalNetworkLagReady } : {}),
@@ -143,73 +166,11 @@ export function phaseGate(s: SandboxState, target: SandboxPhase): PhaseGate {
   return { ok: g.ok && errors.length === 0, errors, unacknowledgedWarnings: g.unacknowledgedWarnings };
 }
 
-// ---------------------------------------------------------------------------
-// Transaction helper (local mutable builder; the reducer stays pure)
-// ---------------------------------------------------------------------------
-
-class Tx {
-  readonly events: SandboxEvent[] = [];
-  constructor(public s: SandboxState) {}
-
-  log(entry: Omit<SandboxLogEntry, 'seq' | 'atMs'>): void {
-    const seq = this.s.seq.log + 1;
-    const log = [...this.s.log, { ...entry, seq, atMs: this.s.timeMs }];
-    this.s = { ...this.s, log: log.length > LOG_LIMIT ? log.slice(log.length - LOG_LIMIT) : log, seq: { ...this.s.seq, log: seq } };
-  }
-
-  emit(e: SandboxEvent): void {
-    this.events.push(e);
-  }
-
-  notify(level: 'info' | 'warning' | 'error', message: string): void {
-    this.emit({ type: 'notification', atMs: this.s.timeMs, level, message });
-  }
-
-  /** Applies a deployment state machine event. */
-  deployment(event: DeploymentEvent): TransitionResult<SandboxState['deployment']> {
-    const from = this.s.deployment.status;
-    const r = transitionDeployment(this.s.deployment, event);
-    if (r.ok) {
-      this.s = { ...this.s, deployment: r.state };
-      this.emit({ type: 'sandbox/deploymentStatusChanged', atMs: this.s.timeMs, from, to: r.state.status, event: event.type });
-    }
-    return r;
-  }
-
-  startTask(kind: SandboxTaskKind, label: string, payload: SandboxTaskPayload): SandboxTask {
-    const n = this.s.seq.task + 1;
-    const task = createTimedTask({
-      id: `task-${n}`,
-      kind,
-      label,
-      durationMs: this.s.taskDurationsMs[kind],
-      startedAtMs: this.s.timeMs,
-      illustrativeDuration: true,
-      payload,
-    });
-    this.s = { ...this.s, tasks: [...this.s.tasks, task], seq: { ...this.s.seq, task: n } };
-    this.emit({ type: 'sandbox/taskStarted', atMs: this.s.timeMs, taskId: task.id, kind, label });
-    return task;
-  }
-
-  /** Environment / spec changed after validation: the validation result is stale -> back to the draft. */
-  invalidateValidation(): void {
-    const st = this.s.deployment.status;
-    if (st === 'ready-to-deploy' || st === 'awaiting-acknowledgement') {
-      this.deployment({ type: 'edit' });
-      this.log({ kind: 'system', ok: true, message: 'Prostředí nebo zadání se změnilo – výsledek validace už neplatí, průvodce je zpět v režimu úprav.' });
-    }
-  }
-}
-
 export interface ReduceOutcome {
   readonly state: SandboxState;
   readonly result: CommandResult;
   readonly events: readonly SandboxEvent[];
 }
-
-const flow = (reason: FlowReason, message: string): SandboxRejection => ({ kind: 'flow', reason, message });
-const invalid = (issues: readonly ValidationIssue[]): SandboxRejection => ({ kind: 'validation', issues });
 
 const RESETTABLE: readonly DeploymentStatus[] = ['review', 'validation-failed', 'awaiting-acknowledgement', 'ready-to-deploy'];
 const BUSY: readonly DeploymentStatus[] = ['validating', 'deploying'];
@@ -229,15 +190,11 @@ function withDesign(s: SandboxState, choices: DesignChoices): SandboxState {
   return { ...rest, derived, spec };
 }
 
-function deployedHostFqdns(s: SandboxState): Set<string> {
-  return s.deployment.status === 'completed' || s.deployment.status === 'deploying' ? new Set(s.spec.esxHosts.map((h) => h.fqdn)) : new Set();
-}
-
 const PHASE_LABEL: Readonly<Record<SandboxPhase, string>> = { design: 'Návrh', planning: 'Příprava', deploy: 'Deploy' };
 
-export function reduceSandbox(state: SandboxState, cmd: SandboxCommand): ReduceOutcome {
+export function reduceSandbox(state: SandboxState, cmd: SandboxCommand, ctx: SandboxContext = defaultSandboxContext()): ReduceOutcome {
   const tx = new Tx(state);
-  const r = apply(tx, cmd);
+  const r = apply(tx, cmd, ctx);
   if (r.ok) {
     tx.log({ kind: 'command', command: cmd.type, ok: true, message: describe(cmd), ...(r.warnings.length ? { issues: r.warnings } : {}) });
     tx.emit({ type: 'sandbox/stateChanged', atMs: tx.s.timeMs, cause: cmd.type });
@@ -257,15 +214,32 @@ export function reduceSandbox(state: SandboxState, cmd: SandboxCommand): ReduceO
   return { state: rej.s, result: r, events: rej.events };
 }
 
-const ok = (warnings: readonly ValidationIssue[] = []): CommandResult => ({ ok: true, warnings });
-const no = (rejection: SandboxRejection): CommandResult => ({ ok: false, rejection });
-
-function apply(tx: Tx, cmd: SandboxCommand): CommandResult {
+function apply(tx: Tx, cmd: SandboxCommand, ctx: SandboxContext): CommandResult {
   const s = tx.s;
   const inPhase = (...phases: SandboxPhase[]): CommandResult | undefined =>
     phases.includes(s.phase) ? undefined : no(flow('wrong-phase', `Akce není dostupná ve fázi ${PHASE_LABEL[s.phase]}.`));
 
+  if (isRoomCommand(cmd)) return applyRoom(tx, cmd, ctx);
+
   switch (cmd.type) {
+    // ------------------------------------------------------------- objectives
+    case 'skipObjective':
+    case 'unskipObjective': {
+      if (!ctx.objectives.byId.has(cmd.id)) return no(flow('unknown-objective', `Úkol ${cmd.id} neexistuje.`));
+      const skipped = s.objectives.skipped.filter((x) => x !== cmd.id);
+      if (cmd.type === 'skipObjective') {
+        if (s.objectives.skipped.includes(cmd.id)) return no(flow('nothing-to-do', 'Úkol už je přeskočený.'));
+        skipped.push(cmd.id);
+      } else if (skipped.length === s.objectives.skipped.length) return no(flow('nothing-to-do', 'Úkol není přeskočený.'));
+      tx.s = { ...s, objectives: { ...s.objectives, skipped } };
+      return ok();
+    }
+    case 'setObjectivesHidden': {
+      if (s.objectives.hidden === cmd.hidden) return no(flow('nothing-to-do', cmd.hidden ? 'Tracker už je skrytý.' : 'Tracker už je zobrazený.'));
+      tx.s = { ...s, objectives: { ...s.objectives, hidden: cmd.hidden } };
+      return ok();
+    }
+
     // ----------------------------------------------------------------- design
     case 'selectDesignOption':
     case 'clearDesignOption': {
@@ -322,9 +296,11 @@ function apply(tx: Tx, cmd: SandboxCommand): CommandResult {
       const bad = inPhase('planning', 'deploy');
       if (bad) return bad;
       if (!Number.isInteger(cmd.hw.pnicCount) || cmd.hw.pnicCount < 1) return no(flow('invalid-input', 'Počet fyzických NIC musí být kladné celé číslo.'));
-      const n = s.seq.host + 1;
+      let n = s.seq.host + 1;
+      const taken = (x: string): boolean => s.env.hosts.some((h) => h.id === x) || s.room.physical.servers.some((h) => h.id === x) || s.room.physical.switches.some((h) => h.id === x);
+      if (cmd.id === undefined) while (taken(`esx${String(n).padStart(2, '0')}`)) n += 1;
       const id = cmd.id ?? `esx${String(n).padStart(2, '0')}`;
-      if (s.env.hosts.some((h) => h.id === id)) return no(flow('duplicate-host-id', `Host ${id} už existuje.`));
+      if (taken(id)) return no(flow('duplicate-host-id', `Host ${id} už existuje.`));
       tx.s = { ...s, env: { ...s.env, hosts: [...s.env.hosts, newBareMetalHost(id, cmd.hw)] }, seq: { ...s.seq, host: n } };
       tx.invalidateValidation();
       return ok();
@@ -335,6 +311,7 @@ function apply(tx: Tx, cmd: SandboxCommand): CommandResult {
     case 'configureHostNtp':
     case 'setHostSsh':
     case 'regenerateHostCertificate': {
+      if ('hostId' in cmd && s.room.physical.servers.some((x) => x.id === cmd.hostId)) return physicalHostCommand(tx, cmd, ctx);
       const bad = inPhase('planning', 'deploy');
       if (bad) return bad;
       const host = s.env.hosts.find((h) => h.id === cmd.hostId);
@@ -493,10 +470,31 @@ function setPhase(tx: Tx, to: SandboxPhase): void {
   tx.emit({ type: 'sandbox/phaseChanged', atMs: tx.s.timeMs, from, to });
 }
 
-type HostCommand = Extract<
-  SandboxCommand,
-  { type: 'installEsx' | 'configureHostNetwork' | 'configureHostNtp' | 'setHostSsh' | 'regenerateHostCertificate' }
->;
+type HostCommand =
+  | Extract<SandboxCommand, { type: 'installEsx'; hostId: string }>
+  | Extract<SandboxCommand, { type: 'configureHostNetwork' | 'configureHostNtp' | 'setHostSsh' | 'regenerateHostCertificate' }>;
+
+/**
+ * Legacy host commands (hostId) on a PHYSICAL server: mapped onto the model's physical transitions (any phase).
+ * `removeHost` behaves like `removeItem`; the instant legacy `installEsx` is rejected (physical servers install via
+ * the timed `installEsx {serverId, method}`).
+ */
+function physicalHostCommand(tx: Tx, cmd: HostCommand | Extract<SandboxCommand, { type: 'removeHost' }>, ctx: SandboxContext): CommandResult {
+  const s = tx.s;
+  if (cmd.type === 'removeHost') return applyRoom(tx, { type: 'removeItem', id: cmd.hostId }, ctx);
+  if (cmd.type === 'installEsx') return no(flow('invalid-input', `${cmd.hostId} je fyzický server – ESX se instaluje příkazem installEsx {serverId, method}.`));
+  const srv = s.room.physical.servers.find((x) => x.id === cmd.hostId)!;
+  if (serverTask(s, srv.id)) return no(flow('device-busy', `Na serveru ${srv.id} právě běží úloha.`));
+  if (serverInDeployedDomain(s, srv)) return no(flow('host-in-deployed-domain', `Host ${srv.id} je součástí nasazované / nasazené management domain; operace Day 2 zatím nejsou v modelu.`));
+  const r =
+    cmd.type === 'configureHostNetwork'
+      ? configureServerManagementNetwork(s.room.physical, srv.id, cmd.network)
+      : updateServerEsx(s.room.physical, srv.id, (h) => hostTransition(h, cmd));
+  if (!r.ok) return no(invalid([r.error]));
+  commitRoomChange(tx, { ...s.room, physical: r.state });
+  tx.invalidateValidation();
+  return ok();
+}
 
 function hostTransition(h: EsxHost, cmd: HostCommand): TransitionResult<EsxHost> {
   switch (cmd.type) {
@@ -514,7 +512,14 @@ function hostTransition(h: EsxHost, cmd: HostCommand): TransitionResult<EsxHost>
 }
 
 function describe(cmd: SandboxCommand): string {
+  if (isRoomCommand(cmd)) return describeRoom(cmd);
   switch (cmd.type) {
+    case 'skipObjective':
+      return `Úkol přeskočen: ${cmd.id}`;
+    case 'unskipObjective':
+      return `Úkol obnoven: ${cmd.id}`;
+    case 'setObjectivesHidden':
+      return cmd.hidden ? 'Tracker úkolů skryt' : 'Tracker úkolů zobrazen';
     case 'selectDesignOption':
       return `Návrh: ${cmd.decision} = ${cmd.option}`;
     case 'clearDesignOption':
@@ -597,7 +602,7 @@ const progressStep = (t: SandboxTask): number => Math.floor(taskProgress(t) * PR
  * Notifications are coalesced: `sandbox/tasksProgressed` only when some task crossed a whole percent,
  * `sandbox/stateChanged` (cause 'tick') only when a task completed.
  */
-export function advanceSandbox(state: SandboxState, gameDeltaMs: number, nowMs?: number): AdvanceOutcome {
+export function advanceSandbox(state: SandboxState, gameDeltaMs: number, nowMs?: number, ctx: SandboxContext = defaultSandboxContext()): AdvanceOutcome {
   if (gameDeltaMs <= 0 || state.tasks.length === 0) return { state, events: [], progressOnly: true };
   const tx = new Tx({ ...state, timeMs: nowMs ?? state.timeMs + gameDeltaMs });
   const { running, completed } = advanceTimedTasks(tx.s.tasks, gameDeltaMs);
@@ -608,7 +613,7 @@ export function advanceSandbox(state: SandboxState, gameDeltaMs: number, nowMs?:
     tx.emit({ type: 'sandbox/tasksProgressed', atMs: tx.s.timeMs, tasks: moved.map((t) => ({ taskId: t.id, kind: t.kind, progress: taskProgress(t) })) });
   for (const t of completed) {
     tx.emit({ type: 'sandbox/taskCompleted', atMs: tx.s.timeMs, taskId: t.id, kind: t.kind, label: t.label });
-    completeTask(tx, t);
+    completeTask(tx, t, ctx);
   }
   if (completed.length > 0) tx.emit({ type: 'sandbox/stateChanged', atMs: tx.s.timeMs, cause: 'tick' });
   return { state: tx.s, events: tx.events, progressOnly: completed.length === 0 };
@@ -624,9 +629,44 @@ function setBinary(tx: Tx, b: VcfBinary, next: 'validating' | 'downloaded'): boo
   return true;
 }
 
-function completeTask(tx: Tx, t: SandboxTask): void {
+/** Model physical network + hardware validation for the physical hosts of the wizard (added to Review validation). */
+export function physicalBringupIssues(s: SandboxState, ctx: SandboxContext): ValidationIssue[] {
+  const ids = specServerIds(s);
+  if (ids.length === 0) return [];
+  const storage: StorageType = s.derived?.storage ?? 'vsan-esa';
+  const plan = plannedHostNetworks(s);
+  return [
+    ...(plan ? validatePhysicalNetworkForBringup(netContextOf(s, ctx.catalog), { serverIds: ids, plan, storage }) : []),
+    ...validateManagementClusterHardware(s.room.physical, ctx.catalog, ids, storage),
+  ];
+}
+
+function completeTask(tx: Tx, t: SandboxTask, ctx: SandboxContext): void {
   const p = t.payload;
   switch (p.kind) {
+    case 'esx-install': {
+      const r = installEsxOnServer(tx.s.room.physical, p.serverId, p.version);
+      if (!r.ok) {
+        tx.log({ kind: 'task', ok: false, message: `${p.serverId}: instalaci ESX nelze dokončit.`, issues: [r.error] });
+        return;
+      }
+      const mgmtTests = { ...tx.s.room.mgmtTests };
+      delete mgmtTests[p.serverId];
+      commitRoomChange(tx, { ...tx.s.room, physical: r.state, mgmtTests });
+      tx.invalidateValidation();
+      tx.log({ kind: 'task', ok: true, message: `${p.serverId}: ESX nainstalován (${p.version}); vmk0 na vSwitch0 s vmnic0, adresa z DHCP.` });
+      tx.notify('info', `${p.serverId}: ESX nainstalován.`);
+      return;
+    }
+    case 'mgmt-network-test': {
+      if (!tx.s.room.physical.servers.some((x) => x.id === p.serverId)) return;
+      const res = testManagementNetwork(netContextOf(tx.s, ctx.catalog), p.serverId);
+      const okAll = res.gateway && Object.values(res.dns).every(Boolean) && Object.keys(res.dns).length > 0;
+      commitRoomChange(tx, { ...tx.s.room, mgmtTests: { ...tx.s.room.mgmtTests, [p.serverId]: { atMs: tx.s.timeMs, gateway: res.gateway, dns: res.dns } } });
+      tx.log({ kind: 'task', ok: okAll, message: `${p.serverId}: Test Management Network – gateway ${res.gateway ? 'OK' : 'nedostupná'}, DNS ${Object.keys(res.dns).length ? Object.entries(res.dns).map(([k, v]) => `${k} ${v ? 'OK' : 'nedostupný'}`).join(', ') : 'žádný'}.` });
+      tx.notify(okAll ? 'info' : 'warning', `${p.serverId}: test management sítě ${okAll ? 'prošel' : 'neprošel'}.`);
+      return;
+    }
     case 'binary-download':
       if (setBinary(tx, p.binary, 'validating')) tx.startTask('binary-validation', `Validace: ${p.binary}`, { kind: 'binary-validation', binary: p.binary });
       return;
@@ -637,7 +677,7 @@ function completeTask(tx: Tx, t: SandboxTask): void {
       }
       return;
     case 'bringup-validation': {
-      const issues = validateBringupSpec(tx.s.spec, bringupEnvOf(tx.s));
+      const issues = [...validateBringupSpec(tx.s.spec, bringupEnvOf(tx.s)), ...physicalBringupIssues(tx.s, ctx)];
       const r = tx.deployment({ type: 'validation-finished', issues });
       if (!r.ok) {
         tx.log({ kind: 'task', ok: false, message: 'Výsledek validace nelze zapsat.', issues: [r.error] });
@@ -664,6 +704,10 @@ function completeTask(tx: Tx, t: SandboxTask): void {
         s.derived?.clusterModel ?? 'single-rack',
       );
       tx.s = { ...s, fleet, deployedChoices: s.choices, env: { ...s.env, installer: installerAfterDeployment(s.env.installer) } };
+      // Physical hosts: "the installer migrates the hosts to a VDS and adds uplinks" (25 §7 [U18]; model applyBringupHostNetworking).
+      const ids = specServerIds(tx.s);
+      const plan = plannedHostNetworks(tx.s);
+      if (ids.length && plan) commitRoomChange(tx, { ...tx.s.room, physical: applyBringupHostNetworking(tx.s.room.physical, ids, plan, tx.s.derived?.storage ?? 'vsan-esa') });
       tx.log({ kind: 'task', ok: true, message: `VCF fleet nasazena: instance ${s.spec.general.instanceName}, management domain ${s.spec.general.managementDomainName}.` });
       tx.emit({ type: 'sandbox/fleetCreated', atMs: tx.s.timeMs, fleet });
       tx.notify('info', 'Bring-up dokončen – VCF fleet je nasazená.');

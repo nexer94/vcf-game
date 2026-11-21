@@ -13,7 +13,10 @@ export const ILLUSTRATIVE_TASK_DURATIONS_MS: Readonly<Record<SandboxTaskKind, nu
   'binary-validation': 30_000,
   'bringup-validation': 3 * 60_000,
   'bringup-deployment': 2 * 60 * 60_000,
+  // Neither the ESX install time nor the DCUI test duration is documented – game values.
+  'esx-install': 15 * 60_000,
+  'mgmt-network-test': 20_000,
 };
 
 export const ILLUSTRATIVE_DURATION_NOTE =
-  'Trvání úloh je ilustrativní herní hodnota – dokumentace délku stahování, validace ani nasazení neuvádí.';
+  'Trvání úloh je ilustrativní herní hodnota – dokumentace délku instalace ESX, stahování, validace ani nasazení neuvádí.';

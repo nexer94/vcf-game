@@ -96,3 +96,15 @@ export const BLOCKED_TILE = 0xe5484d;
 
 /** Illustrative label colours for server tags (vendor = colour/text label only, no logos). */
 export const TAG_COLORS: readonly number[] = [0x3d8bfd, 0x2bb673, 0xe5484d, 0x1fb6c9, 0x9b59e0, 0xf0a14a];
+
+/**
+ * Vendor tag colours (vendor = coloured tag + text only, no logos – GRAPHICS.md). Original game colours, not brand
+ * colours.
+ */
+export const VENDOR_TAG: Readonly<Record<'Dell' | 'HPE' | 'Lenovo' | 'Cisco' | 'Supermicro', number>> = {
+  Dell: 0x3d8bfd,
+  HPE: 0x2bb673,
+  Lenovo: 0xe5484d,
+  Cisco: 0x1fb6c9,
+  Supermicro: 0x9b59e0,
+};

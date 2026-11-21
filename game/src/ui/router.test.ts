@@ -12,6 +12,10 @@ describe('router', () => {
     expect(parseRoute('#/provoz')).toEqual({ name: 'traffic' });
     expect(parseRoute('#/sandbox/mistnost')).toEqual({ name: 'sandbox-room', demo: false });
     expect(parseRoute('#/sandbox/mistnost/ukazka')).toEqual({ name: 'sandbox-room', demo: true });
+    expect(parseRoute('#/sandbox/mistnost/rack/R1')).toEqual({ name: 'sandbox-room', demo: false, view: { kind: 'rack', rackId: 'R1' } });
+    expect(parseRoute('#/sandbox/mistnost/ukazka/tabule')).toEqual({ name: 'sandbox-room', demo: true, view: { kind: 'board' } });
+    // Bad ids fall back to the room itself.
+    expect(parseRoute('#/sandbox/mistnost/rack/%3Cx%3E')).toEqual({ name: 'sandbox-room', demo: false });
   });
 
   it('falls back on unknown input', () => {
@@ -27,6 +31,10 @@ describe('router', () => {
       { name: 'traffic' },
       { name: 'sandbox-room', demo: false },
       { name: 'sandbox-room', demo: true },
+      { name: 'sandbox-room', demo: false, view: { kind: 'rack', rackId: 'R1' } },
+      { name: 'sandbox-room', demo: true, view: { kind: 'host', rackId: 'R1', hostId: 'srv-1' } },
+      { name: 'sandbox-room', demo: false, view: { kind: 'board' } },
+      { name: 'sandbox-room', demo: false, view: { kind: 'pc', app: 'navrh' } },
       ...SANDBOX_PHASES.map((phase) => ({ name: 'sandbox', phase }) as const),
     ];
     for (const r of routes) expect(parseRoute(formatRoute(r))).toEqual(r);

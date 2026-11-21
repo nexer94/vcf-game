@@ -9,7 +9,7 @@
 import { bezierPoint, type CubicBezier, type Vec2 } from '../geom/bezier';
 import { createRng, weightedIndex } from '../util/rng';
 import type { LinkTraffic } from './trafficModel';
-import { TRAFFIC_STYLE } from './trafficTypes';
+import { TRAFFIC_STYLE, type TrafficType } from './trafficTypes';
 
 export const DROP_COLOR = 0xe5484d;
 
@@ -19,8 +19,39 @@ export const DROP_COLOR = 0xe5484d;
  */
 export interface PacketPath {
   readonly spec: { readonly id: string };
-  readonly curve: CubicBezier;
+  /** Bezier path (datacenter / room cables) … */
+  readonly curve?: CubicBezier;
+  /** … or a polyline [x0, y0, x1, y1, …] (room bundles via the tray, rack cables). Wins over `curve`. */
+  readonly polyline?: Float32Array;
   readonly length: number;
+}
+
+/** Point at fraction t (0..1, by arc length) of a polyline. */
+export function polylinePoint(pts: Float32Array, length: number, t: number, out: Vec2): Vec2 {
+  const n = pts.length / 2;
+  if (n === 0) {
+    out.x = 0;
+    out.y = 0;
+    return out;
+  }
+  let remaining = Math.min(1, Math.max(0, t)) * length;
+  for (let i = 1; i < n; i++) {
+    const ax = pts[(i - 1) * 2]!;
+    const ay = pts[(i - 1) * 2 + 1]!;
+    const bx = pts[i * 2]!;
+    const by = pts[i * 2 + 1]!;
+    const seg = Math.hypot(bx - ax, by - ay);
+    if (remaining <= seg || i === n - 1) {
+      const k = seg > 0 ? Math.min(1, remaining / seg) : 0;
+      out.x = ax + (bx - ax) * k;
+      out.y = ay + (by - ay) * k;
+      return out;
+    }
+    remaining -= seg;
+  }
+  out.x = pts[(n - 1) * 2]!;
+  out.y = pts[(n - 1) * 2 + 1]!;
+  return out;
 }
 
 export interface SimPacket {
@@ -41,6 +72,8 @@ export interface SimPacket {
   /** Remaining fade time for falling packets (real ms). */
   life: number;
   color: number;
+  /** Traffic type of the packet (shape in the room, UX §12.5). */
+  type: TrafficType;
   alpha: number;
 }
 
@@ -98,6 +131,7 @@ export class PacketSim {
       vy: 0,
       life: 0,
       color: 0xffffff,
+      type: 'management' as TrafficType,
       alpha: 1,
     }));
   }
@@ -143,7 +177,8 @@ export class PacketSim {
         p.dir = this.rng() < 0.5 ? 1 : -1;
         p.dropAt = this.rng() < dropP ? 0.3 + this.rng() * 0.5 : 2;
         p.falling = false;
-        p.color = TRAFFIC_STYLE[t.mix[mixIdx]!.type].color;
+        p.type = t.mix[mixIdx]!.type;
+        p.color = TRAFFIC_STYLE[p.type].color;
         p.alpha = 1;
         p.life = 0;
         this.place(p);
@@ -160,7 +195,8 @@ export class PacketSim {
   private place(p: SimPacket): void {
     const cable = this.cables[p.cable]!;
     const tt = p.dir === 1 ? p.progress : 1 - p.progress;
-    bezierPoint(cable.curve, tt, this.tmp);
+    if (cable.polyline) polylinePoint(cable.polyline, cable.length, tt, this.tmp);
+    else if (cable.curve) bezierPoint(cable.curve, tt, this.tmp);
     p.x = this.tmp.x;
     p.y = this.tmp.y;
   }

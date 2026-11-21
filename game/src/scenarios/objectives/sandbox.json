@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "groups": [
+    { "id": "A", "title": "Serverovna" },
+    { "id": "B", "title": "Kabeláž" },
+    { "id": "C", "title": "Hosty (ESX)" }
+  ],
+  "objectives": [
+    { "id": "room.rack", "group": "A", "title": "Postav rack", "kind": "game-step", "selector": "hasRack", "showMe": { "inventory": "racks" } },
+    {
+      "id": "room.certified-server", "group": "A", "title": "Kup server certifikovaný pro VCF 9.1", "kind": "doc-required",
+      "selector": "certifiedServerBought", "params": { "min": 1 }, "after": ["room.rack"], "showMe": { "inventory": "servers" },
+      "why": { "specRef": "10-planning §3.4 [P33]; 15-hardware B.1", "url": "https://knowledge.broadcom.com/external/article/452580" }
+    },
+    {
+      "id": "room.host-count", "group": "A", "title": "Kup tolik hostů, kolik chce návrh", "kind": "doc-required",
+      "selector": "serversForDesign", "after": ["room.certified-server"], "showMe": { "inventory": "servers" },
+      "why": { "specRef": "10-planning §6.1 [P9]", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/cluster-models/single-instance-single-availability-zone.html" }
+    },
+    {
+      "id": "room.switch", "group": "A", "title": "Kup switch", "kind": "doc-required",
+      "selector": "switchesBought", "params": { "min": 1 }, "showMe": { "inventory": "switches" },
+      "why": { "specRef": "10-planning §3.3 [P19]", "ruleId": "VCF-NET-REQD-TOR-001", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/physical-datacenter-design-9-x.html" }
+    },
+    {
+      "id": "room.second-switch", "group": "A", "title": "Druhý switch (doporučeno)", "kind": "doc-recommended",
+      "selector": "switchesBought", "params": { "min": 2 }, "after": ["room.switch"], "showMe": { "inventory": "switches" },
+      "why": { "specRef": "10-planning §3.3 [P19]", "ruleId": "VCF-NET-RCMD-TOR-001", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/physical-datacenter-design-9-x.html" }
+    },
+    { "id": "room.mount-servers", "group": "A", "title": "Namontuj servery do racku", "kind": "game-step", "selector": "serversMounted", "params": { "min": "all" }, "after": ["room.rack"] },
+    { "id": "room.mount-switch", "group": "A", "title": "Namontuj switch do racku", "kind": "game-step", "selector": "switchesMounted", "params": { "min": 1 }, "after": ["room.switch"] },
+    {
+      "id": "room.company-network", "group": "A", "title": "Připoj switch do sítě firmy", "kind": "game-step",
+      "selector": "companyNetworkConnected", "after": ["room.mount-switch"],
+      "why": { "specRef": "25 §6.3 [U34] (hosty potřebují gateway a DNS)", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/test-the-management-network.html" }
+    },
+
+    {
+      "id": "cabling.each-host-to-switch", "group": "B", "title": "Zapoj každý host do switche", "kind": "doc-required",
+      "selector": "hostsCabledToSwitch", "params": { "min": "all" }, "showMe": { "view": "rack" },
+      "why": { "specRef": "10-planning §3.3 [P19]", "ruleId": "VCF-NET-REQD-TOR-001", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/physical-datacenter-design-9-x.html" }
+    },
+    {
+      "id": "cabling.two-switches", "group": "B", "title": "Uplinky hosta na dva různé switche", "kind": "doc-recommended",
+      "selector": "hostsOnTwoSwitches", "params": { "min": "all" }, "after": ["cabling.each-host-to-switch"],
+      "why": { "specRef": "10-planning §3.3 [P19]", "ruleId": "VCF-NET-RCMD-TOR-001", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/physical-datacenter-design-9-x.html" }
+    },
+    {
+      "id": "cabling.bmc", "group": "B", "title": "Zapoj a nastav BMC (vzdálená správa serveru)", "kind": "game-optional",
+      "selector": "bmcConfigured", "params": { "min": "all" },
+      "why": { "specRef": "25 §10.1 [U55] (mimo VCF scope); §10.2.1 [U74]", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/physical-datacenter-design-9-x.html" },
+      "subSteps": [
+        {
+          "id": "cabling.bmc.cable", "title": "Zapoj BMC port do switche", "kind": "game-optional", "selector": "bmcCabled", "params": { "min": "all" },
+          "why": { "specRef": "25 §10.1 [U55]", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/physical-datacenter-design-9-x.html" }
+        }
+      ]
+    },
+
+    {
+      "id": "hosts.esx", "group": "C", "title": "Nainstaluj ESX", "kind": "doc-required",
+      "selector": "esxInstalled", "params": { "min": "all" },
+      "why": { "specRef": "20-deployment §4.1.1 [S8]", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/install-esx-on-hosts-using-the-iso.html" }
+    },
+    {
+      "id": "hosts.mgmt-network", "group": "C", "title": "ESX management (vmk0): síť v DCUI", "kind": "doc-required",
+      "selector": "mgmtNetworkConfigured", "params": { "min": "all" }, "after": ["hosts.esx"],
+      "why": { "specRef": "20-deployment §4.1.2 [S9]; 25 §3.5, §6.3", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/configure-the-network-on-vmware-cloud-foundation-hosts.html" }
+    },
+    {
+      "id": "hosts.mgmt-test", "group": "C", "title": "Otestuj management síť", "kind": "game-step",
+      "selector": "mgmtNetworkTested", "params": { "min": 1 }, "after": ["hosts.mgmt-network"],
+      "why": { "specRef": "25 §6.3 [U34]; tok N2 25 §7", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/test-the-management-network.html" }
+    },
+    { "id": "hosts.mgmt-traffic", "group": "C", "title": "Rozběhni management provoz", "kind": "game-step", "selector": "mgmtTrafficFlowing", "after": ["hosts.mgmt-network"] },
+    {
+      "id": "hosts.ntp", "group": "C", "title": "Nastav NTP na hostech", "kind": "doc-required",
+      "selector": "ntpConfigured", "params": { "min": "all" }, "after": ["hosts.mgmt-network"],
+      "why": { "specRef": "20-deployment §4.1.3 [S10]", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/configure-ntp-on-vmware-cloud-foundation-hosts.html" }
+    },
+    {
+      "id": "hosts.certificate", "group": "C", "title": "Regeneruj self-signed certifikát", "kind": "doc-required",
+      "selector": "certificateRegenerated", "params": { "min": "all" }, "after": ["hosts.mgmt-network"],
+      "why": { "specRef": "20-deployment §4.1.4 [S11]", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/regenerate-the-self-signed-certificate-on-esx-hosts.html" }
+    }
+  ]
+}

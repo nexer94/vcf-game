@@ -82,9 +82,12 @@ export function devicePortPoint(cab: CabinetSpec, dev: RoomDeviceSpec, port: num
   const geo = CABINETS[cab.kind];
   const { h0, h1 } = deviceSpan(geo, dev);
   const h = (h0 + h1) / 2;
+  // port < 0 = BMC port of a server (left of the NIC ports).
   const u =
     dev.kind === 'server'
-      ? 0.56 + 0.08 * (Math.abs(port) % MAX_SERVER_PORTS)
+      ? port < 0
+        ? 0.5
+        : 0.56 + 0.08 * (port % MAX_SERVER_PORTS)
       : 0.22 + 0.04 * (Math.abs(port) % MAX_SWITCH_PORTS);
   return frontFace(cab.gx, cab.gy, geo.w, geo.d, u, h);
 }

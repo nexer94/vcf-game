@@ -1,12 +1,16 @@
 import { isSandboxPhase, type SandboxPhaseId } from './sandbox/phases';
+import { formatRoomView, parseRoomView, type RoomView } from './sandbox/roomViews';
 
 /** App screens. Hash-based so browser back/forward and reload work without a server. */
 export type Route =
   | { readonly name: 'menu' }
   | { readonly name: 'sandbox-intro' }
   | { readonly name: 'sandbox'; readonly phase: SandboxPhaseId }
-  /** Server room (art prototype); `demo` = illustrative furniture placed. */
-  | { readonly name: 'sandbox-room'; readonly demo: boolean }
+  /**
+   * Server room; `demo` = illustrative furniture placed. `view` = opened object view (UX §7.1),
+   * omitted = the room itself.
+   */
+  | { readonly name: 'sandbox-room'; readonly demo: boolean; readonly view?: RoomView }
   | { readonly name: 'career' }
   | { readonly name: 'traffic' };
 
@@ -24,7 +28,11 @@ export function parseRoute(hash: string): Route {
       return MENU;
     case 'sandbox':
       if (b === undefined) return { name: 'sandbox-intro' };
-      if (b === ROOM_SEGMENT) return { name: 'sandbox-room', demo: c === DEMO_SEGMENT };
+      if (b === ROOM_SEGMENT) {
+        const demo = c === DEMO_SEGMENT;
+        const view = parseRoomView(parts.slice(demo ? 3 : 2));
+        return view.kind === 'room' ? { name: 'sandbox-room', demo } : { name: 'sandbox-room', demo, view };
+      }
       return isSandboxPhase(b) ? { name: 'sandbox', phase: b } : { name: 'sandbox-intro' };
     case 'kariera':
       return { name: 'career' };
@@ -44,7 +52,7 @@ export function formatRoute(r: Route): string {
     case 'sandbox':
       return `#/sandbox/${r.phase}`;
     case 'sandbox-room':
-      return r.demo ? `#/sandbox/${ROOM_SEGMENT}/${DEMO_SEGMENT}` : `#/sandbox/${ROOM_SEGMENT}`;
+      return `#/sandbox/${ROOM_SEGMENT}${r.demo ? `/${DEMO_SEGMENT}` : ''}${r.view ? formatRoomView(r.view) : ''}`;
     case 'career':
       return '#/kariera';
     case 'traffic':

@@ -5,7 +5,11 @@
  * every VCF rule comes from model validations / transitions; this layer only sequences them,
  * keeps the immutable session state and adds game-flow rules (phases, which actions are possible
  * while a task is running). Game-flow rejections are reported as `kind: 'flow'`, never as VCF
- * validation issues. No money, no score (CLAUDE.md "Herní režimy" – Sandbox).
+ * validation issues. No score; money is unlimited in the Sandbox, only the spent game currency is
+ * recorded (economy = game layer, modes/economy).
+ *
+ * Physical layer (server room): the model's PhysicalState (model/physical.ts) plus game-only room data
+ * (rack floor tiles, parts stock, cable cosmetics, company network uplink, undo history).
  */
 import type { GameEvent, TimedTask } from '../../engine';
 import type {
@@ -26,6 +30,9 @@ import type {
   Fleet,
   InstallerOvfInput,
   InstallerState,
+  PhysicalState,
+  ServerConfig,
+  SwitchPortConfig,
   ValidationIssue,
   VcfBinary,
 } from '../../model';
@@ -37,13 +44,26 @@ export type SandboxPhase = (typeof SANDBOX_PHASES)[number];
 // Tasks
 // ---------------------------------------------------------------------------
 
-export type SandboxTaskKind = 'binary-download' | 'binary-validation' | 'bringup-validation' | 'bringup-deployment';
+export type SandboxTaskKind =
+  | 'binary-download'
+  | 'binary-validation'
+  | 'bringup-validation'
+  | 'bringup-deployment'
+  /** ESX installation on a physical server (20 §4.1.1 [S8]); duration illustrative. */
+  | 'esx-install'
+  /** DCUI "Test Management Network" (25 §6.3 [U34]); duration illustrative. */
+  | 'mgmt-network-test';
+
+/** How ESX gets onto the server: at the server (physical media) or remotely via BMC virtual media (25 §10.4.1). */
+export type EsxInstallMethod = 'physical' | 'bmc';
 
 export type SandboxTaskPayload =
   | { readonly kind: 'binary-download'; readonly binary: VcfBinary }
   | { readonly kind: 'binary-validation'; readonly binary: VcfBinary }
   | { readonly kind: 'bringup-validation' }
-  | { readonly kind: 'bringup-deployment' };
+  | { readonly kind: 'bringup-deployment' }
+  | { readonly kind: 'esx-install'; readonly serverId: string; readonly method: EsxInstallMethod; readonly version: string }
+  | { readonly kind: 'mgmt-network-test'; readonly serverId: string };
 
 export type SandboxTask = TimedTask<SandboxTaskKind, SandboxTaskPayload>;
 
@@ -62,6 +82,86 @@ export interface SandboxEnvironment {
   readonly unreachableFromInstaller: readonly string[];
   /** [9.1] LAG readiness of the physical network (20 §4.2 [S32]); undefined = not checked. */
   readonly physicalNetworkLagReady?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Server room (game data around the model's PhysicalState)
+// ---------------------------------------------------------------------------
+
+/** Floor tile of a rack in the room (same shape as render/room Tile). Room placement rules live in the render layer. */
+export interface RoomTile {
+  readonly gx: number;
+  readonly gy: number;
+  readonly rotation?: 0 | 90 | 180 | 270;
+}
+
+/** Spare part (drive / NIC) bought and not yet installed in a server. */
+export interface PartStock {
+  readonly id: string;
+  readonly itemId: string;
+}
+
+/** Player's own cable marking – cosmetic only (UX §9.4), never a traffic colour. */
+export interface CableMeta {
+  readonly color?: string;
+  readonly label?: string;
+}
+
+/**
+ * "Síť firmy" – the customer's network behind a switch uplink port (UX §10.2 / §12.2, GAME ABSTRACTION):
+ * gateway, DNS, NTP, DHCP and the admin workstation are reachable through this port.
+ */
+export interface CompanyNetworkLink {
+  readonly switchId: string;
+  readonly port: number;
+}
+
+/** Result of the last DCUI "Test Management Network" of a host (25 §6.3 [U34]). */
+export interface MgmtTestResult {
+  readonly atMs: number;
+  readonly gateway: boolean;
+  readonly dns: Readonly<Record<string, boolean>>;
+}
+
+export interface LedgerEntry {
+  readonly seq: number;
+  readonly atMs: number;
+  readonly kind: 'buy' | 'sell' | 'reconfigure';
+  readonly itemId: string;
+  readonly qty: number;
+  /** Game currency; negative = refund. */
+  readonly amount: number;
+}
+
+/** Sandbox money is unlimited (CLAUDE.md); only the spent game currency is recorded. */
+export interface SandboxEconomy {
+  readonly spent: number;
+  readonly ledger: readonly LedgerEntry[];
+}
+
+export interface SandboxRoomState {
+  /** Model state: racks, servers (incl. ESX host state), switches, cables. Endpoints are derived, see roomView. */
+  readonly physical: PhysicalState;
+  /** Racks with a tile are placed in the room; racks without one are in the inventory ("V batohu"). */
+  readonly rackTiles: Readonly<Record<string, RoomTile>>;
+  readonly parts: readonly PartStock[];
+  readonly cableMeta: Readonly<Record<string, CableMeta>>;
+  readonly companyNetwork?: CompanyNetworkLink;
+  readonly mgmtTests: Readonly<Record<string, MgmtTestResult>>;
+  readonly economy: SandboxEconomy;
+}
+
+/** Undo / redo of room edits (UX §2.4: history of 50 actions while building / cabling). */
+export interface RoomHistory {
+  readonly undo: readonly SandboxRoomState[];
+  readonly redo: readonly SandboxRoomState[];
+}
+
+/** Player's tracker state (UX §8.6): skipped ids, ids ever seen done (for "regressed"), visibility. */
+export interface ObjectivesPrefs {
+  readonly skipped: readonly string[];
+  readonly everDone: readonly string[];
+  readonly hidden: boolean;
 }
 
 export interface SandboxLogEntry {
@@ -97,8 +197,21 @@ export interface SandboxState {
   readonly deployment: DeploymentState;
   readonly tasks: readonly SandboxTask[];
   readonly fleet?: Fleet;
+  /** Server room (physical layer). */
+  readonly room: SandboxRoomState;
+  readonly roomHistory: RoomHistory;
+  readonly objectives: ObjectivesPrefs;
   readonly log: readonly SandboxLogEntry[];
-  readonly seq: { readonly host: number; readonly task: number; readonly log: number };
+  readonly seq: {
+    readonly host: number;
+    readonly task: number;
+    readonly log: number;
+    readonly switch: number;
+    readonly rack: number;
+    readonly cable: number;
+    readonly part: number;
+    readonly ledger: number;
+  };
   /** Task durations in game ms – ILLUSTRATIVE (see durations.ts). */
   readonly taskDurationsMs: Readonly<Record<SandboxTaskKind, number>>;
 }
@@ -124,6 +237,23 @@ export type SetWizardSectionCommand = {
   [K in WizardSection]: { readonly type: 'setWizardSection'; readonly section: K; readonly value: BringupSpec[K] };
 }[WizardSection];
 
+/** A cable end: server NIC index (vmnicN, 0-based) or 'bmc'; switch port index (0-based). */
+export interface CableEndInput {
+  readonly deviceId: string;
+  readonly port: number | 'bmc';
+}
+
+/** Switch port edit; omitted fields keep the current value. `vlan` = access VLAN, `vlans` = trunk allowed VLANs. */
+export interface SwitchPortInput {
+  readonly mode?: SwitchPortConfig['mode'];
+  readonly vlan?: number;
+  readonly vlans?: 'all' | readonly number[];
+  readonly nativeVlan?: number;
+  readonly mtu?: number;
+  /** null = remove from LAG. */
+  readonly lagGroup?: string | null;
+}
+
 export type SandboxCommand =
   // --- design phase ---
   | { readonly type: 'selectDesignOption'; readonly decision: DesignDecisionId; readonly option: string }
@@ -136,7 +266,10 @@ export type SandboxCommand =
   // --- planning: hosts (unlimited resources: add freely) ---
   | { readonly type: 'addHost'; readonly hw: HostHardwareInput; readonly id?: string }
   | { readonly type: 'removeHost'; readonly hostId: string }
+  /** Abstract planning host (legacy, instant). */
   | { readonly type: 'installEsx'; readonly hostId: string; readonly version: string }
+  /** Physical server: timed task 'esx-install'. `version` default: rules.requiredEsxVersion or the game label. */
+  | { readonly type: 'installEsx'; readonly serverId: string; readonly method: EsxInstallMethod; readonly version?: string }
   | { readonly type: 'configureHostNetwork'; readonly hostId: string; readonly network: EsxHostNetwork }
   | { readonly type: 'configureHostNtp'; readonly hostId: string; readonly servers: readonly string[] }
   | { readonly type: 'setHostSsh'; readonly hostId: string; readonly enabled: boolean }
@@ -157,7 +290,56 @@ export type SandboxCommand =
   | { readonly type: 'editWizard' }
   | { readonly type: 'startValidation' }
   | { readonly type: 'acknowledgeDeploymentWarnings' }
-  | { readonly type: 'deploy' };
+  | { readonly type: 'deploy' }
+  // --- server room: shop, placement (any phase) ---
+  /** Buy `qty` (default 1) of a catalog item (starter server, `bcg-*` model, drive, NIC, switch, rack). */
+  | { readonly type: 'buyItem'; readonly itemId: string; readonly qty?: number }
+  /** Place a rack: an inventory rack (`inventoryId` / `rackId`) or buy one (`itemId`). */
+  | { readonly type: 'placeRack'; readonly inventoryId?: string; readonly rackId?: string; readonly itemId?: string; readonly tile: RoomTile }
+  /** Mount an inventory server / switch (`inventoryId` = `deviceId`); `u` / `positionU` omitted = lowest free U. */
+  | { readonly type: 'mountDevice'; readonly inventoryId?: string; readonly deviceId?: string; readonly rackId: string; readonly u?: number; readonly positionU?: number }
+  /** Back to the inventory; its cables are disconnected (game rule). */
+  | { readonly type: 'unmountDevice'; readonly deviceId: string }
+  /** Mounted device / placed empty rack -> inventory; inventory item / spare part -> sold (100 % refund). */
+  | { readonly type: 'removeItem'; readonly id: string }
+  // --- server room: cabling, switch ports ---
+  | { readonly type: 'connectCable'; readonly from: CableEndInput; readonly to: CableEndInput; readonly color?: string; readonly label?: string }
+  | { readonly type: 'disconnectCable'; readonly cableId: string }
+  /** Cosmetic colour / label of a cable; null clears. */
+  | { readonly type: 'setCableMeta'; readonly cableId: string; readonly color?: string | null; readonly label?: string | null }
+  | { readonly type: 'setSwitchPort'; readonly switchId: string; readonly port: number | readonly number[]; readonly config: SwitchPortInput }
+  /** Connect the switch to the company network (GAME abstraction; default port = last port of the switch). */
+  | { readonly type: 'connectCompanyNetwork'; readonly switchId: string; readonly port?: number }
+  | { readonly type: 'disconnectCompanyNetwork' }
+  | { readonly type: 'undoRoom' }
+  | { readonly type: 'redoRoom' }
+  // --- server room: hardware and ESX on physical servers ---
+  /** Edit CPU / RAM / drives / NICs before ESX is installed (validated by the model). */
+  | { readonly type: 'configureServer'; readonly serverId: string; readonly config: ServerConfig }
+  /** DCUI "Configure Management Network" (20 §4.1.2; 25 §6.3). */
+  | {
+      readonly type: 'configureMgmtNetwork';
+      readonly serverId: string;
+      readonly ip: string;
+      readonly mask: string;
+      readonly gw: string;
+      readonly vlan?: number | null;
+      readonly dns: readonly string[];
+      readonly hostname: string;
+      readonly customDnsSuffixes?: readonly string[];
+    }
+  /** DCUI "Test Management Network" (25 §6.3 [U34]) – timed task, shows flow N2 while it runs. */
+  | { readonly type: 'testManagementNetwork'; readonly serverId: string }
+  /** DCUI "Network Adapters": vmnics of vSwitch0 (25 §6.3 [U32]). */
+  | { readonly type: 'setHostUplinks'; readonly serverId: string; readonly vmnics: readonly number[] }
+  | { readonly type: 'setHostSwitchMtu'; readonly serverId: string; readonly switchName: string; readonly mtu: number }
+  | { readonly type: 'setVmkMtu'; readonly serverId: string; readonly vmk: string; readonly mtu: number }
+  /** BMC (out of VCF scope – game, 25 §10): IP (≠ host IP [U74]), VLAN tag, OS↔BMC USB-NIC interface. */
+  | { readonly type: 'configureBmc'; readonly serverId: string; readonly ip?: string | null; readonly vlan?: number | null; readonly hostInterfaceEnabled?: boolean }
+  // --- objectives tracker (UX §8) ---
+  | { readonly type: 'skipObjective'; readonly id: string }
+  | { readonly type: 'unskipObjective'; readonly id: string }
+  | { readonly type: 'setObjectivesHidden'; readonly hidden: boolean };
 
 export type SandboxCommandType = SandboxCommand['type'];
 
@@ -177,7 +359,21 @@ export type FlowReason =
   | 'task-in-progress'
   | 'deployment-completed'
   | 'design-locked-field'
-  | 'invalid-input';
+  | 'invalid-input'
+  // server room (game rules, not VCF)
+  | 'unknown-item'
+  | 'unknown-device'
+  | 'unknown-rack'
+  | 'unknown-cable'
+  | 'not-mounted'
+  | 'rack-not-placed'
+  | 'rack-not-empty'
+  | 'port-reserved'
+  | 'esx-installed'
+  | 'device-busy'
+  | 'bmc-not-ready'
+  | 'bmc-remote-install-not-documented'
+  | 'unknown-objective';
 
 export type SandboxRejection =
   /** A model validation / transition rejected the action. Issues are the model's, unchanged. */
@@ -193,7 +389,8 @@ export type SandboxRejection =
   | { readonly kind: 'flow'; readonly reason: FlowReason; readonly message: string };
 
 export type CommandResult =
-  | { readonly ok: true; readonly warnings: readonly ValidationIssue[] }
+  /** `created`: ids of new instances (bought devices / racks / parts, new cable). */
+  | { readonly ok: true; readonly warnings: readonly ValidationIssue[]; readonly created?: readonly string[] }
   | { readonly ok: false; readonly rejection: SandboxRejection };
 
 // ---------------------------------------------------------------------------
@@ -220,6 +417,10 @@ export type SandboxEvent =
       readonly to: DeploymentStatus;
       readonly event: DeploymentEvent['type'];
     }
-  | { readonly type: 'sandbox/fleetCreated'; readonly atMs: number; readonly fleet: Fleet };
+  | { readonly type: 'sandbox/fleetCreated'; readonly atMs: number; readonly fleet: Fleet }
+  /** Objective satisfied for the first time (celebration, UX §3.3 / §8.4). */
+  | { readonly type: 'sandbox/objectiveCompleted'; readonly atMs: number; readonly id: string; readonly groupCompleted?: string }
+  /** A doc-required objective that was done is no longer satisfied (UX §8.3 "problém"). */
+  | { readonly type: 'sandbox/objectiveRegressed'; readonly atMs: number; readonly id: string };
 
 export type SandboxEventType = SandboxEvent['type'];

@@ -48,6 +48,11 @@ Výjimka: drobné úpravy `docs/PROGRESS.md` a tohoto souboru děláš sám.
 
 Nezávislé úkoly (např. research dvou různých oblastí) spouštěj paralelně.
 
+**Vývojová fáze (rozhodnutí uživatele 2026-11-21):** dokud hra není funkční / hratelná, kroky 6–8
+(`code-reviewer`, UX review, `fact-checker`) se **nespouští průběžně** – udělají se hromadně až u funkčního
+milníku (např. Sandbox hratelný od prázdné serverovny po bring-up). Před commitem dál stačí `npm test` + `npm run build`.
+Pravidlo „fakta jen ze specu“ platí pořád.
+
 ## Herní režimy
 Oba režimy sdílejí **stejný model a engine** (stejná pravidla VCF ze specu); liší se jen vrstvou nad nimi.
 

@@ -78,7 +78,7 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
   - [ ] `ui-dev` – zásobník pohledů + lupa, 2D rack + kabeláž, obchod z katalogu, provoz v2 (svazky, tvary teček),
     úpravy místnosti z UX review *(běží)*
   - [ ] `scenario-designer` – obsah úkolů Sandboxu (skupiny A–G) po engine úkolů
-  - [ ] `code-reviewer` + `ux-designer` review → `fact-checker` (Sandbox v2: HW, fyzická síť, toky)
+  - [ ] (odloženo do funkčního milníku) `code-reviewer` + `ux-designer` review → `fact-checker`
 
 ### Sandbox v1 (původní tok Návrh → Příprava → Deploy)
 - [x] `ui-dev` – hash router, hlavní menu (Sandbox / Kariéra „Připravujeme“ / Ukázka provozu), úvod Sandboxu,

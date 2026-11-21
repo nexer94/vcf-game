@@ -10,18 +10,21 @@
  * re-tessellated only when their style changes; packets use one ParticleContainer.
  * No filters.
  */
-import { Container, Graphics, Particle, ParticleContainer, Rectangle, Sprite, type Renderer, type Texture } from 'pixi.js';
+import { Container, Graphics, Particle, ParticleContainer, Rectangle, Sprite, Text, type Renderer, type Texture } from 'pixi.js';
 import type { GameSnapshot } from '../../engine';
 import { distanceToPolyline } from '../geom/bezier';
 import { isoToScreen } from '../iso';
-import { DEFAULT_PACKET_SIM, PacketSim } from '../traffic/packetSim';
+import { DEFAULT_PACKET_SIM, PacketSim, type PacketPath } from '../traffic/packetSim';
 import type { LinkTraffic, TrafficSource } from '../traffic/trafficModel';
+import type { TrafficType } from '../traffic/trafficTypes';
 import { createAvatarTextures, type AvatarTextures } from './avatarArt';
 import { AvatarMotion } from './avatarMotion';
-import { diamond } from './draw';
+import { diamond, up, type P } from './draw';
+import { createDotAtlas, type DotShape } from './dotAtlas';
 import { CABINETS, canMount, drawCabinet, firstFreeU, devicePortPoint, type CabinetKind, type CabinetSpec, type RoomDeviceSpec } from './furniture';
-import { BLOCKED_TILE, HOVER_TILE, OUTLINE, SHADOW, TARGET_TILE } from './palette';
-import { buildRoomCable, RoomCableView, type RoomCableSpec } from './roomCables';
+import { BLOCKED_TILE, CABLE, DECOR, HOVER_TILE, OUTLINE, SHADOW, TARGET_TILE } from './palette';
+import { bundleWidth, devicePath, faceEdgePoint, flatten, pairKey, polyLength, riserTop, trayRoute } from './roomBundles';
+import type { RoomCableSpec } from './roomCables';
 import { depthOf, nearestReachable, Occupancy, worldToTile, type Footprint, type RoomSize, type Tile } from './roomGrid';
 import { drawStaticRoom, SLAB_H, WALL_H, WALL_T } from './roomStatic';
 
@@ -45,6 +48,34 @@ interface CabinetEntry {
   sprite: Sprite;
   shadow: Sprite;
   texture: Texture | null;
+  /** Thin cable risers on the front-right edge (port -> edge -> top). */
+  risers: Graphics;
+  key: string;
+}
+
+/** Cable in the room: endpoints + packet path through the tray (UX §12.2). */
+interface CableEntry {
+  readonly spec: RoomCableSpec;
+  readonly cabA: string;
+  readonly cabB: string;
+  readonly path: PacketPath & { readonly polyline: Float32Array; readonly points: readonly P[] };
+}
+
+/** Cables between one cabinet pair, drawn as one neutral bundle along the overhead tray. */
+interface BundleEntry {
+  readonly key: string;
+  readonly cabA: string;
+  readonly cabB: string;
+  readonly cables: string[];
+  readonly route: readonly P[];
+  readonly flat: Float32Array;
+  readonly gfx: Graphics;
+  badge: Text | null;
+}
+
+export interface BundleInfo {
+  readonly key: string;
+  readonly cables: readonly RoomCableSpec[];
 }
 
 const MAX_REAL_DELTA_MS = 100;
@@ -65,13 +96,20 @@ function createShadowTexture(renderer: Renderer): Texture {
  * rim - the rim stays dark under any tint, so packets keep >= 3:1 on the light floor
  * (GRAPHICS.md "Světlá serverovna"). One texture -> one batched ParticleContainer.
  */
-function createPelletTexture(renderer: Renderer): Texture {
+/** Small magnifier icon shown above an interactive object on hover / focus (UX §7.2). */
+function createMagnifierTexture(renderer: Renderer): Texture {
   const g = new Graphics();
-  g.circle(6, 6, 3.4).fill({ color: 0xffffff }).stroke({ color: OUTLINE, width: 1.6 });
-  const t = renderer.generateTexture({ target: g, resolution: 3, antialias: true });
+  g.circle(9, 9, 8).fill({ color: 0xffffff }).stroke({ color: OUTLINE, width: 2 });
+  g.circle(8, 8, 3.6).stroke({ color: OUTLINE, width: 2 });
+  g.moveTo(10.6, 10.6).lineTo(13.4, 13.4).stroke({ color: OUTLINE, width: 2.4, cap: 'round' });
+  const t = renderer.generateTexture({ target: g, frame: new Rectangle(0, 0, 18, 18), resolution: 3, antialias: true });
   g.destroy();
   return t;
 }
+
+const DOT_SCALE = 0.62;
+/** Real-ms period of the dashed "ISO transfer" animation on BMC cables (game scope, UX §15.4). */
+const DASH_FRAME_MS = 90;
 
 export class RoomScene {
   readonly world = new Container();
@@ -90,7 +128,16 @@ export class RoomScene {
   private readonly avatarShadow: Sprite;
   private readonly avatarTex: AvatarTextures;
   private readonly shadowTex: Texture;
-  private readonly pelletTex: Texture;
+  private readonly dots: ReturnType<typeof createDotAtlas>;
+  private readonly magnifierTex: Texture;
+  private readonly magnifier: Sprite;
+  private readonly highlightFx = new Graphics();
+  private highlighted: string | null = null;
+  private readonly overhead = new Container();
+  private readonly bmcFx = new Graphics();
+  private bmcActive = new Set<string>();
+  private dashMs = 0;
+  private dashPhase = 0;
   private packetView: ParticleContainer<Particle> | null = null;
   private packetPool: Particle[] = [];
   private shownPackets = 0;
@@ -99,12 +146,17 @@ export class RoomScene {
 
   private readonly cabinets = new Map<string, CabinetEntry>();
   private readonly deviceOwner = new Map<string, string>();
-  private readonly cables = new Map<string, RoomCableView>();
+  private readonly cables = new Map<string, CableEntry>();
+  private readonly bundles = new Map<string, BundleEntry>();
+  private cablesDirty = false;
+  private hoveredBundle: string | null = null;
+  private filter: TrafficType | null = null;
+  private viewScale = 1;
+  private readonly active = new Set<TrafficType>();
   private source: TrafficSource | null = null;
   private traffic: ReadonlyMap<string, LinkTraffic> = new Map();
   private lastGameTimeMs: number | null = null;
   private hoverTile: Tile | null = null;
-  private hoveredCable: string | null = null;
   private ghost: { kind: GhostKind; tile: Tile; valid: boolean } | null = null;
   private ghostTextures = new Map<GhostKind, { tex: Texture; ax: number; ay: number }>();
   private fxKey = '';
@@ -121,7 +173,13 @@ export class RoomScene {
     this.avatar = new AvatarMotion(avatarStart);
     this.staticGfx = drawStaticRoom(size);
     this.shadowTex = createShadowTexture(renderer);
-    this.pelletTex = createPelletTexture(renderer);
+    this.dots = createDotAtlas(renderer);
+    this.magnifierTex = createMagnifierTexture(renderer);
+    this.magnifier = new Sprite(this.magnifierTex);
+    this.magnifier.anchor.set(0.5, 1);
+    this.magnifier.scale.set(0.9);
+    this.magnifier.visible = false;
+    this.highlightFx.visible = false;
     this.avatarTex = createAvatarTextures(renderer);
     this.avatarSprite.anchor.set(this.avatarTex.anchor.x, this.avatarTex.anchor.y);
     this.avatarSprite.texture = this.avatarTex.frames.front.stand;
@@ -133,7 +191,8 @@ export class RoomScene {
     this.objects.sortableChildren = true;
     this.objects.addChild(this.avatarSprite, this.ghostSprite);
     this.shadows.addChild(this.avatarShadow, this.ghostShadow);
-    this.world.addChild(this.shadows, this.floorFx, this.markerFx, this.objects);
+    this.objects.addChild(this.highlightFx);
+    this.world.addChild(this.shadows, this.floorFx, this.markerFx, this.objects, this.overhead, this.bmcFx, this.magnifier);
     this.bakeStatic(2);
     this.syncAvatar(0);
   }
@@ -155,6 +214,8 @@ export class RoomScene {
    * 1/2/3/4, capped so the texture stays <= 4096 px - safe on Chromebook GPUs).
    */
   setViewScale(scale: number, devicePixelRatio = 1): void {
+    if ((scale >= 1) !== (this.viewScale >= 1)) this.cablesDirty = true; // count badges appear at zoom >= 1
+    this.viewScale = scale;
     const b = this.bounds;
     const maxRes = Math.max(1, Math.floor(4096 / Math.max(b.width, b.height)));
     const res = Math.min(maxRes, Math.max(1, Math.ceil(scale * devicePixelRatio)));
@@ -197,10 +258,11 @@ export class RoomScene {
     return { ok: true };
   }
 
-  placeCabinet(spec: CabinetSpec, devices: readonly RoomDeviceSpec[] = []): PlaceResult {
+  /** `force` skips the avatar check (syncing state that was validated when it was placed). */
+  placeCabinet(spec: CabinetSpec, devices: readonly RoomDeviceSpec[] = [], force = false): PlaceResult {
     if (this.cabinets.has(spec.id)) return { ok: false, reason: 'duplicate' };
     const check = this.checkPlace(spec.kind, spec);
-    if (!check.ok) return check;
+    if (!check.ok && !(force && check.reason === 'avatar')) return check;
     const geo = CABINETS[spec.kind];
     this.grid.set({ gx: spec.gx, gy: spec.gy, w: geo.w, d: geo.d }, true);
     const sprite = new Sprite();
@@ -210,9 +272,11 @@ export class RoomScene {
     const shadow = this.makeShadow(0.95);
     const c = isoToScreen(spec.gx + geo.w / 2 + 0.12, spec.gy + geo.d / 2 + 0.12);
     shadow.position.set(c.x, c.y);
-    const entry: CabinetEntry = { spec, devices: [], sprite, shadow, texture: null };
+    const risers = new Graphics();
+    risers.zIndex = sprite.zIndex + 0.005;
+    const entry: CabinetEntry = { spec, devices: [], sprite, shadow, texture: null, risers, key: '' };
     this.cabinets.set(spec.id, entry);
-    this.objects.addChild(sprite);
+    this.objects.addChild(sprite, risers);
     this.shadows.addChild(shadow);
     for (const d of devices) this.mountDevice(spec.id, d);
     this.rebakeCabinet(entry);
@@ -240,8 +304,52 @@ export class RoomScene {
     this.grid.set({ gx: e.spec.gx, gy: e.spec.gy, w: geo.w, d: geo.d }, false);
     e.sprite.destroy();
     e.shadow.destroy();
+    e.risers.destroy();
     e.texture?.destroy(true);
     this.cabinets.delete(id);
+    if (this.highlighted === id) this.setHighlightedCabinet(null);
+    this.cablesDirty = true;
+  }
+
+  /**
+   * Make the room show exactly these cabinets / devices / cables (diffed: only changed cabinets are re-baked,
+   * cable geometry is rebuilt once). Used by the Sandbox screen to mirror the session state.
+   */
+  syncContents(c: RoomContents): void {
+    const want = new Map(c.cabinets.map((x) => [x.spec.id, x]));
+    for (const id of [...this.cabinets.keys()]) {
+      const e = this.cabinets.get(id)!;
+      const w = want.get(id);
+      if (!w || w.spec.gx !== e.spec.gx || w.spec.gy !== e.spec.gy || w.spec.kind !== e.spec.kind) this.removeCabinet(id);
+    }
+    for (const w of c.cabinets) {
+      const key = JSON.stringify(w.devices);
+      const e = this.cabinets.get(w.spec.id);
+      if (!e) {
+        this.placeCabinet(w.spec, w.devices, true);
+        const ne = this.cabinets.get(w.spec.id);
+        if (ne) ne.key = key;
+      } else if (e.key !== key) {
+        for (const d of e.devices) this.deviceOwner.delete(d.id);
+        e.devices = [];
+        for (const d of w.devices) {
+          if (canMount(e.spec.kind, e.devices, d)) {
+            e.devices.push(d);
+            this.deviceOwner.set(d.id, e.spec.id);
+          }
+        }
+        e.key = key;
+        this.rebakeCabinet(e);
+      }
+    }
+    const cableKey = (x: RoomCableSpec): string => `${x.id}|${x.from.deviceId}:${x.from.port}|${x.to.deviceId}:${x.to.port}`;
+    const wantCables = new Map(c.cables.map((x) => [x.id, x]));
+    for (const id of [...this.cables.keys()]) {
+      const w = wantCables.get(id);
+      if (!w || cableKey(w) !== cableKey(this.cables.get(id)!.spec)) this.disconnect(id);
+    }
+    for (const x of c.cables) if (!this.cables.has(x.id)) this.connect(x);
+    this.cablesDirty = true;
   }
 
   /** Mount a server/switch into a cabinet. `u` <= 0 = first free slot. */
@@ -271,7 +379,7 @@ export class RoomScene {
   unmountDevice(deviceId: string): void {
     const cabId = this.deviceOwner.get(deviceId);
     if (!cabId) return;
-    for (const [id, c] of this.cables) if (c.geo.spec.from.deviceId === deviceId || c.geo.spec.to.deviceId === deviceId) this.disconnect(id);
+    for (const [id, c] of this.cables) if (c.spec.from.deviceId === deviceId || c.spec.to.deviceId === deviceId) this.disconnect(id);
     const e = this.cabinets.get(cabId)!;
     e.devices = e.devices.filter((d) => d.id !== deviceId);
     this.deviceOwner.delete(deviceId);
@@ -289,46 +397,197 @@ export class RoomScene {
     e.texture = tex;
     e.sprite.texture = tex;
     e.sprite.anchor.set(-frame.x / frame.width, -frame.y / frame.height);
+    this.cablesDirty = true;
   }
 
-  // ---------------------------------------------------------------- cables
+  // ---------------------------------------------------------------- cables (bundles, UX §12.2)
 
   connect(spec: RoomCableSpec): PlaceResult {
     if (this.cables.has(spec.id)) return { ok: false, reason: 'duplicate' };
     const a = this.portWorld(spec.from.deviceId, spec.from.port);
     const b = this.portWorld(spec.to.deviceId, spec.to.port);
     if (!a || !b) return { ok: false, reason: 'unknown' };
-    const same = a.cabinet.spec.id === b.cabinet.spec.id;
-    // Fan out cables that share a cabinet pair.
-    let spread = 0;
-    for (const c of this.cables.values()) {
-      const ca = this.deviceOwner.get(c.geo.spec.from.deviceId);
-      const cb = this.deviceOwner.get(c.geo.spec.to.deviceId);
-      if ((ca === a.cabinet.spec.id && cb === b.cabinet.spec.id) || (ca === b.cabinet.spec.id && cb === a.cabinet.spec.id)) spread++;
-    }
-    const view = new RoomCableView(buildRoomCable(spec, a.p, b.p, same, spread % 6));
-    view.view.zIndex = Math.max(a.cabinet.sprite.zIndex, b.cabinet.sprite.zIndex) + 0.01;
-    this.cables.set(spec.id, view);
-    this.objects.addChild(view.view);
-    view.update(undefined, false);
-    this.simDirty = true;
+    this.cables.set(spec.id, this.cableEntry(spec, a, b));
+    this.cablesDirty = true;
     return { ok: true };
   }
 
-  disconnect(id: string): void {
-    const c = this.cables.get(id);
-    if (!c) return;
-    c.view.destroy();
-    this.cables.delete(id);
-    this.simDirty = true;
+  private cableEntry(spec: RoomCableSpec, a: { p: P; cabinet: CabinetEntry }, b: { p: P; cabinet: CabinetEntry }): CableEntry {
+    const points = devicePath(a.cabinet.spec, a.p, b.cabinet.spec, b.p);
+    const polyline = flatten(points);
+    return { spec, cabA: a.cabinet.spec.id, cabB: b.cabinet.spec.id, path: { spec: { id: spec.id }, polyline, points, length: polyLength(points) } };
   }
 
-  private portWorld(deviceId: string, port: number): { p: { x: number; y: number }; cabinet: CabinetEntry } | null {
+  disconnect(id: string): void {
+    if (!this.cables.delete(id)) return;
+    this.cablesDirty = true;
+  }
+
+  private portWorld(deviceId: string, port: number): { p: P; cabinet: CabinetEntry } | null {
     const cabId = this.deviceOwner.get(deviceId);
     const cab = cabId ? this.cabinets.get(cabId) : undefined;
     const dev = cab?.devices.find((d) => d.id === deviceId);
     if (!cab || !dev) return null;
     return { p: devicePortPoint(cab.spec, dev, port), cabinet: cab };
+  }
+
+  /** Rebuild cable paths, risers and bundles after any cabling / furniture change. */
+  private rebuildCables(): void {
+    this.cablesDirty = false;
+    // Re-resolve endpoints (devices may have moved); drop cables whose ends vanished.
+    for (const [id, c] of [...this.cables]) {
+      const a = this.portWorld(c.spec.from.deviceId, c.spec.from.port);
+      const b = this.portWorld(c.spec.to.deviceId, c.spec.to.port);
+      if (!a || !b) this.cables.delete(id);
+      else this.cables.set(id, this.cableEntry(c.spec, a, b));
+    }
+    // Risers per cabinet: port -> edge -> top (only cables that leave the cabinet go to the top).
+    for (const e of this.cabinets.values()) e.risers.clear();
+    for (const c of this.cables.values()) {
+      for (const [cabId, port, leaves] of [
+        [c.cabA, c.path.points[0]!, c.cabA !== c.cabB],
+        [c.cabB, c.path.points[c.path.points.length - 1]!, c.cabA !== c.cabB],
+      ] as const) {
+        const e = this.cabinets.get(cabId);
+        if (!e) continue;
+        const edge = faceEdgePoint(e.spec, port);
+        const g = e.risers.moveTo(port.x, port.y).lineTo(edge.x, edge.y);
+        if (leaves) {
+          const top = riserTop(e.spec);
+          g.lineTo(top.x, top.y);
+        }
+      }
+      if (c.cabA === c.cabB) {
+        const e = this.cabinets.get(c.cabA)!;
+        const p = c.path.points;
+        e.risers.moveTo(p[1]!.x, p[1]!.y).lineTo(p[2]!.x, p[2]!.y);
+      }
+    }
+    for (const e of this.cabinets.values()) {
+      e.risers.stroke({ color: OUTLINE, width: 2.6, cap: 'round', join: 'round' });
+      // Neutral core over the outline (redraw the same path cheaply by cloning commands is not available -> second pass).
+    }
+    this.drawRiserCores();
+    // Bundles per cabinet pair.
+    const groups = new Map<string, { a: string; b: string; ids: string[] }>();
+    for (const c of this.cables.values()) {
+      if (c.cabA === c.cabB) continue;
+      const k = pairKey(c.cabA, c.cabB);
+      const g = groups.get(k) ?? { a: c.cabA < c.cabB ? c.cabA : c.cabB, b: c.cabA < c.cabB ? c.cabB : c.cabA, ids: [] };
+      g.ids.push(c.spec.id);
+      groups.set(k, g);
+    }
+    for (const [k, b] of this.bundles) {
+      if (!groups.has(k)) {
+        b.gfx.destroy();
+        b.badge?.destroy();
+        this.bundles.delete(k);
+      }
+    }
+    for (const [k, g] of groups) {
+      const ca = this.cabinets.get(g.a)!.spec;
+      const cb = this.cabinets.get(g.b)!.spec;
+      const route = [riserTop(ca), ...trayRoute(ca, cb), riserTop(cb)];
+      let b = this.bundles.get(k);
+      if (!b) {
+        b = { key: k, cabA: g.a, cabB: g.b, cables: g.ids, route, flat: flatten(route), gfx: new Graphics(), badge: null };
+        this.bundles.set(k, b);
+        this.overhead.addChild(b.gfx);
+      } else {
+        b = { ...b, cables: g.ids, route, flat: flatten(route) };
+        this.bundles.set(k, b);
+      }
+      this.drawBundle(b);
+    }
+    this.simDirty = true;
+  }
+
+  private drawRiserCores(): void {
+    // Second pass with the neutral core colour (outline first, then core -> cartoon cable look).
+    const tmp = new Map<string, P[][]>();
+    for (const c of this.cables.values()) {
+      for (const [cabId, port, leaves] of [
+        [c.cabA, c.path.points[0]!, c.cabA !== c.cabB],
+        [c.cabB, c.path.points[c.path.points.length - 1]!, c.cabA !== c.cabB],
+      ] as const) {
+        const e = this.cabinets.get(cabId);
+        if (!e) continue;
+        const seg = [port, faceEdgePoint(e.spec, port)];
+        if (leaves) seg.push(riserTop(e.spec));
+        const list = tmp.get(cabId) ?? [];
+        list.push(seg);
+        tmp.set(cabId, list);
+      }
+      if (c.cabA === c.cabB) {
+        const list = tmp.get(c.cabA) ?? [];
+        list.push([c.path.points[1]!, c.path.points[2]!]);
+        tmp.set(c.cabA, list);
+      }
+    }
+    for (const [cabId, segs] of tmp) {
+      const g = this.cabinets.get(cabId)!.risers;
+      for (const seg of segs) {
+        g.moveTo(seg[0]!.x, seg[0]!.y);
+        for (let i = 1; i < seg.length; i++) g.lineTo(seg[i]!.x, seg[i]!.y);
+      }
+      g.stroke({ color: CABLE.body, width: 1.1, cap: 'round', join: 'round' });
+    }
+  }
+
+  private drawBundle(b: BundleEntry): void {
+    const g = b.gfx;
+    g.clear();
+    const pts = b.route;
+    const path = (): Graphics => {
+      g.moveTo(pts[0]!.x, pts[0]!.y);
+      for (let i = 1; i < pts.length; i++) g.lineTo(pts[i]!.x, pts[i]!.y);
+      return g;
+    };
+    // Little hanging tray under the bundle (between the two risers).
+    const tray = pts.slice(1, -1);
+    if (tray.length >= 2) {
+      g.moveTo(tray[0]!.x, tray[0]!.y + 3);
+      for (let i = 1; i < tray.length; i++) g.lineTo(tray[i]!.x, tray[i]!.y + 3);
+      g.stroke({ color: DECOR.trayDark, width: 7, cap: 'round', join: 'round' });
+      g.moveTo(tray[0]!.x, tray[0]!.y + 2);
+      for (let i = 1; i < tray.length; i++) g.lineTo(tray[i]!.x, tray[i]!.y + 2);
+      g.stroke({ color: DECOR.tray, width: 4.5, cap: 'round', join: 'round' });
+    }
+    const hovered = this.hoveredBundle === b.key;
+    const n = b.cables.length;
+    if (hovered && n > 1) {
+      // Fan the bundle out into its cables (only this one).
+      const spread = Math.min(3, 18 / n);
+      for (let i = 0; i < n; i++) {
+        const dy = (i - (n - 1) / 2) * spread;
+        g.moveTo(pts[0]!.x, pts[0]!.y + dy);
+        for (let k = 1; k < pts.length; k++) g.lineTo(pts[k]!.x, pts[k]!.y + dy);
+        g.stroke({ color: OUTLINE, width: 2.4, cap: 'round', join: 'round' });
+        g.moveTo(pts[0]!.x, pts[0]!.y + dy);
+        for (let k = 1; k < pts.length; k++) g.lineTo(pts[k]!.x, pts[k]!.y + dy);
+        g.stroke({ color: CABLE.body, width: 1, cap: 'round', join: 'round' });
+      }
+    } else {
+      const w = bundleWidth(n);
+      if (hovered) path().stroke({ color: 0xffffff, width: w + 7, alpha: 0.7, cap: 'round', join: 'round' });
+      path().stroke({ color: OUTLINE, width: w + 2.5, cap: 'round', join: 'round' });
+      path().stroke({ color: CABLE.body, width: w, cap: 'round', join: 'round' });
+    }
+    // Count badge (x N) at zoom >= 1 (UX §12.2).
+    const showBadge = n > 1 && this.viewScale >= 1;
+    if (showBadge) {
+      const mid = pts[Math.floor(pts.length / 2)]!;
+      if (!b.badge) {
+        b.badge = new Text({ text: '', style: { fontFamily: 'system-ui, sans-serif', fontSize: 11, fontWeight: '800', fill: OUTLINE, stroke: { color: 0xffffff, width: 3 } }, resolution: 3 });
+        b.badge.anchor.set(0.5, 1);
+        this.overhead.addChild(b.badge);
+      }
+      b.badge.text = `×${n}`;
+      b.badge.position.set(mid.x, mid.y - 5);
+    } else if (b.badge) {
+      b.badge.destroy();
+      b.badge = null;
+    }
   }
 
   /** Remove everything except the avatar. */
@@ -341,14 +600,42 @@ export class RoomScene {
   contents(): RoomContents {
     return {
       cabinets: [...this.cabinets.values()].map((e) => ({ spec: e.spec, devices: [...e.devices] })),
-      cables: [...this.cables.values()].map((c) => c.geo.spec),
+      cables: [...this.cables.values()].map((c) => c.spec),
     };
+  }
+
+  /** Cables of the room by id (for tooltips / lists). */
+  cableSpec(id: string): RoomCableSpec | undefined {
+    return this.cables.get(id)?.spec;
   }
 
   /** Per-link traffic (TrafficSource contract shared with the datacenter scene). null = idle cables. */
   setTrafficSource(source: TrafficSource | null): void {
     this.source = source;
     this.traffic = new Map();
+  }
+
+  /**
+   * BMC cables currently carrying the game-scope "ISO transfer" (remote ESX install, UX §15.4): drawn as a grey
+   * dashed animation, never as VCF traffic dots.
+   */
+  setBmcTransfers(cableIds: Iterable<string>): void {
+    this.bmcActive = new Set(cableIds);
+    if (this.bmcActive.size === 0) this.bmcFx.clear();
+  }
+
+  /** Show only one traffic type (others at 15 % alpha); null = all (UX §12.5 legend filter). */
+  setTrafficFilter(type: TrafficType | null): void {
+    this.filter = type;
+  }
+
+  /** Traffic types with packets on screen right now (legend chip). */
+  get activeTypes(): ReadonlySet<TrafficType> {
+    return this.active;
+  }
+
+  get bmcTransferActive(): boolean {
+    return this.bmcActive.size > 0;
   }
 
   trafficFor(id: string): LinkTraffic | undefined {
@@ -373,21 +660,76 @@ export class RoomScene {
     return best?.spec ?? null;
   }
 
-  cableAtWorld(wx: number, wy: number, tolerance: number): RoomCableSpec | null {
-    let best: RoomCableSpec | null = null;
+  /** Bundle under a world point (hover = fan out + tooltip). */
+  bundleAtWorld(wx: number, wy: number, tolerance: number): BundleInfo | null {
+    let best: BundleEntry | null = null;
     let bestD = tolerance;
-    for (const c of this.cables.values()) {
-      const d = distanceToPolyline(c.geo.samples, wx, wy);
+    for (const b of this.bundles.values()) {
+      const d = distanceToPolyline(b.flat, wx, wy);
       if (d <= bestD) {
         bestD = d;
-        best = c.geo.spec;
+        best = b;
       }
     }
-    return best;
+    if (!best) return null;
+    return { key: best.key, cables: best.cables.map((id) => this.cables.get(id)?.spec).filter((x): x is RoomCableSpec => !!x) };
   }
 
-  setHoveredCable(id: string | null): void {
-    this.hoveredCable = id;
+  setHoveredBundle(key: string | null): void {
+    if (key === this.hoveredBundle) return;
+    const prev = this.hoveredBundle ? this.bundles.get(this.hoveredBundle) : undefined;
+    this.hoveredBundle = key;
+    if (prev) this.drawBundle(prev);
+    const next = key ? this.bundles.get(key) : undefined;
+    if (next) this.drawBundle(next);
+  }
+
+  /** World rect of a cabinet sprite (camera flight target). */
+  cabinetRect(id: string): { x: number; y: number; width: number; height: number } | null {
+    const e = this.cabinets.get(id);
+    if (!e) return null;
+    const s = e.sprite;
+    return { x: s.x - s.anchor.x * s.width, y: s.y - s.anchor.y * s.height, width: s.width, height: s.height };
+  }
+
+  /** Ids of cabinets in tab order (back to front). */
+  cabinetIds(kind?: CabinetKind): string[] {
+    return [...this.cabinets.values()]
+      .filter((e) => !kind || e.spec.kind === kind)
+      .sort((a, b) => a.sprite.zIndex - b.sprite.zIndex)
+      .map((e) => e.spec.id);
+  }
+
+  /**
+   * Hover / focus highlight of an interactive object: thick light rim + dark outline around the silhouette and a
+   * magnifier icon above it (UX §7.2). Drawn only on change.
+   */
+  setHighlightedCabinet(id: string | null): void {
+    if (id === this.highlighted) return;
+    this.highlighted = id;
+    const g = this.highlightFx;
+    g.clear();
+    const e = id ? this.cabinets.get(id) : undefined;
+    if (!e) {
+      g.visible = false;
+      this.magnifier.visible = false;
+      return;
+    }
+    const geo = CABINETS[e.spec.kind];
+    const { gx, gy } = e.spec;
+    const H = geo.heightPx;
+    const c00 = isoToScreen(gx, gy);
+    const c10 = isoToScreen(gx + geo.w, gy);
+    const c11 = isoToScreen(gx + geo.w, gy + geo.d);
+    const c01 = isoToScreen(gx, gy + geo.d);
+    const sil = [up(c00, H), up(c10, H), c10, c11, c01, up(c01, H)].flatMap((p) => [p.x, p.y]);
+    g.poly(sil).stroke({ color: 0xffffff, width: 6, join: 'round', alpha: 0.95 });
+    g.poly(sil).stroke({ color: OUTLINE, width: 2, join: 'round' });
+    g.zIndex = e.sprite.zIndex + 0.004;
+    g.visible = true;
+    const top = up(isoToScreen(gx + geo.w / 2, gy + geo.d / 2), H + 8);
+    this.magnifier.position.set(top.x, top.y);
+    this.magnifier.visible = true;
   }
 
   setHoverTile(tile: Tile | null): void {
@@ -518,13 +860,16 @@ export class RoomScene {
     const gameDelta = this.lastGameTimeMs === null ? 0 : Math.max(0, now - this.lastGameTimeMs);
     this.lastGameTimeMs = now;
     this.traffic = this.source ? this.source.sample(now) : new Map();
+    if (this.cablesDirty) this.rebuildCables();
     if (this.simDirty) this.rebuildSim();
     if (this.sim) {
       const game = Math.min(gameDelta, MAX_REAL_DELTA_MS * Math.max(1, snapshot.clock.speed));
       this.sim.step(game, real, this.traffic, snapshot.clock.speed);
       this.syncPackets();
     }
-    for (const [id, c] of this.cables) c.update(this.traffic.get(id), id === this.hoveredCable);
+    this.active.clear();
+    for (const [id, t] of this.traffic) if (this.cables.has(id)) for (const m of t.mix) if (m.gbps > 0) this.active.add(m.type);
+    this.drawBmcTransfers(real, gameDelta > 0);
     this.drawFloorFx(real);
   }
 
@@ -534,18 +879,22 @@ export class RoomScene {
     this.packetView = null;
     this.sim = null;
     this.shownPackets = 0;
-    const paths = [...this.cables.values()].map((c) => c.geo);
+    const paths = [...this.cables.values()].map((c) => c.path);
     if (paths.length === 0) return;
     this.sim = new PacketSim(paths, ROOM_PACKETS);
     const view = new ParticleContainer<Particle>({
-      texture: this.pelletTex,
-      dynamicProperties: { position: true, color: true, vertex: false, rotation: false, uvs: false },
+      texture: this.dots.base,
+      dynamicProperties: { position: true, color: true, vertex: false, rotation: false, uvs: true },
     });
     const b = this.bounds;
     view.boundsArea = new Rectangle(b.x - 100, b.y - 100, b.width + 200, b.height + 300);
-    this.packetPool = this.sim.packets.map(() => new Particle({ texture: this.pelletTex, anchorX: 0.5, anchorY: 0.5, scaleX: 0.7, scaleY: 0.7 }));
+    this.packetPool = this.sim.packets.map(
+      () => new Particle({ texture: this.dots.shapes.management, anchorX: 0.5, anchorY: 0.5, scaleX: DOT_SCALE, scaleY: DOT_SCALE }),
+    );
     this.packetView = view;
     this.world.addChild(view);
+    // Magnifier stays on top of the packets.
+    this.world.addChild(this.magnifier);
   }
 
   private syncPackets(): void {
@@ -560,13 +909,55 @@ export class RoomScene {
       this.shownPackets = n;
       view.update();
     }
+    const f = this.filter;
     for (let i = 0; i < n; i++) {
       const p = sim.packets[i]!;
       const s = this.packetPool[i]!;
       s.x = p.x;
       s.y = p.y;
+      const shape: DotShape = p.falling ? 'nfs' : p.type;
+      const tex = this.dots.shapes[shape];
+      if (s.texture !== tex) s.texture = tex;
       s.tint = p.color;
-      s.alpha = p.alpha;
+      s.alpha = f && p.type !== f ? p.alpha * 0.15 : p.alpha;
+    }
+  }
+
+  /** Grey dashed "ISO transfer" along BMC cables (game scope) – ~11 Hz redraw, only while some is active. */
+  private drawBmcTransfers(realMs: number, running: boolean): void {
+    if (this.bmcActive.size === 0) return;
+    this.dashMs += realMs;
+    if (this.dashMs < DASH_FRAME_MS) return;
+    this.dashMs = 0;
+    if (running) this.dashPhase = (this.dashPhase + 2) % 12;
+    const segs: number[] = [];
+    for (const id of this.bmcActive) {
+      const c = this.cables.get(id);
+      if (!c) continue;
+      const pts = c.path.points;
+      // Dashes of 6 px with 6 px gaps along the whole path, shifted by the phase.
+      let s0 = -this.dashPhase;
+      let acc = 0;
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1]!;
+        const bb = pts[i]!;
+        const len = Math.hypot(bb.x - a.x, bb.y - a.y);
+        if (len === 0) continue;
+        while (s0 < acc + len) {
+          const t0 = Math.max(s0, acc) - acc;
+          const t1 = Math.min(s0 + 6, acc + len) - acc;
+          if (t1 > t0) segs.push(a.x + ((bb.x - a.x) * t0) / len, a.y + ((bb.y - a.y) * t0) / len, a.x + ((bb.x - a.x) * t1) / len, a.y + ((bb.y - a.y) * t1) / len);
+          if (s0 + 6 > acc + len) break;
+          s0 += 12;
+        }
+        acc += len;
+      }
+    }
+    const g = this.bmcFx;
+    g.clear();
+    for (const [color, width] of [[OUTLINE, 3.4], [0xb8b4c8, 1.8]] as const) {
+      for (let i = 0; i < segs.length; i += 4) g.moveTo(segs[i]!, segs[i + 1]!).lineTo(segs[i + 2]!, segs[i + 3]!);
+      g.stroke({ color, width, cap: 'round' });
     }
   }
 

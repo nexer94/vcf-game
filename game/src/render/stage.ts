@@ -7,6 +7,7 @@ import { loadRoomDemo } from './room/roomDemo';
 import { RoomScene } from './room/roomScene';
 import { ROOM_BG } from './room/palette';
 import { DatacenterScene } from './scene/datacenterScene';
+import { RackElevationView } from './rack/rackView';
 
 /**
  * - backdrop: slow automatic drift, no interaction, labels hidden (menu background)
@@ -47,6 +48,8 @@ export class SceneStage {
     readonly app: Application,
     readonly scene: DatacenterScene,
     readonly room: RoomScene,
+    /** Full-screen rack front elevation (Sandbox view stack, UX §7.1 / §9). Hidden unless a screen shows it. */
+    readonly rack: RackElevationView,
     private readonly engine: StageEngine,
   ) {
     room.world.visible = false;
@@ -72,8 +75,9 @@ export class SceneStage {
     // DEMO data source - replaced by engine snapshot data once traffic is simulated there.
     const scene = new DatacenterScene(app.renderer, createDemoTopology(), new DemoTrafficSource());
     const room = new RoomScene(app.renderer);
-    app.stage.addChild(scene.world, room.world);
-    const stage = new SceneStage(app, scene, room, engine);
+    const rack = new RackElevationView(app.renderer);
+    app.stage.addChild(scene.world, room.world, rack.root);
+    const stage = new SceneStage(app, scene, room, rack, engine);
     stage.setMode('off');
     return stage;
   }
@@ -91,6 +95,7 @@ export class SceneStage {
     this.active = which;
     this.scene.world.visible = which === 'datacenter';
     this.room.world.visible = which === 'room';
+    if (which !== 'room') this.rack.root.visible = false;
     this.app.renderer.background.color = BACKGROUND[which];
   }
 
@@ -135,8 +140,11 @@ export class SceneStage {
     // even while the stage is 'off'. The backdrop animates on its own visual clock at 1x and ignores
     // the game speed (a paused game must stay paused behind the menu).
     const snap = this.mode === 'backdrop' ? this.backdropSnapshot(realMs) : this.engine.snapshot();
-    if (this.active === 'room') this.room.update(snap, realMs);
-    else this.scene.update(snap, realMs);
+    if (this.active === 'room') {
+      // UX §7.1: while a full-screen view covers the room, the room is hidden and its packets are not simulated.
+      if (this.room.world.visible) this.room.update(snap, realMs);
+      this.rack.update(snap, realMs);
+    } else this.scene.update(snap, realMs);
     if (this.mode === 'backdrop') this.driftBackdrop(realMs);
     for (const h of this.hooks) h(snap, realMs, fps);
   }
