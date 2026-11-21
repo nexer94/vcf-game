@@ -1,6 +1,6 @@
-# UX návrh – VCF Game (Sandbox v2)
+# UX návrh – VCF Game (Sandbox v2 → v3)
 
-Stav: návrh 2026-11-21 (ux-designer); doplněna **Část II – interakce v serverovně** (kap. 7–15: tracker, rack, tabule,
+Stav: návrh 2026-11-21 (ux-designer), **Část III – Sandbox v3 (2026-11-22, kap. 16–27) má přednost**; doplněna **Část II – interakce v serverovně** (kap. 7–15: tracker, rack, tabule,
 počítač, provoz v2, backlog v3, BMC mimo VCF scope + ESX management). Implementují `ui-dev` (render/UI) a `engine-dev` (příkazy, validace, snapshot).
 Navazuje na `CLAUDE.md` (herní režimy, tok Sandboxu) a `docs/design/GRAPHICS.md` (útulná kreslená izometrie,
 rozložení obrazovky).
@@ -1396,3 +1396,652 @@ Jak nainstalovat ESX 9?
   „První host online“ (3.3).
 - BMC popover i volba cesty instalace jsou DOM formuláře (fokus, popisky, `aria-describedby` pro štítek mimo
   scope). Vzdálená konzole má textovou alternativu (stav instalace jako text).
+
+---
+
+# Část III – Sandbox v3 (zjednodušení, 2026-11-22)
+
+Stav: návrh ux-designer 2026-11-22 podle zpětné vazby uživatele (`CLAUDE.md`: „Zjednodušení Sandboxu v3“,
+„Kariéra – level 1“). **Část III má přednost** před kapitolami 1–15 všude, kde se liší. Co tady není zmíněné,
+platí dál z Části I a II.
+
+Screenshoty stavu před v3 (1366×768 a 1920×1080):
+`/tmp/claude-1000/-workspaces-vcf-game/79a2ed2c-cd7f-4ffa-b10c-8ab22e1fbc99/scratchpad/ux3-room.png`,
+`…/ux3-servers.png`, `…/ux3-tracker.png`, `…/ux3-rackview.png`, `…/ux3-server.png`, `…/ux3-design.png`,
+`…/ux3-room1920.png` (všechny v adresáři scratchpad výše).
+
+## 16. Principy v3 a co se ruší
+
+**Jedna věta:** *Hráč vidí jednu instrukci (bublina), jeden aktivní krok (checklist vlevo) a jedno místo,
+kde se to dělá (zvýrazněný objekt). Všechno ostatní je o klik dál.*
+
+| # | Princip | Měřítko splnění |
+|---|---|---|
+| P1 | **Jedna instrukce** – vždy právě jedna bublina „co teď“ (nebo žádná, když ji hráč zavřel) | nikdy 2 bubliny / toasty s instrukcí současně |
+| P2 | **Max. 2 úrovně menu** – obchod: kategorie → položka; server: Přehled / Síť; nic hlubšího | žádný panel s > 3 záložkami |
+| P3 | **Vše se vejde** – žádný panel ani popover nepřeteče okno 1366×768 (pravidla v kap. 22) | screenshot test 1366×768 a 1920×1080 bez oříznutých tlačítek |
+| P4 | **Vidět, ne číst** – velikost serveru (U), kabely a provoz jsou vidět v kresbě, ne jen v textu | U, kabel, BMC provoz rozpoznatelné bez tooltipu |
+| P5 | **Fakta s čitelným zdrojem** – žádné `[P13]` v UI hráče; zdroj = čitelný název stránky dokumentace | grep UI textů na `\[[A-Z]+\d+\]` = 0 |
+| P6 | **Výchozí = funguje** – předinstalované věci (ToR, BMC, síť firmy) jsou správně, hráč dělá VCF kroky | 0 kroků, které nejsou v dokumentaci VCF nebo nutné fyzicky |
+
+### 16.1 Co v Sandboxu v3 mizí nebo se schovává
+| Prvek dnes | v3 | Proč |
+|---|---|---|
+| Záložky obchodu *Switche, Kabely, Disky, NIC* | **zrušit** (zůstávají *Racky*, *Servery*) | ToR je předinstalovaný v každém racku, kabely jsou zdarma, disky jsou součást certifikované sestavy, NIC se přidává v racku (19.4) |
+| Záložka *V batohu (0)* | čip „Nezaracováno: 2“ v liště obchodu, jen když není prázdno | prázdná záložka nic neříká |
+| Úkoly „Kup switch“, „Kup druhý switch“, „Namontuj switch“, „Připoj switch do sítě firmy“, „◇ Zapoj a nastav BMC“ | **zrušit** v sadě Sandbox v3 (ToR, uplink do sítě firmy a BMC jsou předem hotové) | herní kroky bez přínosu pro VCF (P6) |
+| HUD čip „Další krok ▾“ | jen když je checklist sbalený do lišty (17.3) | duplicita s checklistem |
+| HUD tlačítka ⟲ ⟳ | do pohledu racku (lišta) + `Ctrl+Z / Ctrl+Y` | undo patří ke stavění |
+| Svislý tab „Návrhová rozhodnutí“ vpravo | skrytý, dokud checklist nedojde ke skupině *Use case a návrh*; pak tlačítko **Návrh** v HUDu a aplikace v počítači | progresivní odhalování (1.5) |
+| Toast dole uprostřed s instrukcí („Kup rack v obchodě dole…“) | instrukce **jen v bublině**; toast jen pro výsledek akce („esx01 zaracován do r01“) a zmizí po 3 s | P1 |
+| Plovoucí popisky „OOB switch · mimo VCF scope – herní“, „Síť firmy · herní zjednodušení“ | jen při hoveru / fokusu objektu (tooltip) | vizuální šum |
+| Karty pastí (např. `dell-r670-undersized`) v obchodě | v Sandboxu v3 skryté; ⚙ → „Ukázat i nevhodné sestavy (pasti)“ | méně voleb; pasti patří do Kariéry |
+
+---
+
+## 17. HUD a levý checklist
+
+### 17.1 HUD (jedna řádka, 48 px)
+```
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ ← Menu │ Serverovna · VCF 9.1.1 · AZ1 │ ¤ ∞ herní │            (volno)            │ ▶ 0:03 1× 4× 16× │ DNS │ ? │ ⚙ │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+- Levá část = kde jsem; pravá = čas a nástroje. Uprostřed nic (místo pro tlačítko **Návrh** od skupiny E a pro
+  sbalený checklist 17.3).
+- `DNS` zůstává (DNS záznamy jsou krok fáze Hosty, `20-deployment §3.5`). `?` = Knihovna zdrojů (1.6, úroveň 3).
+- ⌨ (zkratky) se přesouvá do menu `?` (sekce „Klávesy“).
+- Šířka: všechny prvky mají `white-space: nowrap`; pod 1280 px se název „Serverovna · VCF 9.1.1“ zkrátí na „VCF 9.1.1“.
+
+### 17.2 Checklist vlevo (rozbalený, výchozí)
+Plovoucí panel vlevo pod HUDem, šířka **264 px**, výška podle obsahu, max. podle 22.2. Jen **jeden aktivní krok**.
+```
+┌ Postup ─────────────────────── 3 / 9 ─ [–] ┐
+│ ✓ Postav rack                              │   ← hotové: šedý text, zelená fajfka, 1 řádek
+│ ✓ Kup 4 certifikované servery              │
+│ ┌────────────────────────────────────────┐ │
+│ │ ▶ Zaracuj servery do racku       2 / 4 │ │   ← AKTIVNÍ: rámeček --accent, tučně, průběh
+│ │   ▓▓▓▓▓▓▓▓▓░░░░░░░░░                    │ │
+│ │   [Ukaž]                     Zdroj ▾   │ │   ← Zdroj jen u doc-* kroků (kap. 21)
+│ │   ★ doporučeno: druhý ToR switch  [⤼]  │ │   ← nanejvýš 1 doporučení pod aktivním krokem
+│ └────────────────────────────────────────┘ │
+│ ○ Zapoj servery do ToR switche             │   ← další 2 budoucí kroky šedě (náhled)
+│ ○ Nainstaluj ESX na všechny servery        │
+│ ▸ Síť pro VCF · 4 kroky                    │   ← další skupiny sbalené do 1 řádku
+│ ▸ Use case a návrh · 2 kroky               │
+│ ▸ Nasazení · 4 kroky                       │
+└────────────────────────────────────────────┘
+```
+Pravidla:
+- **Hotové kroky** aktuální skupiny: 1 řádek s `✓`, max. 3 nejnovější; starší se schovají do „✓ 5 hotovo ▸“.
+- **Aktivní krok** (8.5 výběr): název (≤ 48 znaků), průběh `n / N` + pruh, tlačítko **Ukaž** (8.4), odkaz
+  **Zdroj ▾** (kap. 21). Žádné tlačítko „Proč?“ navíc – vysvětlení je v bublině.
+- **Budoucí kroky**: 2 nejbližší šedě bez tlačítek; zbytek skupiny a další skupiny jako sbalené řádky „▸ název · N kroků“.
+  Klik na sbalenou skupinu = rozbalí jen náhled (bez akcí), aby hráč viděl cestu; aktivní krok zůstává jeden.
+- `doc-recommended` (★) se neukazuje jako samostatný řádek, ale jako 1 řádek pod aktivním krokem se `⤼` (přeskočit).
+  Splněné doporučení dostane `✓ ★` v hotových.
+- Odškrtnutí: fajfka se „nakreslí“ (200 ms), řádek sjede do hotových (250 ms), nový aktivní krok se rozsvítí,
+  **bublina se přepne** (18.2). Reduced motion: bez animace, jen změna.
+- `⚠ problém` (krok se rozbil, 8.3): krok se vrátí jako aktivní nad ostatní s oranžovým rámečkem a textem
+  „Bylo hotové – teď chybí: …“.
+- Klávesy: `T` sbalit/rozbalit, `Shift+T` skrýt; `Enter` na aktivním = Ukaž. Panel je `role="region"`
+  s `aria-label="Postup"`, aktivní krok `aria-current="step"`, změny `aria-live="polite"` (8.4).
+
+### 17.3 Sbalený a skrytý stav
+- **Sbalený** (`[–]` nebo automaticky při šířce okna < 1200 px nebo při otevřeném pravém panelu, který by
+  s checklistem kolidoval): jedna lišta 264 × 40 px vlevo nahoře: `▶ Zaracuj servery do racku  2/4  [▾]`.
+- **Skrytý** (`Shift+T`, ⚙): nic na scéně, v HUDu uprostřed čip `☰ Postup 3/9`.
+- Kariéra: stejný komponent, navíc v hlavičce body (`★ 120 b`, herní) a bez `⤼` (8.1).
+
+---
+
+## 18. Bubliny „co teď“
+
+### 18.1 Chování
+- **Vždy jedna** bublina s instrukcí aktivního kroku. Zdroj textu = aktivní krok checklistu
+  (`ObjectiveDef.bubble`, 26.2). Hráč nikdy nemusí hledat, co dělat dál.
+- **Ukotvení** (`anchor`): `avatar` (výchozí), `object:<id>` (rack, server, slot, port, počítač, tabule),
+  `ui:<id>` (záložka obchodu, tlačítko v panelu). Když kotva není na obrazovce (mimo kameru, zavřený panel),
+  bublina se ukotví k avatarovi a má šipku `→` směrem ke kotvě + tlačítko **Ukaž** (posune kameru).
+- **Obsah**: 1–2 krátké věty česky, VCF pojem anglicky s vysvětlením v závorce při prvním výskytu
+  (1.4). Volitelně čip **Zdroj** (kap. 21). Žádné dlouhé texty – „proč“ je ve Zdroji.
+- **Zavření** `×` / `Esc` (když nemá fokus jiný panel): bublina se změní na malý odznak `…` nad kotvou
+  (16 px kroužek). Klik na odznak nebo `B` = znovu otevřít. Při **změně aktivního kroku** se bublina otevře
+  sama (nová instrukce), pokud hráč v ⚙ nevypnul „Bubliny“.
+- **Události** (první nákup, první chyba validace, poprvé provoz) nemají vlastní druhou bublinu: dočasně
+  nahradí text aktuální bubliny (prefix „Hotovo!“ / „Pozor:“), po `Rozumím` nebo 6 s se vrátí instrukce.
+- Během tažení (placement, kabel) se bublina zprůhlední na 30 % a nepřijímá klik.
+- Animace: fade + posun 6 px (150 ms). Žádné poskakování v cyklu; pozornost drží jen jemný pulz obrysu kotvy
+  (1,2 s, 2×, pak klid).
+
+### 18.2 Vzhled
+```
+                ┌─────────────────────────────────────────────┐
+                │ Klikni na volnou pozici v racku r01 –        │
+                │ server se tam zasune.                        │
+                │ [Ukaž]                       Zdroj ▾     ×  │
+                └───────────────┬─────────────────────────────┘
+                                ▼
+                         ( kotva: rack r01 )
+```
+- Max. šířka 320 px (1366) / 360 px (1920), padding 12 px, písmo 15 px, kontrast ≥ 7 : 1 (bílá karta,
+  `--text`), stín jako `--panel`. Šipka (ocas) 10 px.
+- Umístění: nad kotvou; když narazí na HUD, checklist, pravý panel nebo obchod (obdélníky z 22.1), překlopí se
+  pod / vlevo / vpravo; nakonec se přichytí k okraji volné plochy scény. Bublina **nikdy** nepřekryje aktivní
+  ovládací prvek, na který ukazuje.
+- DOM element nad canvasem (ne Pixi) – ostrý text, čtečka (`role="status"`, `aria-live="polite"`, text =
+  instrukce). Pozice kotvy se přepočítá jen při pohybu kamery / změně layoutu (ne každý frame).
+
+### 18.3 Příklady (Sandbox v3; finální texty píše scenario-designer, fakta jen ze specu)
+| Aktivní krok | Kotva | Bublina |
+|---|---|---|
+| Postav rack | avatar → záložka *Racky* | „Začni rackem. Vyber velikost dole v obchodě a polož ho na modrou dlaždici.“ |
+| Kup servery | záložka *Servery* | „Vyber výrobce a pak sestavu. Ukazujeme jen sestavy certifikované pro VCF 9.1.“ + Zdroj |
+| Zaracuj servery | rack r01 | „Klikni na volnou pozici v racku – server se tam zasune. Nahoře už čeká ToR switch.“ |
+| Zapoj servery | ToR v pohledu racku | „Každý host musí být připojený aspoň k jednomu switchi. Táhni kabel z portu serveru do ToR, nebo zvol Zapojit doporučeně.“ + Zdroj (10 §3.3, VCF-NET-REQD-TOR-001) |
+| Nainstaluj ESX | server esx01 | „Otevři konzoli serveru a projdi instalaci ESX – jako u skutečného serveru.“ + Zdroj (20 §4.1.1) |
+
+---
+
+## 19. Obchod v3 a pohled racku
+
+### 19.1 Obchod – rozložení (dole, 2 záložky)
+```
+┌ [Racky] [Servery]                       Nezaracováno: 2 ▸         Ceny: herní · Sandbox ∞     [▾ sbalit] ┐
+│ ← Výrobci / Dell                                                                                       │
+│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐                                    │
+│ │ ▭▭▭▭▭▭▭▭ 2U │ │ ▭▭▭▭▭▭▭▭ 2U │ │ ▭▭▭▭▭▭▭▭ 2U │ │ ▭▭▭▭▭▭▭▭ 2U │   ← mini čelo serveru v měřítku U  │
+│ │ PowerEdge R670│ │ PowerEdge R670│ │ PowerEdge R770│ │ …            │                                    │
+│ │ 16 jader·128 GB│ │ 32 jader·256 GB│ │ 48 jader·512 GB│ │             │                                    │
+│ │ 4× NVMe · 2× 10G│ │ 8× NVMe · 2× 25G│ │ 8× NVMe · 4× 100G│ │          │                                    │
+│ │ ✓ VCF 9.1  ESA-SM│ │ ✓ VCF 9.1  ESA-MED│ │ ✓ VCF 9.1  ESA-LRG│ │      │                                    │
+│ │ ¤ 6 586  [Koupit]│ │ ¤ 9 900  [Koupit]│ │ …               │ │          │                                    │
+│ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘                                    │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+**Krok 1 – výrobce** (záložka *Servery* bez volby): 5 dlaždic `Dell · HPE · Lenovo · Cisco · Supermicro`, každá
+s herní barvou vendora (T6 `VENDOR_TAG`, jen proužek + text, žádná loga) a počtem sestav („4 sestavy“).
+Po prvním nákupu je vendor předvybraný a nahoře je řádek „Ve tvém racku: Dell R670 (esx01) – pro cluster
+kupuj stejnou sestavu“ (krok checklistu „jeden vendor, stejná konfigurace“, Zdroj ze sady úkolů).
+
+**Krok 2 – modely výrobce**: karty startovních sestav z `15-hardware` Příloha B.3 (jen ✓ a DEV; ✗ pasti skryté, 16.1).
+Karta (pevná velikost, nic nepřetéká – 22.3):
+1. **Mini čelo v měřítku U** (výška kresby = U × 10 px) + štítek `2U` s malým `herní` (výška U není v datech BCG,
+   hra používá 2U pro všechny servery – `model/hardware.ts` `SERVER_RACK_UNITS_GAME_DEFAULT`, [SIMPL]).
+   Až spec doplní ověřenou výšku, štítek `herní` zmizí – UI kreslí to, co je v modelu.
+2. Název modelu (1 řádek, ellipsis + `title`).
+3. Souhrn: `jádra · RAM` / `disky · NIC porty` (2 řádky, čísla z B.3).
+4. Odznaky: `✓ certified VCF 9.1` (zelený, s ikonou; klik = Zdroj popover s „Broadcom Compatibility Guide: <model>“)
+   a profil `vSAN ESA HCI-SM/MED/LRG` (15 §6.1). DEV sestava: oranžový odznak `odchylka` + 1 věta v tooltipu.
+5. Cena `¤` (štítek `herní cena` jen jednou v hlavičce obchodu, ne na každé kartě) a **Koupit**.
+- Filtry, řazení a „Porovnat“ z lišty mizí (méně voleb). Porovnání zůstává v PC aplikaci Obchod (D4).
+- **Koupit** → rovnou režim umístění (19.2); `Shift+klik` / dlouhý stisk = koupit 4 (pro cluster).
+- Klávesy: `1` Racky, `2` Servery, `Backspace` zpět na výrobce, šipky mezi kartami, `Enter` koupit.
+
+### 19.2 Umístění serveru (bez batohu)
+- Po Koupit: kurzor nese ghost serveru; racky s dost volnými U mají modrý obrys; bublina „Klikni na rack“.
+- Klik na rack v místnosti = server se zasune na **nejnižší volnou pozici** (herní pomocník) – animace 300 ms,
+  rack v místnosti ukáže nový 2U pás. Klik na konkrétní volné U v pohledu racku = přesná pozice.
+- `Esc` = zrušit umístění → položka jde do „Nezaracováno“ (čip v liště obchodu). Nic se neztratí.
+
+### 19.3 Pohled racku v3 (svisle, U v měřítku, ToR nahoře)
+Dnešní pohled kreslí rack jako vodorovný pás přes celou šířku (`ux3-rackview.png`) – U nejsou čitelné.
+v3: **svislý rack uprostřed**, vlevo pravítko U, vpravo detail. Měřítko: 1 U = **18 px** (1366×768) / **22 px**
+(1920×1080); prázdné úseky ≥ 6 U se zkomprimují na pás 3 U s „lomem“ (dvě šikmé čáry) a textem „18 U volné“.
+```
+┌ ← Místnost │ Rack r01 · 42U · 4 servery · 1 ToR │ ☑ kabely ☑ provoz │ ⟲ ⟳ │ Zapojit doporučeně │ Seznam (S) ┐
+│                                                                                                        │
+│  ┌─ checklist ─┐        ┌ r01 · 42U ────────────────────┐   ┌ esx02 · Dell R670 ──────────────── × ┐ │
+│  │ (17.2)      │   42 ┆ │▀ ToR-A · 48× 25G ▣▣▣▣▣▣▣▣▣▣▣▣ │═╗ │ Přehled │ Síť                          │ │
+│  │             │      ┆ │  (předinstalovaný)  ↑ síť firmy│ ║ │ ● online · ESX 9 · 10.0.0.12          │ │
+│  └─────────────┘   41 ┆ │ ╌╌ + druhý ToR (doporučeno) ╌╌ │ ║ │ 16 jader · 128 GB · 4× NVMe            │ │
+│                       ┆ │╱╱╱╱╱╱  30 U volné  ╱╱╱╱╱╱╱╱╱╱ │ ║ │ NIC: 2× 10G (slot 1)  · slot 2 volný  │ │
+│                    8  ┆ │┌ esx04 ───────── ●  ◫◫ [+]  ▢┐│ ║ │ BMC: zapojeno · herní                  │ │
+│                    7  ┆ │└──────────────────────────────┘│ ║ │ [Otevřít konzoli]  [Instalovat ESX]    │ │
+│                    6  ┆ │┌ esx03 ───────── ●  ◫◫ [+]  ▢┐│ ║ └────────────────────────────────────────┘ │
+│                    5  ┆ │└──────────────────────────────┘│ ║                                            │
+│                    …  ┆ │  …                             │ ║                                            │
+│                    1  ┆ │└──────────────────────────────┘│◄╝ kabely v bočním kanálu                    │
+│                         └────────────────────────────────┘                                              │
+│  ◫ NIC port  [+] volný NIC slot  ▢ BMC (šedý kabel nahoru k OOB switchi místnosti, herní)              │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+- **ToR switch nahoře** v každém racku (předinstalovaný, viz 19.5): 1U, plná šířka, navy, dvě řady portů, štítek
+  „ToR-A“ a odznak `předinstalováno · herní`. Vizuálně dominantní (nejtmavší prvek racku, LED portů), aby byl
+  jasný cíl kabelů. Uplink port do sítě firmy je odlišený rámečkem a má krátký kabel nahoru („síť firmy“).
+- Pod ToR je **rezervovaná pozice** se slabým čárkovaným obrysem „+ druhý ToR (doporučeno)“ – klik = přidat
+  ToR-B (bez obchodu, generický, herní cena). Doporučení 2 ToR = `10-planning §3.3` VCF-NET-RCMD-TOR-001.
+- **Servery v měřítku U**: 2U server je přesně 2× výška 1U ToR. Pravítko vlevo ukazuje rozsah („7–8“), ne jen
+  horní číslo (dnes rack ukazuje „2“ u serveru na U1–2, panel „U1“ – sjednotit na „U1–2“).
+- Na čele serveru zprava: LED stavu, **NIC porty** (`◫` podle konfigurace), **volné NIC sloty** `[+]` (19.4),
+  **BMC port** `▢` šedě.
+- Kabely: viditelné vždy (P4) – ortogonálně s oblými rohy do **bočního kanálu** vpravo a nahoru do ToR
+  (auto-trasa `rackRoute.ts`). Neutrální barva + tmavý obrys (GRAPHICS), hover = zvýraznění celé trasy a
+  popisek „esx02 NIC1 → ToR-A p3“. Barvy provozu nesou jen tečky (12.5).
+- Pravý panel (detail) má jen **2 záložky**: *Přehled* (stav, HW souhrn, NIC sloty, BMC řádek, akce) a *Síť*
+  (karty vmnic 12.4). ESX, DCUI a BMC už nejsou záložky – ESX a DCUI jsou **konzole** (kap. 20), BMC je řádek.
+- Dnešní velký jantarový „kabelový žlab“ nad rackem v pohledu racku **zrušit**; nahradit tenkou šedou
+  lištou 8 px nad rackem se štítkem „ke stropnímu žlabu“, ze které vedou kabely ToR uplinku a BMC (průhlednost 50 %).
+- Spodní lišta „Kabely / Problémy“ se zmenší na **jednu řádku** 40 px: „Problémy: 1 ⚠ ▸“ (rozbalí se nahoru jako
+  popover, 22.3). Uvolní ~120 px výšky pro rack.
+
+### 19.4 Přidání NIC klikem na volný slot
+```
+          ┌ Slot 2 · esx02 · Dell PowerEdge R670 ──────────── × ┐
+ [+] ───► │ Síťové karty certifikované pro tento model:          │
+          │ (•) NVIDIA ConnectX-6 Lx · 2× 25 GbE                 │
+          │ ( ) Broadcom 57412 · 2× 10 GbE                        │
+          │ ( ) NVIDIA ConnectX-6 Dx · 2× 100 GbE  ⚠ ToR má 25G   │
+          │ Zdroj ▾ (Broadcom Compatibility Guide: PowerEdge R670) │
+          │                       [Zrušit]  [Přidat · ¤ 420 herní] │
+          └──────────────────────────────────────────────────────┘
+```
+- Seznam = NIC z BOM daného modelu (`ServerModel.nics`) ∩ herní katalog dílů (`15-hardware` B.2). Nic jiného.
+- Rychlost vs. ToR: když NIC nemá společnou rychlost s portem ToR (katalog switche `speedsGbE`), řádek má ⚠
+  „Nespojíš s ToR-A (25G)“ – herní/fyzické omezení, ne pravidlo VCF. Volba zůstává povolená.
+- **Počet slotů** na serveru = herní hodnota [SIMPL] (BCG ji neuvádí) se štítkem `herní` v tooltipu slotu.
+  Návrh: 2 sloty (1 obsazený NIC ze sestavy B.3, u LRG sestav oba). Engine-dev potvrdí podle modelu.
+- Po přidání: porty se objeví na čele (animace zasunutí 200 ms), host musí být **vypnutý nebo bez ESX** –
+  jinak hláška „Vypni host (herní zjednodušení: hardware se mění jen u vypnutého serveru)“.
+- Odebrání NIC: klik na obsazený slot → stejný popover s tlačítkem **Odebrat** (odpojí kabely, potvrzení).
+- Klávesnice: slot je fokusovatelný (`button`, `aria-label="Volný NIC slot 2, esx02"`), `Enter` otevře popover.
+
+### 19.5 Předinstalované vybavení racku (herní, mimo VCF rozhodování)
+| Co | Stav na startu | Kde je vidět | Štítek |
+|---|---|---|---|
+| ToR-A (1U, generický 48× 25G, `sw-generic-48x25g`) | v nejvyšší U každého nového racku, porty MTU 1500 (výchozí jako v realitě, 1.1 P4) | pohled racku, v místnosti tmavý pás nahoře | `předinstalováno · herní` |
+| Uplink ToR-A → síť firmy | zapojený | krátký kabel nahoru do stropního žlabu | `herní zjednodušení` (jako dnes „Síť firmy“) |
+| OOB switch místnosti | na stěně (jako dnes) | místnost, malý | `mimo VCF scope – herní` |
+| BMC každého serveru | **zapojí a nastaví se automaticky při zaracování** | šedý kabel ze ▢ do bočního kanálu a nahoru | `mimo VCF scope – herní` (15.1) |
+
+- Proč ToR předem: dokumentace vyžaduje připojení hosta aspoň k jednomu switchi (`10 §3.3` VCF-NET-REQD-TOR-001);
+  koupě switche nic o VCF neučí, zapojení ano. MTU, VLAN/trunk na portech ToR zůstávají hráčovy úkoly (skupina
+  *Síť pro VCF*), protože je dokumentace vyžaduje (`10 §3.3`).
+- Odebrat / vyměnit ToR jde v Sandboxu přes detail switche (laboratoř), ale není to v cestě checklistu.
+
+### 19.6 BMC provoz hned po zaracování (šedý, herní)
+- Mění kap. 15.2–15.4 pro Sandbox: krok BMC **odpadá** (žádný úkol, žádný formulář na startu). BMC se zapojí do OOB
+  switche místnosti a dostane IP (`herní výchozí`). Formulář BMC zůstane jen jako řádek v *Přehledu* (čtení,
+  „Upravit“ pro laboratoř).
+- Hned po zaracování jede po BMC kabelu **šedý provoz**: malé šedé čtverečky `▫` (vlastní tvar, mimo atlas
+  VCF tvarů 12.5) rychlostí 1 tečka / 3 s, v místnosti po trase rack → stropní žlab → OOB switch. Legenda: skupina
+  **„Mimo VCF (herní)“ → „BMC – vzdálená správa serveru“**. BMC LED svítí i při vypnutém hostu (`25 §10.2.1`).
+- Žádné barvy VCF provozu, žádný vliv na validace (15.1). Ruční zapojení / chyby BMC až v Kariéře (`CLAUDE.md`).
+- Vzdálená instalace ESX přes BMC (15.3) zůstává jako volba v konzoli (20.3) – BMC je teď vždy připravené, takže
+  dostupnost určuje jen tabulka vendorů (`25 §10.6`).
+
+---
+
+## 20. Konzole serveru – instalátor ESX a DCUI
+
+### 20.1 Cíl a zdroj obrazovek
+- Instalace má **působit jako skutečná**: textový režim, klávesy `Enter`, `F11`, `Esc`, šipky, stejné pořadí obrazovek.
+  Vzhled je **vlastní** (žádná kopie barev ani rozložení konkrétního produktu): tmavé pozadí `console` tématu
+  (GRAPHICS T3), světle šedé dialogy, monospace písmo.
+- **Sekvence obrazovek je data**, ne kód: `EsxConsoleScreen[]` (26.2) generované ze specu. Zdroj: připravovaný
+  spec instalátoru (doc-researcher, `docs/spec/26-*.md` – sekvence obrazovek reálného instalátoru). **Do té doby**
+  sekvence z `20-deployment §4.1.1` (kroky 3–9) a DCUI z `§4.1.2`. Každá obrazovka má `specRef`; texty na
+  obrazovkách (anglicky, jako v produktu) se berou jen ze specu – kde spec text nemá, obrazovka ukáže jen titulek
+  ze specu a štítek `zjednodušená obrazovka (herní)`.
+
+### 20.2 Rozložení (celá plocha scény, 1366×768)
+```
+┌ HUD ───────────────────────────────────────────────────────────────────────────────────────────────┐
+│ ← Zpět do racku │ Konzole: esx01 · Dell PowerEdge R670 │ U serveru (médium) ▾ │ krok 4 / 7 │ Zdroj ▾ │
+├────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ ┌ obrazovka 80×25 znaků (škáluje se celočíselně, max 960×540) ─────────────────────────────────┐   │
+│ │                                                                                               │   │
+│ │        ┌──────────────── Select a Disk to Install or Upgrade ────────────────┐               │   │
+│ │        │  Storage Device                                     Capacity         │               │   │
+│ │        │  > BOSS (boot)                                       480 GB  ◄       │               │   │
+│ │        │    NVMe 1.6 TB   (vSAN – nechat volné)               1.6 TB          │               │   │
+│ │        │    …                                                                 │               │   │
+│ │        └──────────────────────────────────────────────────────────────────────┘               │   │
+│ │   (Esc) Cancel     (F1) Details     (F5) Refresh     (Enter) Continue                         │   │
+│ └───────────────────────────────────────────────────────────────────────────────────────────────┘   │
+│  [Esc] [↑] [↓] [Enter] [F11]   ← dotyková klávesnice (jen klávesy, které obrazovka používá)             │
+│  ┌ bublina: „Vyber boot zařízení a stiskni Enter.“  Zdroj ▾ ┐                                         │
+└────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+- Spodní řádek obrazovky = klávesy, které obrazovka zná (ze spec dat). Pod obrazovkou tytéž klávesy jako tlačítka
+  (myš, dotyk). Fyzická klávesnice funguje, když má konzole fokus (`F11` se zachytí `preventDefault`;
+  když prohlížeč klávesu nepustí, tlačítko na obrazovce funguje vždy).
+- **Vstupní pole** (root heslo, IP…) jsou skutečné `<input>` stylované do textového režimu (čtečka, IME, mobil).
+- Obsah disků v seznamu = disky hosta z modelu (boot zařízení + vSAN disky). Varování „nechat volné“ je herní
+  nápověda, ne citace. Pokud spec 26 přinese pravidla výběru disku, nahradí ji.
+- Přechod mezi obrazovkami: okamžitý (textový režim). Fáze „Installing…“ = textový progress bar; trvání je
+  herní (`durations.ts`), čas jde zrychlit (`1× 4× 16×`).
+- Chyba (např. heslo nesplňuje pravidla – jen pokud je ve specu): červený text v dialogu jako v textovém režimu
+  + bublina s vysvětlením. Nikdy pop-up mimo konzoli.
+- **Konec**: „Installation Complete“ → Enter → reboot (animace 1 s) → obrazovka DCUI s IP adresou → bublina
+  „Hotovo. Teď nastav síť hosta: F2.“ → DCUI (20.4) ve stejné konzoli.
+
+### 20.3 Volba média a opakování na dalších hostech
+- Přepínač v hlavičce „U serveru (médium) ▾ / Vzdáleně přes BMC“ – pravidla dostupnosti beze změny (15.3,
+  `25 §10.4.1`, `§10.6`).
+- **První host** se prochází celý ručně. Po dokončení nabídne bublina:
+  „Dokumentace: opakuj pro všechny hosty. [Instalovat stejně na esx02–esx04]“ – spustí instalaci se **stejnými
+  volbami** paralelně jako úlohy (herní zrychlení, štítek `herní zrychlení`), průběh v checklistu `2/4…`.
+  Kdo chce, otevře konzoli každého hosta zvlášť.
+- Hosty s jinou konfigurací disků (jiná sestava) se do hromadné instalace nezařadí – „esx05 má jiné disky,
+  instaluj ručně“.
+
+### 20.4 DCUI ve stejné konzoli
+Sekvence z `20-deployment §4.1.2`: `F2` → login root → „Configure Management Network“ → „VLAN (Optional)“ →
+„IPv4 Configuration“ → „DNS Configuration“ → „Custom DNS Suffixes“ → `Esc` → `Y`. Menu se ovládá šipkami
+a `Enter`; hodnoty jsou předvyplněné z IP plánu (`herní výchozí`) a hráč je potvrdí / upraví. Po `Y` se rozjede
+management provoz (12.3), pokud je zbytek cesty v pořádku. Hromadné „Použít IP plán na esx02–04“ jako 20.3.
+
+### 20.5 Přístupnost a výkon
+- Obrazovka konzole je DOM (`<pre>` mřížka + inputy), ne canvas; `role="application"` jen pro oblast obrazovky
+  s popisem „Konzole serveru, ovládej klávesami uvedenými dole“. Pod ní skrytý (sr-only) textový souhrn
+  aktuální obrazovky.
+- Kontrast textu ≥ 7 : 1 na pozadí konzole; zvýraznění výběru inverzí, ne jen barvou.
+- Během konzole se Pixi scéna pozastaví (`ticker.stop`) – šetří slabý notebook.
+
+---
+
+## 21. Odkazy do dokumentace – „Zdroj“ popover
+
+### 21.1 Pravidlo
+V UI hráče **nikdy** nejsou zkratky typu `[P13]`, `06 §2.2, §6.1 [B6][B7]`. Místo nich jeden kompaktní odkaz
+**„Zdroj ▾“** (nebo u karty blueprintu „Zdroj: VCF Fleet in a Single Site ▾“), který otevře popover:
+```
+┌ Zdroj ──────────────────────────────────────────────── × ┐
+│ Dokumentace: VCF Fleet in a Single Site               ↗ │
+│ Dokumentace: Physical Data Center Network Design (9.1) ↗ │
+│ Broadcom Compatibility Guide: PowerEdge R670           ↗ │
+│ ─────────────────────────────────────────────────────── │
+│ parafráze · Proč to platí: 1–2 věty (volitelně)          │
+│ Pravidlo: VCF-NET-REQD-TOR-001 (požadavek)               │
+│ spec 06 §2.2 · 10 §3.3                       (malé šedé) │
+└─────────────────────────────────────────────────────────┘
+```
+- **Titulek** = název stránky ze seznamu zdrojů specu (`docs/spec/NN-*.md`, sekce „Zdroje“, formát
+  `- [ID] Název: URL`), s prefixem podle domény: `Dokumentace:` (techdocs), `Znalostní báze:` (knowledge),
+  `Broadcom Compatibility Guide:` (compatibilityguide), `API:` (developer), `Porty a protokoly:` (ports).
+- Max. **3 odkazy** v popoveru; víc = „+2 další v Knihovně“. Odkaz otevírá novou kartu (`rel="noopener"`).
+- Řádek „spec §“ je malý a šedý (pro ověřování), bez `[ID]`.
+- Popover: šířka 360 px, max. výška podle 22.3, ukotvený k odkazu, překlápí se; `Esc` zavře, fokus se vrátí.
+
+### 21.2 Data
+- Build-time registr zdrojů `sourceRegistry` (`{ id: 'P19', file: '10-planning', title, url, domain }`)
+  generovaný skriptem ze sekcí „Zdroje“ ve `docs/spec/*.md`. ID jsou unikátní jen v rámci souboru → klíč
+  `file:id`. Odkaz v datech UI (`specRef: "10-planning §3.3 [P19]"`) se rozparsuje na § a klíče zdrojů.
+- Neznámé ID → v dev buildu červený odznak „chybí zdroj“, v buildu hráče se řádek vynechá (nikdy holé `[P19]`).
+
+---
+
+## 22. Rozložení – pravidla, aby se vše vešlo (1366×768 i 1920×1080)
+
+### 22.1 Zóny (CSS grid nad canvasem)
+```
+1366×768                                                      1920×1080
+┌ HUD 48 ───────────────────────────────────────┐             HUD 48
+│┌checklist 264┐                ┌ pravý panel ┐│             checklist 288, pravý panel 420,
+││ max-h: viz  │   SCÉNA         │ 360 (28vw,  ││             obchod 212, karta 204×170
+││ 22.2        │   (bubliny)     │  320–440)   ││
+│└─────────────┘                 └─────────────┘│
+├ obchod 176 (otevřený) / 40 (sbalený) ─────────┤
+└───────────────────────────────────────────────┘
+```
+| Zóna | 1366×768 | 1920×1080 | Pravidlo |
+|---|---|---|---|
+| HUD | 48 px | 48 px | 1 řádek, `nowrap`, nic se nezalamuje |
+| Checklist | 264 px | 288 px | `max-height: calc(100vh - 48px - var(--shop-h) - 24px)`; vnitřní scroll jen v seznamu hotových / budoucích, aktivní krok vždy viditelný |
+| Pravý panel | `clamp(320px, 28vw, 440px)` | 420 px | celá výška mezi HUD a obchodem; hlavička sticky, tělo scroll, akce sticky dole |
+| Obchod | 176 px otevřený / 40 px sbalený | 212 / 40 | otevřený jen v režimu nákupu; po umístění se sám sbalí |
+| Scéna | zbytek | zbytek | kamera „fit“ do volné plochy (bez zón panelů), ne do celého okna |
+
+- `--shop-h` a šířky panelů jsou CSS proměnné, které čte i Pixi (`fitToRect`) a bubliny (kolize).
+- **Bílý pruh nad místností** (dnes ~100 px pod HUDem, `ux3-room.png`) = canvas / pozadí stage nevyplňuje
+  plochu. Opravit: pozadí stage `ROOM_BG` přes celou zónu scény a kamera centruje místnost do volné plochy.
+- Když se otevře pravý panel a volná šířka scény < 560 px, checklist se sám sbalí (17.3).
+
+### 22.2 Pravidla pro panely a popovery
+1. Žádný prvek nemá pevnou výšku větší než zóna; vše má `max-height` + vnitřní scroll.
+2. Popovery (Zdroj, NIC slot, kabel, Problémy) – `max-height: calc(100vh - 96px)`, `max-width: min(420px, 100vw - 32px)`,
+   umístění přes jednu sdílenou funkci `placePopover(anchorRect, size, obstacles)` – překlápění a clamp do okna.
+3. Karta v obchodě má **pevnou** velikost (176×148 / 204×170). Text: název 1 řádek ellipsis, souhrn 2 řádky,
+   odznaky 1 řádek (max 2 odznaky, další v tooltipu). Tlačítko Koupit vždy celé uvnitř (dnes je oříznuté
+   na 1366 i 1920).
+4. Horizontální přetečení karet: scroll + šipky `‹ ›` na okrajích + `Shift+kolečko`. Žádné zalamování do 2 řádků karet.
+5. Min. podporované okno 1280×720. Pod tím: checklist jen jako lišta, pravý panel jako překryv přes scénu
+   s tlačítkem Zavřít, obchod 156 px.
+6. Písmo min. 13 px (popisky), 14–15 px běžný text; interaktivní cíle min. 32×32 px (dotyk 40×40).
+
+### 22.3 Kontrola
+- Playwright screenshot test ui-dev: 1366×768 a 1920×1080 pro: místnost + obchod Servery, pohled racku s detailem,
+  konzole, Zdroj popover, design panel. Assert: `getBoundingClientRect()` všech `.btn` uvnitř viewportu.
+
+---
+
+## 23. Místnost – vizuální změny (víc jako skutečná serverovna)
+
+| Prvek dnes (`ux3-room.png`) | v3 | Soubor |
+|---|---|---|
+| Červený vodorovný pruh na obou stěnách (`WALL.stripe`) | **odstranit** | `render/room/roomStatic.ts`, `palette.ts` |
+| Jantarové žebříkové žlaby podél horních hran stěn („hnědé pruhy“) | **odstranit** ze stěn. Nahradit **drátěným žlabem nad řadami racků**: tenký šedý (`0x8592a3`) rošt 6 px, `alpha 0.35`, kreslí se jen nad řadou, kde stojí aspoň jeden rack (+ spojka k OOB switchi / síti firmy). Bez racků žádný žlab. | `roomStatic.ts`, `roomBundles.ts` |
+| Kolejnice / lišty racků výrazné | `CABINET.rail` jen 1 px, `alpha 0.5` | `palette.ts`, `furniture.ts` |
+| Svazky kabelů ve vzduchu | svazek po žlabu: 2 px šedá linka `alpha 0.6` + obrys 1 px; hover rozvine (12.2) | `roomBundles.ts`, `roomCables.ts` |
+| Perforované dlaždice náhodně po místnosti | jen v **řadě před čelem racků** (studená ulička, herní dekorace) a pár u klimatizace | `roomGrid.ts` |
+| Rack v místnosti = černá skříň | čelo ukazuje obsazení U v měřítku: nahoře navy pás ToR s LED, pod ním světlé 2U pásy serverů s LED, prázdné U tmavé. Dveře racku průhledné (sklo/perforace `alpha 0.25`). | `furniture.ts` |
+| Plovoucí velké popisky (OOB switch, Síť firmy) | jen tooltip při hoveru / fokusu | `roomScene.ts` |
+| Bílý pruh pod HUDem | odstranit (22.1) | `stage.ts` / `roomScene.ts` |
+| Dveře, stůl s PC, tabule, klimatizace, hasicí přístroj | **ponechat** (funkční objekty a orientace) | – |
+
+Výkon: vše statické se kreslí jednou do `Graphics` / cache (`cacheAsTexture`); žádné filtry ani průběžné překreslování
+žlabů. Průhlednost jen `alpha` na kontejneru.
+
+---
+
+## 24. Sandbox v3 – sada kroků checklistu (návrh pro scenario-designer)
+
+Nahrazuje skupinu A a B v `scenarios/objectives/sandbox.json` (nový soubor `sandbox-v3.json`; starý zůstane pro
+testy). Selektory existují v `modes/sandbox/objectives.ts`, nové jsou označené *nový*.
+
+| # | Skupina | Krok (název v UI) | Druh | Selektor | Kotva bubliny |
+|---|---|---|---|---|---|
+| 1 | Serverovna | Postav rack | game-step | `hasRack {min:1}` | záložka Racky |
+| 2 | Serverovna | Kup servery certifikované pro VCF 9.1 | doc-required | `serversForDesign` (min. podle blueprintu / návrhu) | záložka Servery |
+| 3 | Serverovna | (★ pod 2) Jeden vendor, stejná sestava | doc-required (zobrazit jako podmínku kroku 2) | `serversHomogeneous` | – |
+| 4 | Serverovna | Zaracuj servery | game-step | `serversMounted {min:'all'}` | rack |
+| 5 | Kabeláž | Zapoj servery do ToR switche | doc-required | `hostsCabledToSwitch {min:'all'}` | ToR v racku |
+| 5★ | Kabeláž | ★ druhý ToR + uplinky na oba | doc-recommended | `hostsOnTwoSwitches` | rezervovaná pozice ToR-B |
+| 6 | Hosty | Nainstaluj ESX na všechny servery | doc-required | `esxInstalled` | server → konzole |
+| 7 | Hosty | Nastav síť hosta v DCUI | doc-required | `mgmtNetworkConfigured` | konzole |
+| 8 | Hosty | Založ DNS záznamy hostů | doc-required | `hostDnsRecordsValid` | HUD DNS |
+| 9 | Hosty | Propusť management VLAN na ToR | doc-required | `mgmtNetworkUp` | ToR port |
+| 10 | Hosty | NTP a certifikát hostů | doc-required (2 dílčí) | `ntpConfigured`, `certificateRegenerated` | server |
+| 11+ | Síť / Návrh / Příprava / Nasazení | beze změny (skupiny D–G) | | | |
+
+Zrušené kroky: viz 16.1. Krok „Podívej se na první management provoz“ zůstává jako **událost bubliny** (ne krok).
+
+---
+
+## 25. Kariéra – Level 1: „Single Site fleet s vSAN na 4 hostech“
+
+### 25.1 Zadání
+- **Cíl levelu**: nasadit novou VCF fleet podle Design Blueprintu **VCF Fleet in a Single Site** (`06 §2.2`):
+  1 site, 1 AZ, 1 VCF Instance, management doména na **4 ESX hostech** s principal storage **vSAN ESA**;
+  VCF Installer deployment model **High Availability**, velikost **Medium** (`06 §2.2`, `§6.1` [B7]).
+  Poznámka pro UI: od 9.1.1 je výchozí velikost v installeru Small (`20 §4.2` krok 5) – blueprint chce Medium,
+  takže jde o vědomou volbu, kterou bublina vysvětlí.
+- Blueprint počítá i s workload doménou (`06 §2.2`); level 1 končí bring-upem management domény. Workload
+  doména je teaser na konci („Level 2“), aby level nebyl dlouhý.
+- Délka: cíl ~20–30 min se zrychlením času. Obtížnost `tutorial`.
+
+### 25.2 Co je připravené vs. co dělá hráč
+| Oblast | Předem nastavené (initial state levelu) | Dělá hráč |
+|---|---|---|
+| Lokalita | blueprint `vcf-fleet-single-site`, rozvržení „větší serverovna“ (`06 §7a`, herní) | – |
+| Rack | 1× rack 42U postavený, **ToR-A** nahoře + uplink do sítě firmy, OOB/BMC (19.5) | volitelně ★ ToR-B |
+| Servery | rozpočet (herní měna) na ~4–5 serverů | vybere vendora, koupí **4 stejné** certifikované sestavy vSAN ESA, zaracuje |
+| NIC | sestavy mají NIC z B.3 | přidá NIC jen, pokud návrh (vDS model z blueprintu) chce víc portů (`hostsWithUplinks {nics:'design'}`); jinak krok skrytý |
+| Kabeláž | – | zapojí hosty do ToR (ručně nebo „Zapojit doporučeně“ za srážku 0 b – je to pomůcka, ne chyba) |
+| Síť ToR | porty MTU 1500, bez trunku (realita) | nastaví trunk VLAN a MTU podle požadavků (`10 §3.3`) – v levelu 1 přes jeden formulář „Profil portů k hostům“ |
+| ESX | ISO k dispozici | instalace v konzoli (20), DCUI síť, NTP, certifikát (`20 §4.1.1–4.1.4`) |
+| DNS | DNS server běží, **záznamy komponent** (vCenter, NSX, SDDC Manager, VCF Operations…) připravené ve „workbooku“ | založí A + PTR záznamy **hostů** (`20 §3.5`) |
+| VCF Installer | appliance nasazená, binárky stažené (to učí level 2 / kampaň c1-m2, c1-m3) | – (briefing vysvětlí) |
+| Návrh | volby blueprintu předvybrané (`blueprintDesignChoices`) a **zamčené** se štítkem „podle blueprintu“ | projde přehled v PC aplikaci Návrh (1 obrazovka, „Potvrdit návrh“) |
+| Průvodce installeru | hodnoty z workbooku předvyplněné tam, kde je installer umí předvyplnit (např. FQDN přes „PRE-FILL GENERATED FQDNs IN WIZARD“, `20 §4.2` krok 8) | kroky 3, 5, 7, 10, 15, 18–20 vyplní / potvrdí sám (co nasadit, model + velikost, storage, hosty, vDS profil, review, validace, deploy) |
+
+### 25.3 Kroky levelu (checklist, pořadí = doporučené)
+| # | Krok | Selektor (existující / *nový*) | Body (herní) | Bublina (zkráceně) |
+|---|---|---|---|---|
+| 1 | Vyber vendora a kup 4 stejné certifikované servery | `serversForDesign`, `serversHomogeneous`, `certifiedServerBought` | +20 | „Blueprint Single Site počítá se 4 ESX hosty. Kup 4 stejné sestavy.“ Zdroj: Single Site |
+| 2 | Zaracuj 4 servery pod ToR | `serversMounted {min:'all'}` | +10 | „Klikni na rack.“ |
+| 3 | (podmíněně) Přidej NIC podle návrhu | `hostsWithUplinks {nics:'design'}` | +10 | „Návrh chce víc síťových portů – klikni na volný slot.“ |
+| 4 | Zapoj hosty do ToR | `hostsCabledToSwitch {min:'all'}` | +10 | Zdroj: VCF-NET-REQD-TOR-001 |
+| 5 | Nastav porty ToR (trunk + MTU) | `switchPortsTrunkVlans`, `switchMtuForTraffic` | +20 | Zdroj: `10 §3.3` |
+| 6 | Nainstaluj ESX na 4 hosty | `esxInstalled {min:'all'}` | +20 | konzole |
+| 7 | DCUI: management síť | `mgmtNetworkConfigured`, `mgmtNetworkUp` | +20 | „F2 a nastav IP z workbooku.“ |
+| 8 | DNS záznamy hostů | `hostDnsRecordsValid` | +10 | HUD DNS |
+| 9 | NTP + certifikát | `ntpConfigured`, `certificateRegenerated` | +10 | |
+| 10 | Potvrď návrh (blueprint) | `designDecided` | +5 | PC → Návrh |
+| 11 | Průvodce: nová fleet, HA + Medium, vSAN ESA, 4 hosty | *nový* `wizardMatchesLevel {deploymentModel:'ha', size:'medium', storage:'vsan-esa', hosts:4}` | +20 | PC → VCF Installer |
+| 12 | Validace bez chyb (warnings potvrdit) | `validationPassed` | +20, −10 za každé kolo validace s error | |
+| 13 | Deploy a hotový bring-up | `deploymentCompleted` | +50 | oslava (3.3) |
+| ★ | Druhý ToR a uplinky na oba switche | `hostsOnTwoSwitches` | bonus +15 | doporučení `10 §3.3` VCF-NET-RCMD-TOR-001 |
+| ★ | Jumbo frames (MTU 9000) | `switchMtuForTraffic {recommended:true}` | bonus +10 | `10 §3.3` (doporučení, pokud ho spec uvádí – obsah z existujícího úkolu `network.mtu-9000`) |
+
+Srážky (herní): nápověda „Ukaž“ −2 b, otevření řešení −10 b; nikdy pod 0 za krok. Body a rozpočet jsou herní
+mechanika, v UI vždy se štítkem `herní` (`CLAUDE.md`).
+
+### 25.4 Kritéria úspěchu
+Level je splněný, když platí **všechno** (vyhodnocuje engine ze snapshotu, ne UI):
+1. `deploymentCompleted` = true (bring-up nové fleet hotový, `20 §4.2` krok 20).
+2. Management doména má **4 hosty**, principal storage **vSAN ESA** (`06 §2.2`, `20 §4.2` krok 7).
+3. Deployment model **High Availability**, velikost **Medium** (`06 §6.1` [B7]).
+4. Hosty stejné sestavy (`serversHomogeneous`).
+5. Žádná nepotvrzená validační chyba (`validationPassed`).
+- Hodnocení: hvězdy 1–3 podle bodů (prahy herní: 60 / 80 / 95 % max. bodů bez bonusů); bonusy ★ jen přidávají.
+- **Neúspěch neexistuje** jako game over: deploy, který selže (chybový stav ze specu, `20 §5`), vrátí hráče
+  k Tasks / opravě (`20 §4.2` krok 20) a stojí body.
+- Pasti (max. 2, tutorial): heterogenní server (koupě jiné sestavy → krok 1 se vrátí na ⚠), port ToR s MTU
+  1500 / bez VLAN (odhalí krok 5 nebo validace). Jiné pasti ne – jen chybové stavy, které model už validuje.
+
+### 25.5 Obrazovky levelu
+```
+Briefing (před vstupem do místnosti)                       Výsledek
+┌ Kariéra · Kampaň 1 · Level 1 ───────────────────┐       ┌ Level 1 splněn ─────────────── ★★☆ ┐
+│ Single Site fleet s vSAN na 4 hostech           │       │ Bring-up hotový: 4 hosty · vSAN ESA │
+│                                                  │       │ HA · Medium                         │
+│ Firma chce první privátní cloud v jedné          │       │ Body 172 / 215 (herní)              │
+│ serverovně. Postav ho podle blueprintu.          │       │  − nápovědy 6 · − validace 10       │
+│                                                  │       │  + bonus: druhý ToR 15              │
+│ Připraveno: rack s ToR, DNS komponent, installer │       │ Co ses naučil: 5 odrážek + Zdroj    │
+│ Tvůj úkol: servery → ESX → průvodce → deploy     │       │ [Znovu]  [Další level ▸ (brzy)]     │
+│ Rozpočet: ¤ 45 000 (herní)   Zdroj ▾              │       └─────────────────────────────────────┘
+│                               [Začít level]      │
+└──────────────────────────────────────────────────┘
+```
+- Během levelu: stejná místnost a UI jako Sandbox v3; checklist má v hlavičce body; HUD ukazuje rozpočet
+  (konečný, herní) místo `∞`.
+- Hlavní menu: Kariéra už není „Připravujeme“, ale karta „Kampaň 1 – Level 1“ (ostatní levely zamčené s
+  textem „Připravujeme“).
+
+### 25.6 Implementace nad existujícím enginem
+- Level = **`SandboxSession` + level definice**, ne nový engine: počáteční stav se postaví **přehráním příkazů**
+  přes reducer (`chooseBlueprint`, `placeRack`, `mountDevice` ToR, `connectCompanyNetwork`, `addDnsRecord` pro
+  komponenty, `deployInstaller`, `configureDepot`, `downloadBinaries`) – tím platí všechna pravidla modelu.
+- Rozdíly vrstvy Kariéra (`game/src/modes/career`): rozpočet (economy), body, zámek voleb blueprintu, sada kroků
+  `career-l1.json`, kritéria 25.4 jako čistá funkce `evaluateLevel(snapshot, levelDef)` s testy.
+- Formát: rozšířit `scenarios/schema.ts` o `initialCommands: SandboxCommand[]`, `objectiveSet`, `success`,
+  `scoring`; `SpecFile` doplnit o `06-blueprints`, `15-hardware`, `25-usecases-and-physical`.
+
+---
+
+## 26. Datové kontrakty (pro engine-dev a scenario-designer)
+
+### 26.1 ObjectiveDef – rozšíření
+```ts
+interface ObjectiveBubble {
+  readonly text: string;            // 1–2 věty, česky (≤ 160 znaků)
+  readonly anchor: string;          // 'avatar' | 'object:<kind>:<id|first>' | 'ui:<id>'
+  readonly sourceKeys?: readonly string[]; // 'file:ID' pro Zdroj popover (21.2)
+}
+// ObjectiveDef += { bubble?: ObjectiveBubble; points?: number; bonus?: boolean }
+```
+### 26.2 Konzole
+```ts
+interface EsxConsoleScreen {
+  readonly id: string;              // 'welcome' | 'eula' | 'select-disk' | … (ze specu)
+  readonly title: string;           // anglicky přesně podle specu
+  readonly body?: readonly string[];// jen texty ze specu; jinak prázdné + flag simplified
+  readonly keys: readonly { key: 'Enter' | 'F11' | 'Esc' | 'F2' | 'Y' | 'Up' | 'Down'; label: string; next?: string }[];
+  readonly input?: 'disk' | 'keyboard' | 'password' | 'text';
+  readonly specRef: string;         // např. '20-deployment §4.1.1'
+  readonly simplified?: true;       // obrazovka bez textů ze specu → štítek 'zjednodušená obrazovka (herní)'
+}
+```
+Engine: příkaz `consoleKey { serverId, key, value? }` → po poslední obrazovce stávající `installEsx` /
+`configureMgmtNetwork` (žádná nová pravidla VCF v UI).
+
+---
+
+## 27. Review v3 (stav 2026-11-22) a backlog na 1 sprint
+
+### 27.1 Nálezy z aktuálního UI
+| Obrazovka | Problém / příležitost | Návrh | Priorita |
+|---|---|---|---|
+| Místnost | Bílý pruh ~100 px pod HUDem (stage nevyplňuje plochu) | 22.1 | vysoká |
+| Místnost | Instrukce je ve 2 kopiích (toast dole + HUD čip), checklist přes 1/2 výšky | bublina + checklist 17–18 | vysoká |
+| Obchod | Karty oříznuté dole (tlačítko Koupit / štítky) na 1366×768 i 1920×1080 | pevná karta 22.2 | vysoká |
+| Obchod | 7 záložek, servery všech vendorů najednou + filtry | 2 záložky, vendor → model (19.1) | vysoká |
+| Rack | Vodorovný pás přes celou šířku, U nečitelné, server „2“ vs panel „U1“ | svislý rack v měřítku, pravítko „U1–2“ (19.3) | vysoká |
+| Rack | Switch se montuje dole (první volná U), žádný předinstalovaný ToR | ToR nahoře předinstalovaný (19.5) | vysoká |
+| Rack | BMC LED svítí, ale kabel ani provoz BMC nejsou vidět | šedý BMC kabel + provoz (19.6) | vysoká |
+| Rack | Obří jantarový „kabelový žlab“ | tenká lišta (19.3) | střední |
+| Detail serveru | 5 záložek (Přehled, Hardware, ESX, Síť (DCUI), BMC) | 2 záložky + konzole (19.3, 20) | vysoká |
+| Výběr blueprintu, Problémy, úkoly | Odkazy „06 §2.2, §6.1 [B6][B7]“, „10 §3.3 [P19]“ | Zdroj popover s názvy (21) | vysoká |
+| Checklist (dropdown) | 13+ položek, každá s Ukaž mi / Proč? / Přeskočit = zeď tlačítek | 1 aktivní krok (17.2) | vysoká |
+| Místnost | Červený pruh na stěnách, jantarové žlaby, velké plovoucí popisky | 23 | střední |
+| Návrh (pravý panel) | Dostupný od začátku, překrývá místnost, „Hotovo 12/16“ ještě před stavbou mate | odhalit od skupiny Návrh (16.1) | střední |
+| Kariéra | „Připravujeme“ | Level 1 (25) | vysoká |
+
+### 27.2 Backlog (1 sprint, pořadí = priorita)
+**ui-dev**
+| # | Úkol | Vel. | Kap. |
+|---|---|---|---|
+| U1 | Layout zóny + CSS proměnné, oprava bílého pruhu, `placePopover`, karta obchodu pevné velikosti, screenshot test 1366/1920 | M | 22 |
+| U2 | Checklist v3 (1 aktivní krok, hotové ✓, budoucí sbalené, sbalený/skrytý stav) | M | 17 |
+| U3 | Bubliny (DOM, kotvy, kolize, odznak po zavření, napojení na aktivní krok) | M | 18 |
+| U4 | Obchod v3: 2 záložky, vendor → modely, mini čelo v U, odznaky, Koupit → umístění, čip Nezaracováno | M | 19.1–19.2 |
+| U5 | Pohled racku v3: svislý, měřítko U, pravítko „U1–2“, ToR nahoře, rezervace ToR-B, kabely v bočním kanálu, lišta Problémy 1 řádek, detail 2 záložky | L | 19.3 |
+| U6 | NIC slot popover (seznam z modelu), BMC kabel + šedý provoz (tvar ▫, legenda „Mimo VCF“) | M | 19.4, 19.6 |
+| U7 | Zdroj popover + skrytí `[ID]` ve všech UI (blueprinty, úkoly, problémy, návrh) | S | 21 |
+| U8 | Místnost: bez pruhu a stěnových žlabů, žlab nad řadami (alpha), rack v místnosti s U obsazením, tooltipy místo popisků | M | 23 |
+| U9 | Konzole serveru (instalátor + DCUI) jako shell nad `EsxConsoleScreen[]`, dotykové klávesy, hromadné opakování | L | 20 |
+| U10 | Kariéra: briefing, HUD rozpočet + body, výsledková obrazovka, menu karta | M | 25.5 |
+
+**engine-dev**
+| # | Úkol | Vel. | Kap. |
+|---|---|---|---|
+| E1 | Předinstalace racku: ToR-A v nejvyšší U + uplink do sítě firmy při `placeRack` (volba sady / režimu), rezervovaná U pro ToR-B, příkaz „přidat ToR-B“ | M | 19.5 |
+| E2 | Auto BMC: při `mountDevice` serveru zapojit BMC do OOB switche a nastavit IP (herní); tok „bmc“ do provozu | S | 19.6 |
+| E3 | NIC sloty: počet slotů [SIMPL], příkaz přidat/odebrat NIC z `ServerModel.nics` ∩ katalog, pravidlo „jen vypnutý / bez ESX“ (herní) | M | 19.4 |
+| E4 | `sourceRegistry` generátor ze `docs/spec/*` + parser `specRef` | S | 21.2 |
+| E5 | `consoleKey` příkaz + stavový automat obrazovek nad `EsxConsoleScreen[]`; po dokončení volá `installEsx` / `configureMgmtNetwork`; hromadná instalace se stejnými volbami | M | 20 |
+| E6 | `ObjectiveDef.bubble/points/bonus`, nový selektor `wizardMatchesLevel`, `evaluateLevel` (25.4) – čisté funkce + testy | M | 25.4, 26 |
+| E7 | Level runner: `initialCommands` přehrané přes reducer, konečný rozpočet, zámek voleb blueprintu, body | M | 25.6 |
+| E8 | Výška U v modelu → render (zatím 2U [SIMPL]); příprava na ověřené hodnoty, až budou ve specu | S | 19.1 |
+
+**scenario-designer**
+| # | Úkol | Vel. | Kap. |
+|---|---|---|---|
+| S1 | `objectives/sandbox-v3.json`: kroky 24 s texty bublin, kotvami a zdroji (jen ze specu) | S | 24, 18.3 |
+| S2 | `career/c1-l1-single-site.json`: briefing, initialCommands, kroky 25.3, body, success 25.4, max. 2 pasti, „Co ses naučil“ | M | 25 |
+| S3 | Sekvence obrazovek konzole z nového specu instalátoru (`docs/spec/26-*`), do té doby z `20 §4.1.1–4.1.2` se `simplified` | S | 20.1 |
+
+**Pořadí sprintu**: E1 + E2 + E4 → U1 → U2 + U3 (+ S1) → U4 → U5 + U6 (+ E3) → U7 → U8 → E5 + S3 → U9 →
+E6 + E7 + S2 → U10. Hratelný milník v půlce sprintu: „postav rack → kup 4 servery od vendora → zaracuj →
+zapoj do ToR“ s bublinami a checklistem.
+
+### 27.3 Otevřené otázky (pro orchestrátora)
+1. **Výška serverů v U**: BCG data ji nemají; dnes 2U pro všechny ([SIMPL]). Chce uživatel rozlišit 1U/2U? Pak
+   potřebujeme povolený zdroj (doc-researcher) – jinak zůstane 2U se štítkem `herní`.
+2. **Počet NIC slotů** na server: herní hodnota (návrh 2). Potvrdit.
+3. **ToR model** předinstalovaný: návrh `sw-generic-48x25g` (zvládne 10 i 25 GbE NIC sestav). 100G sestavy (LRG)
+   by potřebovaly 100G ToR – v Sandboxu v3 nabídnout volbu ToR při stavbě racku (1 dropdown), nebo LRG sestavy
+   označit „potřebuje 100G ToR“?

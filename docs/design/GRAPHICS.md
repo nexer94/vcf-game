@@ -68,15 +68,18 @@ Přechody mezi úrovněmi plynulým zoomem (jako přelet nad mapou).
     až v čelním pohledu racku. Tečky letí mezi zařízeními po trase svazku.
   - **Tvar tečky podle typu** (kvůli barvosleposti): Management ◆, vMotion ▲, vSAN ■, NFS ●, NSX overlay ⬟,
     VM ○ (prázdný kruh). Jeden atlas tvarů, tint barvou, tmavý obrys.
-  - **BMC (mimo VCF scope – herní)**: BMC nenese provoz VCF (`25` §10), proto nemá barvu typu provozu. Jen při
-    vzdálené instalaci ESX jede po kabelu BMC **šedá čárkovaná animace se symbolem ✚** („přenos ISO, herní“).
+  - **BMC (mimo VCF scope – herní)**: BMC nenese provoz VCF (`25` §10), proto nemá barvu typu provozu.
+    **v3 (`UX.md` 19.6):** BMC se po zaracování zapojí sám a hned po kabelu jedou **šedé čtverečky ▫**
+    (1 tečka / 3 s, mimo atlas tvarů VCF). Při vzdálené instalaci ESX navíc **šedá čárkovaná animace se
+    symbolem ✚** („přenos ISO, herní“).
     V legendě je ve zvláštní skupině „Mimo VCF (herní)“. BMC LED na serveru svítí i při vypnutém hostu.
     V UI nikdy holé „OOB“ (kolize s „out-of-band operations“ = config drift), viz `UX.md` 15.1.
   - Legenda je „vždy viditelná“ jako **čip vlevo dole** s aktivními typy; plná legenda po rozbalení.
   - Kosmetické barvy kabelů (volba hráče v racku) se nesmí plést s barvami provozu: černá, bílá, žlutá,
     růžová, hnědá (odstíny ui-dev).
 - **Čelní pohled racku (2D elevace)**: stejný kreslený styl (výrazné obrysy, syté barvy), plochý pohled zepředu,
-  zkomprimované prázdné U jako šrafovaný pás, porty jako zaoblené čtverečky s LED, kabely ortogonálně se
+  **v3: svislý rack, zařízení v měřítku U (1 U = 18 px / 22 px), ToR switch navy nahoře, pravítko U vlevo**
+  (`UX.md` 19.3), zkomprimované prázdné úseky ≥ 6 U jako šrafovaný pás s lomem, porty jako zaoblené čtverečky s LED, kabely ortogonálně se
   zaoblenými rohy v bočních kanálech. Vendor jen barevný proužek + text.
 - **Tabule**: téměř bílá plocha, hliníkový rám, polička s fixami jako nástrojová lišta. Auto diagram ručně
   kresleným stylem (deterministický jitter, dvojitý tah fixy, rukopisné OFL písmo s českou diakritikou)
@@ -283,8 +286,10 @@ Závěr a pravidla:
 
 ### T6. Paleta místnosti (`render/room/palette.ts`)
 Směr: **chladná světlá serverovna** (šedomodrá podlaha a stěny), **grafitovo-navy racky**, navy switche.
-Útulnost drží teplé protiváhy: dřevěný stůl, rostlina, hrnek, lampa, jantarový kabelový žlab (≈ 10 % plochy).
-Červená jen **střídmě**: mikina avatara, štítek s číslem racku, proužek na stěně, hasicí přístroj, plakát.
+Útulnost drží teplé protiváhy: dřevěný stůl, rostlina, hrnek, lampa. **v3 (2026-11-22, `UX.md` kap. 23):** místnost
+má působit jako skutečná serverovna – **bez** červeného pruhu na stěnách a **bez** jantarových žlabů podél stěn;
+kabelové žlaby jen jako tenký šedý drátěný rošt nad řadami racků (`alpha 0.35`), lišty racků nenápadné.
+Červená jen **střídmě**: mikina avatara, štítek s číslem racku, hasicí přístroj, plakát.
 
 | Konstanta | Staré | Nové | Poznámka |
 |---|---|---|---|
@@ -299,17 +304,17 @@ Směr: **chladná světlá serverovna** (šedomodrá podlaha a stěny), **grafit
 | `WALL.left / leftDark` | `0x82c6c9 / 0x6db3b7` | `0xb9c5d5 / 0xa7b4c6` | |
 | `WALL.cap` | `0xf7f2e8` | `0xf7f9fb` | |
 | `WALL.base` | `0x5d8f9a` | `0x2b4a78` | navy sokl |
-| `WALL.stripe` *nový* | – | `0xc41f33` | 6 px vodorovný pruh ve ⅓ výšky obou stěn (jediný velký brand prvek ve scéně) |
+| ~~`WALL.stripe`~~ | – | **zrušeno v3** | pruh na stěnách se nekreslí (`UX.md` 23) |
 | `DECOR.door / doorDark` | `0xf2a65a / 0xd98a3d` | `0x3b5f8f / 0x2b4a78` | navy dveře |
 | `DECOR.doorFrame` | `0xfff4e0` | `0xf7f9fb` | |
 | `DECOR.handle` | `0xffd34d` | `0xffd34d` | beze změny (teplý detail) |
-| `DECOR.tray / trayDark` | `0xffcf4a / 0xe0a92a` | `0xf2b84b / 0xd39a2c` | jantarový žlab (teplý protipól) |
+| `DECOR.tray / trayDark` | `0xffcf4a / 0xe0a92a` | **v3:** `0x8592a3 / 0x6c7c93`, `alpha 0.35` | drátěný rošt jen nad řadami racků, žádný žlab podél stěn (`UX.md` 23) |
 | `DECOR.posterA / B / C` | `0xff7a8a / 0x5b9cf0 / 0x4cc38a` | `0xc41f33 / 0x2b4a78 / 0x4cc38a` | |
 | `DECOR.extinguisher` | `0xe5484d` | `0xd42e3f` | |
 | `DECOR.ac / acShade / acVent` | | `0xfbfcfd / 0xd5dde8 / 0x8592a3` | |
 | `CABINET.top / front / side` | `0x6a6a9a / 0x4a4a78 / 0x383862` | `0x3b4a5f / 0x24324a / 0x1a2538` | grafit |
 | `CABINET.inner` | `0x27274a` | `0x111a29` | |
-| `CABINET.rail` | `0x8a8ab8` | `0x6c7c93` | |
+| `CABINET.rail` | `0x8a8ab8` | `0x6c7c93` | v3: 1 px, `alpha 0.5` |
 | `CABINET.label` *nový* | – | `0xc41f33` + bílé číslo | malá cedulka nahoře na čele racku s číslem racku (bílý text na červené 5.85 : 1) |
 | `CABINET.netTop / netFront / netSide` | `0x7fa8e8 / 0x5b86d0 / 0x4870b8` | `0x4a6a96 / 0x34527c / 0x284268` | |
 | `DEVICE.serverFace / serverShade / bay` | `0xeef0f7 / 0xcfd3e3 / 0xb7bcd2` | `0xeef1f5 / 0xcdd4de / 0xb3bdca` | |
