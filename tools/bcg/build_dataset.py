@@ -67,6 +67,9 @@ for fn in sorted(os.listdir(os.path.join(work, 'details'))):
                     r['pcieSwitch'] = names[0] if names else None
                 elif title.startswith('Notes'):
                     r['notes'] = ' '.join(names)
+    for key in ('esaDrives', 'cyberRecoveryDrives', 'nics', 'supportedReleases'):
+        if isinstance(r.get(key), list):
+            r[key] = sorted(r[key])  # BCG returns these in unstable order
     nodes.append(r)
 
 meta = {
