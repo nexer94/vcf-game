@@ -220,15 +220,93 @@
 }
 
 /* Design step (data-driven) */
-.decision { border: 1px solid #2a3644; border-radius: 8px; margin: 0 0 14px; padding: 12px 14px; }
+.phase-panel-wide { max-width: 1280px; }
+.design-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+.design-side { display: flex; flex-direction: column; gap: 12px; }
+.design-legend { margin: 0 0 12px; }
+.small { font-size: 12px; }
+.dstep { border-left: 2px solid #243040; padding: 0 0 6px 14px; margin: 0 0 12px; }
+.dstep-current { border-left-color: #5b8bc0; }
+.dstep-complete { border-left-color: #2f6b52; }
+.dstep-locked { opacity: 0.55; }
+.dstep-head { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; }
+.dstep-head h3 { margin: 0; font-size: 15px; }
+.dstep-complete .flow-num { background: #1d3a2e; border-color: #4cc38a; color: #4cc38a; }
+.dstep-current .flow-num { background: #2d4a6b; border-color: #8ab4e8; color: #fff; }
+.dstep-lock { font-size: 12px; }
+.decision { border: 1px solid #2a3644; border-radius: 8px; margin: 0 0 12px; padding: 10px 12px; min-width: 0; }
+.decision.decided { border-color: #2c3d50; }
 .decision legend { color: #e8edf3; font-weight: 600; padding: 0 6px; }
-.option { display: flex; gap: 10px; padding: 8px; border-radius: 6px; cursor: pointer; }
+.decision-help { margin: 0 0 6px; font-size: 13px; }
+.decision-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; margin-top: 6px; }
+.option { border-radius: 6px; padding: 4px 6px; margin: 2px 0; border: 1px solid transparent; }
 .option:hover { background: #18212c; }
+.option.chosen { background: #172333; border-color: #34506f; }
+.option.blocked .option-title { color: #8a96a6; }
+.option-main { display: flex; gap: 10px; cursor: pointer; padding: 4px 0; }
+.option.blocked:not(.chosen) .option-main { cursor: not-allowed; }
+.option-extra { margin-left: 26px; display: flex; flex-direction: column; gap: 4px; }
 .option-body { display: flex; flex-direction: column; gap: 2px; }
-.option-title { color: #e8edf3; display: flex; gap: 8px; align-items: center; }
+.option-title { color: #e8edf3; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .option-desc { color: #9aa8b8; font-size: 13px; }
 .option-blocked { color: #f0a14a; font-size: 12px; }
 .sources { font-size: 12px; color: #66768a; }
+.spec-ref { font-size: 11px; color: #5d6d80; }
+.ui-badge.badge-para { background: #2a2540; color: #c3b2f2; border-color: #4b3f78; }
+.ui-badge.badge-openq { background: #3a2f1a; color: #f0c674; border-color: #6b5426; cursor: help; }
+.ui-badge.badge-day2 { background: #1d2c3d; color: #8ab4e8; border-color: #34506f; }
+.ui-badge.badge-warn { background: #3d2a14; color: #f0a14a; border-color: #6b4a22; }
+.ui-badge.badge-muted { background: #1b2430; color: #7f8fa3; border-color: #2f3b4c; }
+q.cite { font-style: italic; color: #dbe3ec; quotes: '\201C' '\201D'; }
+q.cite::before { content: open-quote; color: #5b8bc0; }
+q.cite::after { content: close-quote; color: #5b8bc0; }
+details.more { font-size: 13px; }
+details.more > summary { cursor: pointer; color: #8aa4c8; font-size: 12px; padding: 2px 0; }
+.sub-h { font-size: 12px; color: #8aa4c8; margin: 6px 0 2px; }
+.conseq-list, .rule-list, .issue-list { list-style: none; margin: 4px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.conseq { display: flex; gap: 8px; align-items: baseline; }
+.conseq-kind { flex: none; width: 92px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #7f8fa3; }
+.conseq-body { min-width: 0; }
+.conseq-benefit .conseq-kind { color: #4cc38a; }
+.conseq-hardware .conseq-kind, .conseq-requirement .conseq-kind { color: #f0a14a; }
+.conseq-irreversible .conseq-kind { color: #e5534b; }
+.conseq-day2 .conseq-kind { color: #8ab4e8; }
+.conseq-limit .conseq-kind { color: #c3b2f2; }
+.rule { background: #141d27; border: 1px solid #222e3c; border-radius: 6px; padding: 6px 8px; display: flex; flex-direction: column; gap: 3px; }
+.rule-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.rule-id { font-size: 11px; color: #e8edf3; background: #1b2430; padding: 1px 5px; border-radius: 4px; }
+.rule-kind { font-size: 11px; color: #7f8fa3; }
+.rule-REQD { color: #8ab4e8; }
+.rule-RCMD, .rule-RECD { color: #f0a14a; }
+.rule-sub { font-size: 12px; color: #9aa8b8; }
+.opt-warning { border: 1px solid #6b4a22; background: #221a10; border-radius: 6px; padding: 6px 8px; font-size: 13px; }
+.opt-warning-title { color: #f0a14a; font-weight: 600; font-size: 12px; margin-bottom: 4px; }
+.issue-msg { font-size: 12px; color: #9aa8b8; }
+.side-card { background: #141d27; border: 1px solid #2a3644; border-radius: 8px; padding: 12px 14px; }
+.side-card h3 { margin: 0 0 8px; font-size: 14px; }
+.iss-h { margin: 10px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+.iss-err { color: #e5534b; }
+.iss-warn { color: #f0a14a; }
+.issue { border-left: 2px solid #3d5068; padding: 2px 0 2px 8px; }
+.issue.acked { opacity: 0.6; }
+.issue.missing { font-size: 12px; border-left-color: #e5534b; }
+.missing-list { display: flex; flex-wrap: wrap; gap: 2px 8px; }
+.link-btn { font: inherit; font-size: 12px; color: #8ab4e8; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+.link-btn:hover { text-decoration: underline; }
+.ack-row, .proceed-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.proceed-row .btn { width: 100%; }
+.ok { color: #4cc38a; }
+.sum { margin: 8px 0; display: grid; gap: 4px; }
+.sum-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 8px; font-size: 13px; border-bottom: 1px dotted #222e3c; padding-bottom: 3px; }
+.sum-row dt { color: #7f8fa3; }
+.sum-row dd { margin: 0; color: #dbe3ec; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; gap: 2px 4px; text-align: right; }
+.preview-fig { margin: 0; }
+.design-preview { display: block; margin: 0 auto; background: #10171f; border-radius: 6px; }
+.preview-fig figcaption { font-size: 11px; color: #66768a; margin-top: 4px; }
+
+@media (max-width: 960px) {
+  .design-layout { grid-template-columns: 1fr; }
+}
 
 /* Traffic demo extras */
 .back-panel { right: 12px; bottom: 12px; padding: 6px; }

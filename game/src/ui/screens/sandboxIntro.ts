@@ -35,8 +35,9 @@ export const sandboxIntroScreen: ScreenDef = {
             'Můžeš v něm dělat to, co jde ve skutečnosti udělat – a nic, co nejde.'),
         h('ul', { class: 'facts' },
           h('li', null, h('strong', null, 'Podle dokumentace. '),
-            'Každé pravidlo, prerekvizita i chybová hláška vychází z oficiální dokumentace. ' +
-              'U pravidel a chyb najdeš ve hře odkaz na příslušnou stránku.'),
+            'Pravidla a prerekvizity vychází z oficiální dokumentace a mají odkaz na příslušnou stránku. ' +
+              'Texty hlášek jsou popisné (ne doslovné), pokud nejsou označené jako citace. ' +
+              'Omezení rozsahu hry a modelová zjednodušení jsou ve hře označená.'),
           h('li', null, h('strong', null, 'Laboratoř. '),
             'Žádné mise, žádné peníze, neomezené zdroje. Navrhuj, nasazuj, rozšiřuj i rozbíjej.'),
           h('li', null, h('strong', null, 'Označené odhady. '),
