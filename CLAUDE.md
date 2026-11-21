@@ -97,6 +97,10 @@ Všechny režimy sdílejí **stejný model a engine** (stejná pravidla VCF ze s
   po zaracování a hned je vidět provoz (šedý, mimo VCF scope). Vždy bublina „co teď udělat“; tracker vlevo jako
   odškrtávací checklist po jednom kroku. Odkazy do dokumentace čitelnými názvy, ne čísly typu [P13]; menu se musí
   vejít na obrazovku. Instalace ESX jako ve skutečnosti (obrazovky instalátoru podle dokumentace).
+- **Bez obchodu a bez peněz** (uživatel 2026-11-22): dolní obchod zrušen. Rack se staví klikem na „+“ na volné dlaždici
+  (výběr velikosti), server klikem na „+“ u volné pozice v racku (výrobce → model, detail až po rozkliknutí), NIC klikem
+  na „+“ slotu. Peníze se nikde nezobrazují (ekonomika Kariéry se případně vrátí později jako samostatné rozhodnutí).
+- **Interakce všude stejné**: rack (zoom), tabule, počítač fungují i v Hotových scénářích (tam jen pro čtení).
 - **Kariéra – level 1**: nasadit Single Site fleet (VCF Fleet in a Single Site), vSAN, 4 hosty – řízený level.
 - **Sandbox je bez úkolů a bublin** (uživatel 2026-11-22) – jen úvodní upozornění, že platí limity VCF a dokumentace
   (validace dál běží). Checklist s bublinami patří do Kariéry.

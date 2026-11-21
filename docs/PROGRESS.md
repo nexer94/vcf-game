@@ -29,6 +29,12 @@
   HA admission control, vCPU:pCPU ≤ 2:1, resource check installeru = warning [9.0.x]; 13 otevřených otázek
 
 ## Další kroky
+### Bez obchodu a peněz, interakce všude (uživatel 2026-11-22)
+- [ ] `engine-dev` – placeNewRack / addServerToRack / removeServer / removeRack, freeUSlots, serverChoices, peníze pryč
+  (Kariéra L1 bez rozpočtu), scénáře read-only data pro rack/PC/tabuli *(běží)*
+- [ ] `ui-dev` – zrušit dolní obchod a peníze, „+“ na podlaze pro rack, „+“ v racku pro server (výrobce → model),
+  rack/tabule/PC ve scénářích, přirozené vedení kabelů z místnosti, popisky Gb/s bez překryvu *(běží)*
+
 ### Opravy UI po zpětné vazbě (2026-11-22)
 - [x] `ui-dev` – bublina drží u panáčka (každý snímek přes kameru, šipka na okraji mimo obrazovku), v PC/tabuli/konzoli
   checklist jako čip a bez bubliny, v racku lišta s aktuálním krokem; obchod minimální karty + „Detail ▾“ popover;
