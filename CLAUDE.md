@@ -35,9 +35,12 @@ Výjimka: drobné úpravy `docs/PROGRESS.md` a tohoto souboru děláš sám.
 1. `doc-researcher` → `docs/spec/<NN>-<oblast>.md` (koncepty, prerekvizity, kroky, chybové stavy, limity, odkazy)
 2. `domain-modeler` → `game/src/model/<oblast>.ts` (typy, stavy, přechody, validace prerekvizit)
 3. `scenario-designer` → `game/src/scenarios/<oblast>/*.json` (mise podle reálných workflow)
-4. `engine-dev` (logika) + `ui-dev` (izometrická grafika, UI ve stylu VCF Operations) → implementace
-5. `fact-checker` → nezávislá kontrola hry proti specu a dokumentaci.
-   **Bez jeho OK není oblast hotová.**
+4. `ux-designer` → návrh obrazovek a chování (před implementací UI) → `docs/design/UX.md`
+5. `engine-dev` (logika) + `ui-dev` (izometrická grafika, UI) → implementace
+6. `code-reviewer` → nezávislé review správnosti, kvality a bezpečnosti kódu (po každé větší změně, před commitem)
+7. `ux-designer` → review použitelnosti hotového UI
+8. `fact-checker` → nezávislá kontrola hry proti specu a dokumentaci.
+   **Oblast je hotová až s OK od `fact-checker` i `code-reviewer`.**
 
 Nezávislé úkoly (např. research dvou různých oblastí) spouštěj paralelně.
 

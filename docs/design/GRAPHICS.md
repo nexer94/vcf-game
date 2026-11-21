@@ -7,6 +7,11 @@
 - Hlavní scéna Sandboxu: **serverovna** (podlaha, stěny, dveře, okno/klimatizace), **panáček (avatar)**, který
   chodí k objektům; racky, servery, switche a kabely jako „nábytek“, který hráč kupuje a umisťuje.
 - Čitelnost má přednost: důležité objekty (racky, kabely, provoz) výrazné, dekorace tlumené.
+- **Rozložení obrazovky Sandboxu** (uživatel 2026-11-21): uprostřed izometrická serverovna;
+  **dole inventář / obchod** – lišta s kategoriemi (servery, switche, racky, kabely, disky, NIC…), hráč si z ní
+  vybírá a táhne/umisťuje do místnosti; **vpravo panel návrhových rozhodnutí** (design decisions podle
+  dokumentace, odkazy, doporučení, co je s aktuálním HW možné) – vysouvací, aby nezakrýval scénu.
+  Nahoře tenký HUD (peníze – v Sandboxu ∞, herní čas a rychlost, fáze / další krok).
 - UI panely (obchod, konfigurace, wizardy) světlé a přátelské, ale přehledné; data a odkazy na dokumentaci vždy čitelné.
 - Žádná loga ani přesné kopie UI Broadcomu ani vendorů – vlastní ikony a barvy (vendor jen jako text/barevný štítek).
 

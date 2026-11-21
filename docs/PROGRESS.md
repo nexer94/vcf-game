@@ -1,6 +1,8 @@
 # Stav projektu
 
 ## Hotovo
+- [x] Noví agenti (2026-11-21): `code-reviewer` (správnost + bezpečnost, OK nutné pro hotovou oblast),
+  `ux-designer` (user-friendly grafika a chování, `docs/design/UX.md`)
 - [x] Kostra projektu: CLAUDE.md, agenti, VERSION.md (9.1.1), grafický design
 - [x] `version-scout` 2026-11-20 – nejnovější GA stále 9.1.1; nové patche vCenter 9.1.1.0200 (CVE fix, 19. 11.)
   a vSAN File Services 9.1.1.0200 (SMB fix, 26. 10.) – bez nových funkcí; až vzniknou spec `52-vsphere`, `50-vsan`,
@@ -41,6 +43,8 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
   odemykání kroků; napojit stávající návrh a bring-up
 - [ ] `ui-dev` – obchod, umisťování, kabeláž, konfigurace hostů; pak use case, návrh, deploy v novém stylu
 - [ ] `fact-checker` – Sandbox v2
+- [ ] `ux-designer` – UX návrh Sandboxu v2 + review stávajícího UI → `docs/design/UX.md` *(běží)*
+- [ ] `code-reviewer` – první celkové review kódu (správnost, architektura, bezpečnost, závislosti) *(běží)*
 
 ### Sandbox v1 (původní tok Návrh → Příprava → Deploy)
 - [x] `ui-dev` – hash router, hlavní menu (Sandbox / Kariéra „Připravujeme“ / Ukázka provozu), úvod Sandboxu,
