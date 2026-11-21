@@ -57,8 +57,11 @@
   `SANDBOX_V3_OPTIONS` (bez úkolů), Kariéra `modes/career` (CareerSession, replay, body, rozpočet 80 000, hodnocení)
   - otevřené: uplink do sítě firmy jen pro první ToR; počet NIC pro storage-separation (model); pravidla hesla ESX
     přesunout do modelu; obsah obrazovek konzole + úkoly levelu 1 dokončí scenario-designer
-- [ ] `ui-dev` – Sandbox v3 U1–U10 (rozložení, checklist, bubliny, obchod podle vendora, svislý rack, konzole ESX,
-  Zdroj popover, úklid místnosti, vstup do Kariéry) *(běží)*
+- [x] `ui-dev` – Sandbox v3 U1–U10: menu Kariéra · Hotové scénáře (Připravujeme) · Sandbox (bez úkolů), zóny pro
+  1366/1920, checklist + bubliny v Kariéře, obchod Racky/Servery podle vendora, svislý rack s ToR-A a „+ ToR-B“,
+  NIC slot picker, BMC šedý provoz, Zdroj popover s čitelnými názvy, konzole ESX (instalátor + DCUI, batch),
+  Kariéra level 1 (briefing, rozpočet, body, výsledek)
+  - zbývá: „Zapojit doporučeně“ (engine), části úklidu místnosti, checklist z `objectives.checklist` enginu
 - [ ] `scenario-designer` – obsah úkolů v3 + Kariéra level 1 (po engine)
 
 ### Sandbox v2 – serverovna s panáčkem (rozhodnutí uživatele 2026-11-21, viz CLAUDE.md)

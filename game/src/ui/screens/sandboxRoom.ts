@@ -954,6 +954,12 @@ export const sandboxRoomScreen: ScreenDef = {
       for (const b of ui.querySelectorAll<HTMLButtonElement>('.rack-redo')) b.disabled = !state.undo?.canRedo;
       panels.refresh();
       if (consoleView && port.ops) consoleView.update(port.ops.snapshot());
+      // Career: level passed (engine evaluateLevel) -> result screen (UX 25.5), once.
+      if (career && careerId && !careerDone && (port.ops?.snapshot() as { career?: { completed?: boolean } } | undefined)?.career?.completed) {
+        careerDone = true;
+        ctx.navigate({ name: 'career', level: careerId, result: true });
+        return;
+      }
       if (hostDetail && port.ops) {
         const snap = port.ops.snapshot();
         hostDetail.update(snap, snap.revision !== hostRev);
@@ -970,6 +976,7 @@ export const sandboxRoomScreen: ScreenDef = {
       if (picked && !state.inventory.some((e) => e.id === picked!.id)) pick(null);
     };
     let demoTraffic = false;
+    let careerDone = false;
     let hostRev = -1;
     const usePort = (p: RoomPort, isDemo: boolean): void => {
       if (disposed) return;
