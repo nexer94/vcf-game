@@ -1,6 +1,7 @@
 # UX návrh – VCF Game (Sandbox v2)
 
-Stav: návrh 2026-11-21 (ux-designer). Implementují `ui-dev` (render/UI) a `engine-dev` (příkazy, validace, snapshot).
+Stav: návrh 2026-11-21 (ux-designer); doplněna **Část II – interakce v serverovně** (kap. 7–14: tracker, rack, tabule,
+počítač, provoz v2, backlog v3). Implementují `ui-dev` (render/UI) a `engine-dev` (příkazy, validace, snapshot).
 Navazuje na `CLAUDE.md` (herní režimy, tok Sandboxu) a `docs/design/GRAPHICS.md` (útulná kreslená izometrie,
 rozložení obrazovky).
 
@@ -78,6 +79,9 @@ Sandbox v2 začíná místností, protože je to srozumitelnější vstup. Aby h
 | 5:00 | Hráč ví: místnost → HW → kabely → ESX → návrh. Tutoriál končí. | tracker přejde do běžného režimu | tip: „Nápovědy můžeš vypnout v ⚙.“ |
 
 ### 1.3 Objective tracker („Další krok“)
+> Aktualizováno: podrobný návrh trackeru (volitelné úkoly, přeskočení, skrytí, datový model) je v **kap. 8**.
+> Umístění se mění: tracker vlevo nahoře pod HUDem, HUD čip „Další krok“ zůstává.
+
 - Umístění: v **horním HUDu** uprostřed (jedna řádka) a po kliknutí se rozbalí **checklist fáze** (dropdown
   pod HUDem, max. 8 položek).
 - Stav položky: `○ čeká`, `◐ rozpracováno` (např. 2/4 hosty s ESX), `✓ hotovo`, `⚠ problém` (validace).
@@ -239,6 +243,9 @@ Ostatní. Záložka s čímkoliv, co tracker právě chce, má tečku `•`.
   avatar je kosmetika – **nikdy nezdržuje hráče**.
 
 ### 2.5 Kabeláž
+> Aktualizováno: hlavní místo kabeláže je **2D čelní pohled racku (kap. 9)**; patch panel níže zůstává jako
+> přístupný seznam zapojení (9.7).
+
 **Ruční**: klik na port A (port se zvětší, ostatní kompatibilní porty se rozsvítí, nekompatibilní ztmavnou)
 → kabel „visí“ za kurzorem → klik na port B. `Esc` zruší. Klik na existující kabel = vybrat (detail,
 odpojit).
@@ -507,6 +514,8 @@ Pozor: dnešní demo používá `1/2/3` pro rychlost času. V Sandboxu by kolido
 ---
 
 ## 5. Implementační backlog (prioritizovaný)
+> Aktualizováno: pořadí pro interakce v místnosti je v **kap. 14 (backlog v3)**; položky #6, #8, #9 zpřesňuje.
+
 
 Legenda: **UI** = ui-dev, **EN** = engine-dev, **MO** = domain-modeler, **SD** = scenario-designer. Velikost S/M/L.
 
@@ -572,3 +581,701 @@ v době review ještě nevykreslovala (rozpracovaná, nehodnoceno).
 | Obecně | Fokus ring existuje (`:focus-visible`), dobrý základ. Některé štítky mají `tabindex=0` jen kvůli `title`, takže hráč tabuje přes desítky štítků. | Tooltip štítků přes jedno `?` u legendy nebo `aria-describedby`; štítky z tab pořadí vyřadit. | střední |
 | Obecně | Konzistentní a pečlivé označování (parafráze / citace / ilustrativní) – silná stránka, kterou v2 musí zachovat. | Zachovat a sjednotit do systému hlášení 3.2. | – (pozitivní) |
 | Místnost (palette) | Barvy provozu z GRAPHICS jsou navržené pro tmavou scénu. Na světlé podlaze mají kontrast 1.05–2.5:1. | Kabely a pakety s tmavým obrysem (GRAPHICS doplněno), test kontrastu ve scéně. | vysoká |
+
+---
+
+# Část II – Interakce v serverovně (návrh v3, 2026-11-21)
+
+Navazuje na `CLAUDE.md` (Sandbox: checkpointy, ovládání v místnosti) a `GRAPHICS.md` („Interaktivní objekty
+v serverovně“, „Provoz mezi hosty“). Inspirace od uživatele (3D rack s porty, tabule s ručně kresleným diagramem,
+počítač s „terminálovým“ obchodem, webový vizualizér vmnic karet) slouží **jen jako nápad**. Provedení je vlastní:
+kreslená útulná izometrie, žádné převzaté rozložení ani assety.
+
+Stav podkladů ve specu, ze kterých část II čerpá:
+- fyzická síť, ToR, MTU, VLAN: `10-planning §3.3`; výchozí síť ESX (vmnic0, vSwitch0, vmk0, MTU 1500), hlášky
+  validace MTU / uplinků: `25-usecases-and-physical §3.5, §5.3, §5.4, §6.3, §7`;
+- toky provozu: `10-planning §7`, `20-deployment §7`, `25 §7`, NIC a rychlosti: `15-hardware §7`;
+- **OOB management (BMC)**: **čeká na spec** (doc-researcher, `25`). Všude níže je OOB označené
+  `⏳ čeká na spec`. Do doplnění specu se OOB ve hře kreslí jen jako fyzický port bez jakéhokoli tvrzení o VCF.
+
+## 7. Společný rámec: režimy pohledu a přechody
+
+### 7.1 Režimy (view stack)
+Místnost je „domov“. Interaktivní objekty otevírají **celoobrazovkové pohledy**, které se skládají do zásobníku.
+`Esc` (nebo tlačítko Zpět, nebo tlačítko Zpět v prohlížeči) vždy odebere jeden pohled.
+
+```
+Místnost ─┬─ Rack (2D čelní pohled) ── Host – síť (karty vmnic)
+          ├─ Tabule (High-Level Design + kreslení)
+          └─ Počítač ── aplikace (Návrh VCF · Use case · Knihovna · … )
+```
+
+| Pohled | URL (hash) | Co zůstává vidět | Co se skryje |
+|---|---|---|---|
+| Místnost | `#/sandbox/mistnost` | vše | – |
+| Rack | `…/rack/<rackId>` | HUD, tracker (sbalený) | inventář (jen kategorie Kabely jako lišta), panel Návrh |
+| Host – síť | `…/rack/<rackId>/host/<hostId>` | HUD, tracker | totéž |
+| Tabule | `…/tabule` | HUD | inventář, panel Návrh, tracker se sbalí do čipu |
+| Počítač | `…/pocitac/<app>` | HUD (čas, tracker čip) | inventář, panel Návrh (PC má plnou verzi) |
+
+- Deep link funguje i po reloadu (otevře rovnou pohled, bez animace).
+- Engine běží dál ve všech pohledech (čas, úlohy). Pauzu ovládá jen hráč.
+- **Výkon**: aktivní je vždy jen jeden těžký pohled. Když je otevřený celoobrazovkový pohled, kontejner místnosti
+  má `visible = false` a částice místnosti se nesimulují (sim se jen „přeskočí“ na aktuální stav po návratu).
+
+### 7.2 Přechod Místnost → objekt (jednotný „zoom + prolnutí“)
+1. **Hover** (myš): obrys objektu zesílí (2 px OUTLINE + světlý vnější lem), kurzor `zoom-in` (lupa),
+   po 400 ms tooltip „Rack R1 · 3 servery · klik = otevřít“. Nad objektem se objeví malá ikona lupy
+   (sprite, ne text), aby to bylo vidět i bez kurzoru (dotyk, klávesnice).
+2. **Klik / tap / `E` / `Enter` na objektu ve fokusu**: avatar se vydá k objektu (kosmetika, nečeká se na něj),
+   kamera plynule najede na objekt (tween 350 ms, ease-out cubic, cílový zoom tak, aby objekt vyplnil ~70 % výšky).
+3. **Prolnutí** (150 ms): místnost alpha 1 → 0, nový pohled alpha 0 → 1, nový pohled začíná mírně zvětšený
+   (scale 0.96 → 1), aby navazoval na pohyb kamery.
+4. Zpět: obráceně (prolnutí 150 ms, pak kamera zpět na **uloženou kameru místnosti**, 250 ms).
+- Celý přechod ≤ 500 ms. Jakýkoli vstup během přechodu (klik, `Esc`) ho **dokončí okamžitě**.
+- `prefers-reduced-motion` / ⚙ „Omezit pohyb“: bez letu kamery, jen prolnutí 100 ms.
+- Pokud je vybraná položka z inventáře (režim stavby), klik na rack **nemontuje do pohledu**, ale montuje server
+  (stávající chování). Otevření racku v režimu stavby = `E` nebo dvojklik. Tooltip to řekne.
+- Dvojklik na prázdnou podlahu = „celá místnost“ (zůstává).
+
+### 7.3 Klávesy (doplněk k 4.3)
+| Klávesa | Kde | Akce |
+|---|---|---|
+| `E` | místnost | použít objekt ve fokusu / pod kurzorem / nejbližší k avatarovi (rack, tabule, počítač) |
+| `Tab` ve scéně | místnost | cyklus objektů: racky → stojany → tabule → počítač (fokus = obrys + popisek) |
+| `T` | všude | tracker úkolů sbalit / rozbalit (`Shift+T` = skrýt / zobrazit úplně) |
+| `Shift+D` | všude | otevřít Počítač → Návrh VCF |
+| `Esc` | pohled | o úroveň zpět (zruší nejdřív rozdělanou akci, např. visící kabel) |
+| `Backspace` | pohled | totéž jako `Esc` (mimo textová pole) |
+
+Dnešní `D` (panel Návrh), `L` (legenda), `C` (kabeláž) zůstávají. `C` v místnosti otevře rack vybraného hosta.
+
+---
+
+## 8. Tracker úkolů (checkpointy v Sandboxu)
+
+### 8.1 Cíl a vztah k onboardingu T1–T7
+- `CLAUDE.md`: hráč vždy ví, co dělat dál; checkpointy jsou **volitelné**, dají se odkliknout a skrýt, **nic
+  nezamykají**.
+- Tento tracker **nahrazuje a zobecňuje** 1.3. Onboarding T1–T7 (1.2) se stává **prvními úkoly skupin A–D**
+  téhož datového systému. Rozdíl mezi „tutoriálem“ a „trackerem“ je jen vrstva bublin avatara (1.4):
+  - **Tracker** = co dělat (seznam, průběh, „Ukaž mi“).
+  - **Tipy / bubliny** = proč a jak, jen u prvního výskytu. Spouští je aktivace úkolu (`onActivateTip`).
+  - V ⚙ jsou to **dva nezávislé přepínače**: „Nápovědy (bubliny)“ a „Tracker úkolů“. Zkušený hráč může vypnout
+    bubliny a nechat si tracker, nebo naopak.
+- Kariéra použije stejnou komponentu, jen s úkoly mise, body a bez „Přeskočit“ (tam se přeskakuje za srážku).
+
+### 8.2 Rozložení
+Tracker sedí **vlevo nahoře pod HUDem** (místo dnešní velké legendy, která se přesune vlevo dolů jako čip, viz 11.4).
+Šířka 280 px (≤ 1366 px: 248 px). Tři stavy:
+
+```
+Rozbalený (výchozí při prvním vstupu)          Sbalený (po dokončení T7 nebo klávesa T)
+┌ Úkoly · A Serverovna 3/5 ──────── [–][⋯] ┐   ┌ ▶ Zapoj host esx-02 do switche  ◐ 1/2 ┐
+│ ▶ Zapoj každý host do switche            │   └───────────────────────────────────────┘
+│   ◐ zapojeno 1 / 2 hosty                 │
+│   ▸ esx-01 ✓   ▸ esx-02 ○                │   Skrytý (Shift+T): nic na scéně,
+│   [Ukaž mi]  [Proč?]   [Přeskočit]       │   v HUDu jen ikona ☰✓ „Úkoly skryté“
+│ ──────────────────────────────────────── │   (klik = zobrazit)
+│ ✓ Postav rack                            │
+│ ✓ Kup server certifikovaný pro VCF 9.1   │
+│ ✓ Kup switch                             │
+│ ○ ★ Druhý switch (doporučeno)       [⤼]  │
+│ ──────────────────────────────────────── │
+│ ▸ B Hosty (ESX) 0/5   ▸ C Use case 0/1 … │  ← další skupiny sbalené
+└──────────────────────────────────────────┘
+```
+- **HUD čip „Další krok“** (2.2) ukazuje totéž co první řádek sbaleného trackeru. Klik = rozbalit tracker.
+- Skupiny = fáze toku v2 (A Serverovna, B Kabeláž, C Hosty, D Co nasadit, E Návrh, F Příprava, G Deploy).
+  Aktuální skupina je rozbalená, hotové a budoucí jsou 1 řádek. Číslování fází v HUDu (2.2) bere průběh z trackeru.
+- Max. 8 řádků ve skupině bez scrollu. Delší skupina: „+3 další“.
+
+### 8.3 Stavy úkolu
+| Stav | Ikona | Význam | Jak vzniká |
+|---|---|---|---|
+| čeká | `○` | ještě nezačal | predikát nesplněn, průběh 0 |
+| rozpracováno | `◐ n/N` | část splněna | počítadlo > 0 |
+| hotovo | `✓` | splněno ze stavu hry | predikát splněn |
+| problém | `⚠` | bylo hotovo, teď ne (např. prodaný host, odpojený kabel) – jen u úkolů typu `doc-required` | predikát se vrátil na false po dřívějším ✓ |
+| přeskočeno | `⤼` (šedě, přeškrtnuté) | hráč ho odklikl | akce hráče; **automaticky se změní na ✓**, když ho stav později splní |
+| čeká na spec | `⏳` | obsah se připravuje (např. OOB) | `featureFlag` – v buildu pro hráče se vůbec nezobrazí |
+
+- Úkol má **druh** (zobrazený štítkem, sjednoceno s 3.2):
+  - `doc-required` – požadavek dokumentace (červená tečka u ikony, „Proč?“ s ID pravidla),
+  - `doc-recommended` – doporučení dokumentace (★, stejné pravidlo jako ★ v 2.7),
+  - `game-step` – herní krok bez faktu VCF (např. „Postav rack“), bez „Proč?“ s citací, jen herní tip.
+- **Přeskočit** nikdy nemění stav hry ani nevypíná validace. Jen přestane vést. U `doc-required` úkolu se
+  potvrzuje jednou větou: „Přeskočit vedení? Validace VCF tě na tohle později stejně upozorní.“
+
+### 8.4 Akce
+| Akce | Myš / dotyk | Klávesnice | Výsledek |
+|---|---|---|---|
+| Ukaž mi | tlačítko | `Enter` na úkolu | podle `showMe`: kamera na objekt + pulz obrysu (1,5 s), nebo pulz kategorie inventáře, nebo otevře panel / PC aplikaci / rack |
+| Proč? | tlačítko | `Space` na „Proč?“ | expander 1.6 (parafráze → citace → ID → TechDocs ↗ → spec §) |
+| Přeskočit | `⤼` u úkolu | `Del` na úkolu | stav ⤼ + toast „Přeskočeno · Vrátit“ (undo 5 s) |
+| Dílčí kroky | `▸` | šipka vpravo | rozbalí sub-steps (max. 1 úroveň) |
+| Menu `⋯` | klik | `Shift+F10` | Zobrazit všechny skupiny · Skrýt tracker · Obnovit přeskočené · Nápovědy zap/vyp |
+| Sbalit / skrýt | `[–]` | `T` / `Shift+T` | viz 8.2 |
+
+Dokončení úkolu: řádek se odškrtne (✓ animace 200 ms, scale fajfky), po 1,5 s se posune do hotových a nahoře
+se objeví další. Toast jen u **konce skupiny** („Serverovna hotová – 5/5“), ne u každého úkolu (bez spamu).
+`aria-live="polite"`: „Hotovo: Kup switch. Další krok: Zapoj každý host do switche.“
+
+### 8.5 Výběr „dalšího kroku“
+1. Vezmi skupiny v pořadí toku v2 (sekce 0).
+2. V první skupině, která má nehotový a nepřeskočený úkol, vyber první takový úkol, jehož `after` jsou hotové
+   (nebo přeskočené). `after` je **doporučené pořadí, ne zámek**.
+3. Když hráč dělá věci mimo pořadí (např. otevře Návrh dřív), tracker to nezpochybňuje: úkoly z pozdější skupiny
+   se odškrtnou, jakmile je stav splní. „Další krok“ zůstane na první nehotové věci, ale čip ukáže `+2 hotovo
+   napřed`.
+4. Vše hotovo: „Sandbox je tvůj. Zkus rozbít síť a podívej se, co řekne validace.“ (herní tip) a tracker se sbalí.
+
+### 8.6 Datový model (pro scenario-designer + engine-dev)
+Úkoly jsou **data** (JSON), splnění se **odvozuje ze stavu** (snapshotu), ne z jednorázových událostí. Díky tomu
+funguje undo, prodej, načtení uložené hry i pořadí mimo průvodce. Události slouží jen pro oslavu („poprvé
+splněno“).
+
+```ts
+// game/src/modes/sandbox/objectives/schema.ts (návrh)
+interface ObjectiveGroup { id: 'A'|'B'|'C'|'D'|'E'|'F'|'G'; title: string; objectives: Objective[] }
+interface Objective {
+  id: string;                      // 'cabling.each-host-to-switch'
+  title: string;                   // imperativ, ≤ 48 znaků, česky
+  kind: 'doc-required' | 'doc-recommended' | 'game-step';
+  why?: { paraphrase: string; ref: SpecRef; ruleId?: string; quote?: string }; // povinné u doc-*
+  done: PredicateRef;              // { sel: 'hostsConnectedToSwitch', min: 'allHosts' }
+  progress?: CounterRef;           // { sel: 'hostsWithEsx', target: 'allHosts' | { fromModel: 'minHosts' } }
+  subSteps?: Objective[];
+  showMe?: ShowMeTarget;           // { object: 'firstHostWithout:cable' } | { inventory: 'switches' } | { view: 'pc/navrh' } …
+  after?: string[];
+  onActivateTip?: string;          // id tipu (1.4)
+  featureFlag?: 'oob-pending-spec';
+}
+```
+- `PredicateRef` / `CounterRef` jsou **jména selektorů** z registru v kódu (`objectiveSelectors.ts`, čisté funkce
+  nad snapshotem), ne výrazy v JSON. Fakta VCF (např. minimum hostů pro zvolený návrh) dodává **model**
+  (`10-planning §6.1` přes `optionAvailability` / `minHosts`), JSON je nikdy neobsahuje jako číslo.
+- Vyhodnocení `evaluateObjectives(snapshot, defs, prefs) → ObjectiveView[]` je čistá funkce, memo podle `revision`.
+- Stav hráče v uložené hře: `{ skipped: string[], celebrated: string[], trackerMode: 'open'|'collapsed'|'hidden' }`.
+- `SpecRef` je stejný typ jako ve `scenarios/schema.ts` (rozšířit `SpecFile` o `15-hardware`, `25-usecases-and-physical`).
+
+### 8.7 Obsah – návrh skupin (finalizuje scenario-designer, fakta jen z odkazů)
+| Sk. | Úkol | Druh | Opora |
+|---|---|---|---|
+| A | Postav rack (T1) | game-step | – |
+| A | Kup server certifikovaný pro VCF 9.1 (T2) | doc-required | `10-planning §3.4` [P33], `15-hardware` B.1 (`supportedReleases`) |
+| A | Kolik hostů? – `n / N` (T3), N z modelu podle návrhu, bez návrhu „aspoň 1“ (herní) | doc-required, jen když je návrh zvolený | `10-planning §6.1` |
+| A | Kup switch (T4) | doc-required | `10-planning §3.3` VCF-NET-REQD-TOR-001 |
+| A | ★ Druhý switch | doc-recommended | `10-planning §3.3` VCF-NET-RCMD-TOR-001 |
+| A | Připoj switch do sítě firmy (uplink na stěně, 10.2) | game-step (zjednodušení) | proč: hosty potřebují gateway a DNS – DCUI test sítě, `25 §6.3` [U34]; `20-deployment §4.1.2` |
+| B | Zapoj každý host do switche `n/N` (T5) | doc-required | VCF-NET-REQD-TOR-001 |
+| B | ★ Uplinky hosta na dva různé switche | doc-recommended | VCF-NET-RCMD-TOR-001; každý uplink samostatně, ne LAG: VCF-NET-REQD-LAG-001 (`10-planning §3.3`) |
+| B | ⏳ Management port serveru (BMC / OOB) | ⏳ | **čeká na spec** (`25`, doc-researcher) |
+| C | Nainstaluj ESX `n/N` (T6), sub-steps ISO → disk → heslo → reboot | doc-required | `20-deployment §4.1.1` |
+| C | Nastav síť v DCUI (VLAN, IPv4, DNS, FQDN, bez custom sufixů) | doc-required | `20-deployment §4.1.2`, `§3.2` |
+| C | Otestuj management síť (gateway, DNS, hostname) → **první provoz** | game-step s odkazem (spec test nepopisuje jako povinný) | `25 §6.3` [U34], tok N2 `25 §7` |
+| C | NTP na hostech | doc-required | `20-deployment §4.1.3` |
+| C | Regeneruj certifikát | doc-required | `20-deployment §4.1.4` |
+| D | Vyber, co nasazuješ (use case) (T7) | doc-required | `25 §2.1`, `20-deployment §4.2` kroky 3–4 |
+| E | Návrh `Hotovo n/N` (sub-steps = kroky návrhu) | doc-required | `05-design §4`, `§4.10` |
+| E | Potvrď principal storage (štítek Nevratné) | doc-required | `20-deployment §4.2` krok 7 |
+| F | DNS záznamy A + PTR, NTP | doc-required | `10-planning §4` krok 8, `20-deployment §3.5` |
+| F | Nasaď VCF Installer appliance, stáhni binárky | doc-required | `20-deployment §4.1.5`, `§4.1.6` |
+| G | Projdi validaci (warnings potvrď, errors oprav) | doc-required | `20-deployment §4.2` krok 19 |
+| G | Deploy a sledování úloh | doc-required | `20-deployment §4.2` krok 20 |
+
+Pozn.: pořadí skupin je **herní** (Sandbox začíná místností). Věta o reálném pořadí (plánovat → kupovat,
+`10-planning §4`) zazní v tipu u úkolu „Kolik hostů?“ (T3, viz 1.2).
+
+### 8.8 Prázdné a chybové stavy
+- Data úkolů se nenačetla (chyba JSON / schéma): tracker ukáže „Úkoly nejsou k dispozici“ + hra běží dál
+  (tracker není kritický). V dev buildu konzolová chyba se schématem.
+- Uložená hra má přeskočené id, které už neexistuje: tiše ignorovat.
+- Žádný hardware: první úkol „Postav rack“ s pulzující dlaždicí (3.1).
+
+---
+
+## 9. Rack – zoom a 2D čelní pohled (kabeláž)
+
+Nahrazuje kabeláž ve scéně a patch panel overlay z 2.5 jako **hlavní** místo zapojování. Patch panel seznam
+zůstává jako přístupná (klávesnice / čtečka) varianta téhož pohledu (9.7).
+
+### 9.1 Rozložení (1366×768)
+```
+┌ HUD ─────────────────────────────────────────────────────────────────────────────────────────┐
+├──────────────────────────────────────────────────────────────────────────────────────────────┤
+│ ← Místnost   Rack R1 · 3 servery · 1 switch      [◀ R0] [R2 ▶]   Zobrazit: ☑ kabely ☑ provoz ☐ popisky │
+│  ┌──────────────── R1 ─────────────────┐ ┌─ stojan S1 ─┐                                       │
+│  │42┆ ░░░░░░░░ 30 U volné ░░░░░░░░  ┆  │ │ ▣▣▣▣▣▣▣▣ │← switch sw-A, 16 portů, LED link   │
+│  │12┆┌───────────────────────────┐ ┆  │ │ ▣▣▣▣▣▣▣▣ │                                    │
+│  │11┆│ ▮Vendor B  esx-03  ● ◌◌◌◌ ▢│ ┆  │ └────────────┘                                     │
+│  │10┆└───────────────────────────┘ ┆  │      ▲ kabelový žlab (nahoře, auto-trasa)          │
+│  │ 9┆┌───────────────────────────┐ ┆  │                                                     │
+│  │ 8┆│ ▮Vendor B  esx-02  ● ●●◌◌ ▢│═╪══╪══════════╗                                       │
+│  │ 7┆└───────────────────────────┘ ┆  │           ║                                       │
+│  │ …┆   ● LED stavu   ◌ NIC port   ▢ BMC (⏳)      ║                                       │
+│  └──────────────────────────────────┘             ╚═► sw-A p2                             │
+│ ┌ Kabely ─────────────────────────────────────────────────────────────────────────────────┐ │
+│ │ [Zapojit doporučeně]  barva: ◯ neutrální ● ● ● ●   ☐ popisky   Odpojit vše   ⟲ ⟳         │ │
+│ └──────────────────────────────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+- Vlevo **vybraný rack**, vpravo **cílová zařízení mimo rack** (stojany se switchi, další racky) jako užší sloupce.
+  Max. 3 sloupce vedle sebe. Další racky přes `◀ ▶` (nebo `[` `]`).
+- **Komprese prázdných U**: souvislé prázdné pozice ≥ 4 U se kreslí jako jeden šrafovaný pás „30 U volné“
+  (klik = rozbalit). Tím se 42 U rack s pár servery vejde na výšku a servery jsou velké (cíl 1 U ≈ 22–28 px).
+- Rack obsazený od shora dolů (plný) → vertikální scroll kolečkem / tahem; zoom `+ / -` (1×–3×).
+- Spodní lišta „Kabely“ nahrazuje inventář (kabely jsou v Sandboxu zdarma a nekonečné – herní zjednodušení).
+
+### 9.2 Kresba zařízení (vlastní styl, žádná loga)
+- Server: čelní panel ve barvě vendor štítku (jen barevný proužek + text vendoru), hostname, LED stavu
+  (tvar + barva: `●` zapnuto / online, `▲` varování, `■` vypnuto, 4.5), NIC porty jako zaoblené čtverečky
+  s malou LED linku nad nimi, popisek `vmnic0…` při zoomu ≥ 1,5× nebo hoveru.
+  - Počet a rychlost NIC portů z konfigurace serveru (katalog z BCG, `15-hardware` B.1–B.3). Pořadí a názvy
+    `vmnicN` jsou z ESX (`vmnic0` = výchozí management NIC, `25 §6.3` [U32]); před instalací ESX se porty
+    jmenují neutrálně „NIC 1…“ (herní zjednodušení) a po instalaci dostanou `vmnic` jména.
+  - **BMC / OOB port**: samostatný port odlišného tvaru (čtvercový, šedý) se štítkem „BMC“. ⏳ **Co přes něj
+    teče, zda ho VCF potřebuje a do jaké sítě patří, čeká na spec.** Do té doby: port jde zapojit (fyzicky),
+    ale nenese provoz a nemá žádnou VCF hlášku; tooltip „Správa serveru mimo OS – zatím jen fyzicky (hra)“.
+- Switch: řada portů (generický, herní), číslování p1…pN, LED linku a aktivity, jeden **uplink port** odlišený
+  barvou rámečku (pro připojení do sítě firmy, 10.2).
+- LED aktivity bliká podle provozu (alpha toggle, max 4 Hz, bez nových textur). Reduced motion: LED svítí trvale.
+
+### 9.3 Zapojování
+| Akce | Myš | Dotyk | Klávesnice |
+|---|---|---|---|
+| Začít kabel | stisk na portu a táhnout, **nebo** klik na port | tap na port (port se zvětší na 44 px „lupou“) | fokus portu (šipky), `Enter` |
+| Vést | kabel visí za kurzorem (pružná bezier), kompatibilní porty se rozsvítí, obsazené / nekompatibilní ztmavnou se šrafou | tah prstem nebo tap na cíl | šipky skáčou mezi **kompatibilními** porty |
+| Dokončit | puštění / klik na cílový port | tap na cíl | `Enter` |
+| Zrušit | `Esc`, pravé tlačítko, puštění mimo port | tlačítko ✖ u visícího konce | `Esc` |
+| Vybrat kabel | klik na kabel nebo jeho konektor | tap | `Tab` na kabel v seznamu (9.7) |
+| Odpojit | vybrat → `Del` / „Odpojit“ v popoveru; nebo vytáhnout konektor z portu do prázdna | popover → Odpojit | `Del` |
+| Přepojit | táhnout konektor na jiný port | popover → Přepojit | `M` na vybraném kabelu |
+| Undo / Redo | `Ctrl+Z` / `Ctrl+Shift+Z` | ⟲ ⟳ v liště | totéž |
+
+- **Zvětšení portu pod kurzorem**: port v okruhu 24 px pod kurzorem se zvětší 1,6× (jen transform), aby šlo trefit
+  i malé porty bez zoomu. Cíl kliknutí je vždy ≥ 24×24 px (WCAG 2.5.8), na dotyku 44×44 px.
+- **Popover kabelu**: `esx-02 vmnic1 ⇄ sw-A p2` · rychlost · barva (kosmetická) · popisek (volný text, max. 24 zn.) ·
+  Odpojit · „Detail hosta“ (9.6).
+- **Zapojit doporučeně** (2.5) funguje i tady: animuje kabely jeden po druhém (40 ms rozestup, max 1 s celkem) a
+  vypíše shrnutí + Proč? + Undo.
+- Zvuk „cvak“ při zapojení, LED linku zezelená (link up, herní), port dostane fajfku na 600 ms.
+
+### 9.4 Auto-trasa a vzhled kabelů
+- Trasa je **ortogonální se zaoblenými rohy**: z portu vodorovně do bočního kabelového kanálu racku → svisle →
+  (jiný rack / stojan) nahoru do horního žlabu → přes → dolů ke kanálu cíle → do portu. Uvnitř jednoho racku
+  jen kanál. Každý kabel dostane **pruh** (lane) v kanálu, rozestup 3 px, aby se nepřekrývaly. Výpočet trasy je
+  čistá funkce (`rackRoute.ts`, testovatelná), přepočet jen při změně zapojení.
+- Barva: výchozí **neutrální** (tmavě šedý plášť s OUTLINE obrysem). Hráč může kabelu nastavit **kosmetickou
+  barvu** z palety 5 barev pláště, které se **nepřekrývají s barvami provozu** (např. černá, bílá, žlutá
+  `#e0b400`, růžová `#e86fb0`, hnědá `#8a5a3c` – finální odstíny ui-dev, kontrola kontrastu ≥ 3:1 vůči pozadí
+  pohledu). Popis v UI: „Barva kabelu je jen tvoje značení (jako v reálné serverovně).“
+- Vybraný kabel: zvýrazněný (světlý lem), ostatní ztlumené na 40 %. Hover na port = zvýrazní jeho kabel.
+- „Zobrazit: provoz“ = po kabelech jezdí tečky (stejný jazyk jako v místnosti, 12). V racku je to nejpodrobnější
+  úroveň: tečky jedou po **konkrétním kabelu** (vmnic → port).
+- „Zobrazit: popisky“ = vlaječky na obou koncích kabelu (`vmnic1 → sw-A p2`), jinak jen při hoveru.
+
+### 9.5 Validace a zpětná vazba při kabeláži
+Tři vrstvy, aby hráč poznal, kdo co říká (3.2):
+
+| Vrstva | Příklad | Kdy | Blokuje? | Opora |
+|---|---|---|---|---|
+| **Fyzika hry** (herní pravidla) | port obsazený; kabel do vlastního portu; typ portu neodpovídá (BMC ↔ uplink switche, pokud to hra rozliší) | při vedení kabelu (port ztmavne + důvod v tooltipu) | ano (nejde zapojit) | herní, štítek `herní pravidlo` |
+| **Chyba / varování VCF** – topologie | host bez switche; jen 1 switch; oba uplinky hosta do stejného switche | po zapojení, jako odznak `⚠` / `⛔` u hosta + položka v Problémy + úkol v trackeru | ne při kabeláži; blokuje až validace, kde to říká spec | `10-planning §3.3` (REQD-TOR-001, RCMD-TOR-001, REQD-LAG-001) |
+| **Chyba / varování VCF** – konfigurace portu (později) | MTU portu menší než potřebuje provoz (TEP ≥ 1700, ostatní ≥ 1500, dop. 9000); port není trunk 802.1Q; VLAN chybí na portu | jen když je hodnota relevantní (návrh zvolil overlay / jumbo; host má vmk na VLAN) – „nerozhodnuto ≠ chyba“ | ne; validace installeru hlásí doslovné hlášky | `10-planning §3.3`, `25 §5.4`, `25 §3.5` |
+
+- **Konfigurace portu switche** (L2, později): klik na port switche → popover „Port p2“: režim (trunk 802.1Q /
+  access), povolené VLAN, MTU (výchozí 1500 = `herní výchozí`, 2.6). Pomocník „Nastavit podle doporučení“.
+  Nesoulad MTU po cestě se ukáže i v detailu hosta (9.6) jako řetěz `vmk → vSwitch → port switche`.
+- **Hlášky validace installeru** (např. vmkping MTU 9000 selže, `25 §5.4`) se v racku zobrazí u dotčených portů
+  jako `⛔` s textem hlášky v `lang="en"` a tlačítkem **Opravit** (otevře popover portu).
+- Nic z výše uvedeného se neukazuje dřív, než to hráč mohl ovlivnit.
+
+### 9.6 Detail hosta – síť (karty vmnic) → viz 12.3
+Otevírá se z racku (`Enter` / dvojklik na server / „Detail hosta“ v popoveru). V místnosti klik na server
+otevře nejdřív rack s fokusem na server.
+
+### 9.7 Přístupnost
+- **DOM vrstva cílů**: nad Pixi plátnem leží průhledná vrstva `<button>` prvků přesně na pozicích portů a kabelů
+  (přepočet jen při layoutu / zoomu). Dává nativní fokus, `aria-label` („esx-02, vmnic1, 25 GbE, zapojeno do sw-A
+  port 2“), `aria-pressed` u vybraného portu a velké cíle pro dotyk. Kreslí se dál v Pixi.
+- **Seznam zapojení** (tlačítko „Seznam“ / klávesa `S`): tabulka `host · port · → zařízení · port · stav`
+  (= patch panel z 2.5) se stejnými akcemi. Je to plnohodnotná cesta pro klávesnici a čtečku.
+- Ohlášení `aria-live`: „Zapojeno: esx-02 vmnic1 do sw-A port 2.“ / „Nelze: port je obsazený.“
+- Kontrast: porty a LED mají tvarové rozlišení (link = vyplněný, bez linku = prázdný kroužek).
+
+### 9.8 Výkon
+- Pohled racku je samostatný Pixi kontejner; statická kresba racku a zařízení se **zapéká do textury** při změně
+  obsahu (cacheAsTexture). Dynamické jsou jen kabely (1 Graphics na kabel, přepočet při změně stylu – už dnes
+  `RoomCableView`), LED (sdílená textura, tint) a tečky (pool spritů).
+- Cíl: 40 zařízení + 120 kabelů + 150 teček na Chromebooku 60 FPS.
+
+---
+
+## 10. Tabule (whiteboard) – automatický High-Level Design + kreslení hráče
+
+### 10.1 Umístění a vstup
+- Tabule visí na **pravé stěně** místnosti (nahrazuje dnešní plakát v `roomStatic.ts`). Pevný objekt, nekupuje se.
+- V místnosti ukazuje **miniaturu** aktuálního diagramu (jen obdélníky a čáry, bez textu = LOD), obnovenou při
+  změně stavu (throttle ≥ 1 s). Tabule tím „žije“ a láká ke kliknutí.
+- Hover = obrys + lupa (7.2), tooltip „Tabule – návrh tvé serverovny (klik)“. Klik / `E` = přechod 7.2.
+- Nový obsah od posledního otevření = malá „!“ samolepka v rohu tabule v místnosti.
+
+### 10.2 Co se kreslí automaticky (ze stavu hry, žádná vymyšlená fakta)
+Diagram je **odvozený ze snapshotu** (čistá funkce `hld/layout.ts` → uzly a hrany → render). Vrstvy:
+
+| Vrstva | Obsah | Kdy | Zdroj dat |
+|---|---|---|---|
+| **Fyzicky** (výchozí) | „Síť firmy / uplink“ (mrak u stěny, herní abstrakce gateway, DNS, NTP, internet pro depot) → switche (název, počet portů) → racky s hosty (hostname, vendor štítek, počet zapojených uplinků `2/4`) | od prvního objektu | stav místnosti |
+| **Síť** | sítě a VLAN: management (VLAN, subnet, gateway z DCUI), později vMotion, vSAN, NFS, Host TEP; barevný čtvereček typu provozu (stejné barvy jako tečky); IP rozsahy / pooly | jakmile host má síť z DCUI; další sítě po vyplnění v installeru / návrhu | konfigurace hostů, `model/net.ts`; význam sítí `10-planning §3.2–3.3` |
+| **Logicky** | Fleet → Instance → Management domain → cluster → hosty; komponenty z bring-up specifikace (vCenter, NSX Manager, SDDC Manager, VCF Operations …) | po zvolení use case / návrhu; plně po bring-upu | návrh + `00-architektura §1–2` (hierarchie), `20-deployment §2.1` |
+
+- Hodnoty, které hra zvolila (IP plán), mají v diagramu malý štítek `herní výchozí`, stejně jako v panelu hosta.
+- Nerozhodnuté věci = čárkovaný obdélník s „?“ a textem „zatím nerozhodnuto“ (ne chyba).
+- Problémy z validace = zakroužkované „!“ u prvku (kresleno fixou). Klik = hlášení dle 3.2 s odkazem do specu.
+- Hover na prvek (auto vrstva) = zvýrazní ho a ukáže tooltip; klik = „Ukaž v místnosti“ / „Otevři rack“.
+- Přepínač vrstev nahoře: `Fyzicky · Síť · Logicky` (záložky = **stránky tabule**; každá má vlastní vrstvu
+  poznámek hráče).
+- **Škálování**: > 8 hostů v racku → „esx-01 … esx-12 (12)“ jako jeden blok s rozbalením; > 4 racky → racky
+  v mřížce. Layout je **deterministický a stabilní** (nové objekty se přidávají na konec, nic neposkakuje), aby
+  poznámky hráče nezůstávaly mimo.
+- Virtuální plocha tabule 1600 × 1000 jednotek: auto diagram zabírá levých ~70 %, **pravý pruh „Poznámky“
+  (~30 %) je rezervovaný pro hráče** a auto layout do něj nikdy nekreslí.
+
+### 10.3 Ručně kreslený styl – levně a ostře
+- Žádné filtry, žádný blur. Všechno Pixi `Graphics` + text.
+- **Čáry**: polyline rozdělená po ~24 px, každý bod posunutý kolmo o šum ±0,8–1,5 px. Šum je **deterministický**
+  (seed = hash id prvku), takže se čára při překreslení nehýbe. Druhý tah s alpha 0,35 a posunem 0,6 px = efekt
+  fixy. Rohy obdélníků s přesahem 2–3 px. Šipky jako dvě krátké čárky.
+- **Písmo**: rukopisné písmo s licencí OFL, self-hosted, **s ověřenou podporou češtiny (latin-ext)**; výběr
+  ui-dev (kandidáti ověřit na diakritiku). Text se renderuje s `resolution = DPR × zoomStep`.
+- **Ostrost při zoomu**: auto vrstva se zapéká do textury pro 3 stupně zoomu (1×, 2×, 3×); při změně stupně se
+  přepeče (jednorázově, < 30 ms). Mezi stupni se textura jen škáluje.
+- **Inkoust**: auto obsah má **vyhrazenou tmavě modrou** (`OUTLINE #2e2645` nebo podobnou „inkoustovou“) a
+  stejnou tloušťku. Tuto barvu hráč nemá v paletě. Barevné akcenty auto vrstvy jsou jen barvy typů provozu.
+- Tabule: téměř bílá (`#fbfbf7`) s hliníkovým rámem a poličkou na fixy dole (= nástrojová lišta, 10.4).
+  Všechny barvy fix ≥ 3:1 vůči ploše tabule.
+
+### 10.4 Kreslení hráče
+```
+┌ Tabule · Fyzicky | Síť | Logicky ─────────────── ☑ auto diagram ☑ moje poznámky   [Popis] [✖] ┐
+│                                                                 ┆ Poznámky                  │
+│   ☁ síť firmy                                                    ┆  „koupit 4. host?“         │
+│      │                                                           ┆   ~~~~ (hráčova kresba)   │
+│   [sw-A]════[sw-B]                                               ┆                           │
+│    ║   ╲   ╱  ║                                                  ┆                           │
+│   [esx-01][esx-02][esx-03]  ? 4. host (návrh: HA)                ┆                           │
+├───────────────────────────────────────────────────────────────────────────────────────────────┤
+│ polička:  ✎ fix ▸ ● ● ● ●   tloušťka ▪ ▪▪ ▪▪▪   T text   ⌫ houba   ⟲ ⟳   🗑 smazat moje   │
+└───────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+| Nástroj | Myš / pero | Dotyk | Klávesa (v pohledu Tabule) |
+|---|---|---|---|
+| Fix (pero) | tah levým tlačítkem | tah 1 prstem | `B` |
+| Barva | 4–5 fix (červená, zelená, oranžová, černá, fialová – ne inkoust auto vrstvy) | tap | `1`–`5` |
+| Tloušťka | 3 stupně | tap | `[` `]` |
+| Text | klik = textové pole (DOM `<input>` na místě, IME, diakritika), `Enter` uloží, `Esc` zruší; dvojklik na text = upravit | tap | `N` |
+| Houba (guma) | maže **celé tahy / texty** pod kurzorem (ne pixely) | tah | `G` |
+| Undo / Redo | `Ctrl+Z` / `Ctrl+Shift+Z` (vlastní zásobník tabule, max 100 kroků) | ⟲ ⟳ | totéž |
+| Smazat moje | 🗑 → potvrzení „Smazat všechny tvoje poznámky na této stránce? Auto diagram zůstane.“ → toast „Smazáno · Vrátit“ | | – |
+| Posun / zoom | kolečko, prostřední tlačítko / mezerník + tah | 2 prsty | `+` `-` `0` |
+| Skrýt vrstvy | `☑ auto diagram` / `☑ moje poznámky` | | `A` / `M` |
+
+- Pero (`pointerType === 'pen'`): kreslí pero, prst posouvá (palm rejection). Myš: levé kreslí, pravé = posun.
+- Při aktivním nástroji Fix se auto vrstva nedá omylem „vybrat“; hover tooltipy auto prvků jen v režimu „ukazovátko“
+  (výchozí nástroj `V`).
+- **Rozlišení auto vs. hráč**: (1) vyhrazený inkoust auto vrstvy, (2) přepínače vrstev, (3) v rohu tabule razítko
+  „Diagram kreslí hra podle tvé serverovny“, (4) auto prvky mají tooltip, kresby hráče ne. Hráč auto obsah
+  nemůže smazat ani posunout (houba ho ignoruje; tooltip „Tohle kreslí hra – změň serverovnu“).
+
+### 10.5 Uložení
+- Součást uložení Sandboxu: `board: { v: 1, pages: { fyzicky|sit|logicky: { strokes, texts } } }`.
+- Tah: barva, tloušťka, body zjednodušené (Ramer–Douglas–Peucker, ε ≈ 0,75 jednotky) a zaokrouhlené na celé
+  jednotky plochy, uložené jako pole čísel (delta kódování). Text: x, y, barva, velikost, obsah (max 200 znaků).
+- Limity (herní): 1 000 tahů / 100 000 bodů na stránku. Při 90 % toast „Tabule je skoro plná – smaž staré
+  poznámky“. Nad limitem se nový tah neuloží (s hláškou), nic se neztratí potichu.
+- Ukládá se s debounce 1 s po úpravě a při odchodu z pohledu. Historie undo se neukládá.
+- Volitelně (později): „Uložit jako obrázek“ (PNG z renderTexture).
+
+### 10.6 Přístupnost
+- Tlačítko **Popis** otevře textovou alternativu auto diagramu (strukturovaný seznam z téhož layout modelu:
+  „Síť firmy → sw-A, sw-B. sw-A: esx-01 vmnic0, esx-02 vmnic0 …“, sítě s VLAN a subnety, problémy).
+- Texty hráče jsou v seznamu „Moje poznámky (3)“ (čitelné čtečkou), kresby jako „5 kreseb“.
+- Celá tabule ovladatelná klávesnicí: nástroje v liště (`Tab`), text přes `N`, posun šipkami.
+
+### 10.7 Výkon
+- Auto vrstva = zapečená textura (10.3), přepočet layoutu jen při změně `revision` (throttle 250 ms v pohledu
+  tabule, 1 s pro miniaturu v místnosti).
+- Kresba hráče: rozdělaný tah = 1 Graphics s přírůstkovým `lineTo`; hotové tahy se slévají do bloků po 50 tazích
+  (1 Graphics na blok), aby počet objektů zůstal malý.
+
+---
+
+## 11. Počítač na stole – „připojení“ k herním aplikacím
+
+### 11.1 Objekt a vstup
+- **Stůl s monitorem a židlí** u levé stěny vedle dveří (volné místo v dnešní místnosti). Pevný objekt.
+- Je to **pracovní stanice admina**. Herní zjednodušení: je připojená do „sítě firmy“ bez kabelu. Ve vizualizaci
+  provozu z ní později vychází provoz admina (prohlížeč → ESX Host Client, prohlížeč → VCF Installer, oba HTTPS,
+  `20-deployment §7` řádky 1 a 3).
+- Monitor v místnosti tiše svítí (statická textura; po nové události bliká malá tečka na monitoru, max 1 Hz).
+- Hover = obrys + lupa + tooltip „Počítač – návrh VCF, use case (klik)“. Klávesa `E` u objektu ve fokusu.
+- Přechod: avatar dojde a sedne si (kosmetika ≤ 1 s, bez čekání; ⚙ „Okamžité akce“ ji vypne) → kamera na monitor
+  (300 ms) → obdélník obrazovky monitoru se **zvětší na celou plochu** pod HUDem (CSS transform DOM vrstvy z pozice
+  monitoru, 200 ms) → plocha počítače. Zpět obráceně. Reduced motion: jen prolnutí.
+
+### 11.2 Plocha počítače (DOM, světlý vlastní styl – žádná kopie OS ani UI Broadcomu)
+```
+┌ HUD hry (čas, tracker čip) ──────────────────────────────────────────────────────────────────┐
+├ ◉ AdminPC ──────────────────────────────────────────────── 10:42 (herní čas) ── [⏻ Odejít] ┤
+│  aplikace (dock vlevo)  │  okno aplikace (vždy maximalizované, 1 najednou)                   │
+│  ┌──────┐               │                                                                     │
+│  │ ▦    │ Návrh VCF     │                                                                     │
+│  │ ⇶    │ Use case      │                                                                     │
+│  │ 📖   │ Knihovna      │                                                                     │
+│  │ 🛒   │ Obchod (pozd.)│                                                                     │
+│  │ 🌐🔒 │ Prohlížeč     │  ← zamčeno s důvodem (11.5)                                          │
+│  │ ⚙🔒  │ VCF Installer │                                                                     │
+│  │ 📈🔒 │ VCF Operations│                                                                     │
+│  └──────┘               │                                                                     │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+- Dock = svislý seznam (`role="tablist"`, šipky nahoru/dolů), aplikace = `tabpanel`. Ikony vlastní, jednoduché.
+- Klávesy: `Alt+1…7` přepnutí aplikace, `Esc` = zpět o úroveň uvnitř aplikace, na ploše = odejít od počítače.
+- Inventář a pravý panel Návrh jsou v počítači skryté (počítač je jejich plná verze).
+
+### 11.3 Aplikace „Návrh VCF“ – rozhodnutí jako dlaždice
+```
+┌ Návrh VCF ───────────────────────────────────────────────────────────────────────────────────┐
+│ Hotovo 5 / 16 ▓▓▓▓░░░░░░  · Tvůj HW: 4 hosty · Vendor B · 2 switche · 4× 25 GbE              │
+│ [Začít podle blueprintu ▾]   Filtr: ○ vše ● čeká na mě ○ problémy        [Shrnutí návrhu]     │
+├───────────────────────────────────────────────┬──────────────────────────────────────────────┤
+│ ① Topologie                                    │ ● Deployment model                           │
+│ ┌─────────────┐ ┌─────────────┐                │ Jak odolné mají být management komponenty.  │
+│ │✓ Fleet model│ │✓ Kde poběží │                │ ┌───────────────┐ ┌──────────────────────┐ │
+│ │  Basic      │ │  workloady  │                │ │ ○ Simple      │ │ ● High Availability  │ │
+│ └─────────────┘ └─────────────┘                │ │ ≥ 3 hosty ✔   │ │ ★ doporučeno pro     │ │
+│ ③ Deployment model                             │ │ (vSAN)        │ │   produkci           │ │
+│ ┌─────────────┐ ┌─────────────┐                │ │               │ │ ≥ 4 hosty (vSAN) ✔   │ │
+│ │● Deployment │ │🔒 Velikost  │ ← zamčeno:     │ └───────────────┘ └──────────────────────┘ │
+│ │  model  ?   │ │  (po ③)     │   nejdřív ③    │ ▸ Proč? (citace · TechDocs ↗ · spec 05 §4.3)│
+│ └─────────────┘ └─────────────┘                │ Dopad: ve scéně zvýrazněno 4 hosty          │
+│ …                                              │ [Potvrdit volbu]                             │
+└───────────────────────────────────────────────┴──────────────────────────────────────────────┘
+```
+- Čísla hostů ve wireframu jsou příklad z `10-planning §6.1` (vSAN: Simple 3, HA 4); v UI je dodává model.
+- **Dlaždice** = jedno rozhodnutí z modelu (`model/design.ts`, 8 kroků = 8 řad, `05-design §4`). Stav dlaždice:
+  `?` nerozhodnuto (neutrální) · `✓` rozhodnuto (ukazuje volbu) · `⚠` odchylka od doporučení · `⛔` chyba VCF ·
+  `🔒` závisí na dřívějším rozhodnutí (text „nejdřív …“) · `🧩` zatím ve hře není.
+- Klik na dlaždici = **detail vpravo**: volby jako karty (název, 1 věta parafráze, splnění vůči HW `✔/✖` s čísly
+  z modelu, ★ jen s oporou v doporučení dokumentace, „Proč?“). Pravidla shodná s 2.7 (nevratné volby, odchylky,
+  „nerozhodnuto ≠ chyba“).
+- **Dopad ve scéně**: při hoveru volby se v miniatuře místnosti (malý náhled v rohu detailu) zvýrazní dotčené
+  hosty / chybějící host jako ghost. Plné zvýraznění ve scéně až po odchodu od počítače (2.7 „živé propojení“).
+- **Shrnutí návrhu**: přehled všech voleb + nároky (sizing, `20-deployment §6.2`; počty IP / FQDN `§6.4`) +
+  tlačítko „Ukázat na tabuli“ (otevře stránku Logicky).
+- Blueprinty (`05-design §2.7`) = rychlá cesta pro nováčka (2.7).
+
+### 11.4 Vztah pravého panelu „Návrh“ a aplikace v počítači
+| | Pravý panel (rychlý přehled) | Počítač → Návrh VCF (plná verze) |
+|---|---|---|
+| Účel | rozhodovat „za chůze“ bez opuštění místnosti, vidět průběh a problémy | přehled všech rozhodnutí naráz, srovnání voleb, blueprinty, shrnutí a nároky |
+| Obsah | Hotovo n/N, souhrn HW, **akordeon s jedním rozhodnutím**, Problémy | mřížka dlaždic po krocích + detail s kartami voleb + shrnutí |
+| Vstup | `D`, záložka vpravo | `Shift+D`, počítač v místnosti, tlačítko „Otevřít na počítači ▸“ v panelu |
+| Stav | **sdílený** – jeden zdroj pravdy (`SandboxSession`, design slice); změna v jednom se hned projeví ve druhém | |
+| Komponenty | sdílené: `OptionCard` (kompaktní hustota), `WhyExpander`, `Message` (3.2) | `OptionCard` (plná hustota) |
+
+Pravý panel tedy zůstává plnohodnotný (přístupnost, rychlost), počítač je „pohodlná pracovna“. Žádná funkce
+nesmí být **jen** v počítači, kromě čistě přehledových (mřížka, shrnutí).
+
+### 11.5 Další aplikace (postupně)
+| Aplikace | Kdy se odemkne | Obsah | Opora |
+|---|---|---|---|
+| Use case | hned | katalog use cases jako karty (nová fleet, nová instance, VVF, konvergence …), nemodelované s 🧩; vybraný ukáže pořadí kroků a prerekvizity | `25 §2.1–2.3`, `§4`; `20-deployment §4.2` kroky 3–4 |
+| Knihovna | hned | odkazy na dokumentaci, které hráč viděl (1.6), glosář | – |
+| Obchod (volitelně) | hned | stejný katalog jako inventář, ale široký: filtry, porovnání 3 položek (backlog #17) | `15-hardware` |
+| Prohlížeč → ESX Host Client | host má ESX a IP | NTP, SSH služba, certifikát (kroky jako tlačítka), provoz admin → host HTTPS ve vizualizaci | `20-deployment §4.1.3–4.1.4`, `§7` řádek 3 |
+| VCF Installer | appliance nasazená | průvodce `Deploy a new VCF fleet` (2.7 / backlog), login `admin@local` | `20-deployment §4.1.5`, `§4.2` |
+| VCF Operations | po bring-upu | později (`30-fleet-management`) | – |
+
+Zamčená aplikace: ikona s 🔒 a **důvodem z modelu / specu** („Nejdřív nasaď VCF Installer appliance –
+`20-deployment §4.1.5`“). Aplikace, kterou hra ještě nemá: 🧩 „Zatím ve hře není“.
+
+### 11.6 Přístupnost a výkon
+- Celý počítač je DOM (formuláře, text, dlaždice = `button` s `aria-describedby` pro stav). Fokus po otevření
+  na první aplikaci v docku, po zavření zpět na objekt počítače v místnosti.
+- Pixi místnost je pod počítačem skrytá (`visible = false`), takže počítač neubírá FPS.
+
+---
+
+## 12. Vizualizace provozu v2
+
+### 12.1 Principy
+1. **Dráty decentně, provoz výrazně.** V místnosti může být desítky kabelů. Kabely jsou tenké a neutrální,
+   informaci nesou **barevné tečky** letící mezi zařízeními.
+2. **Jen toky ze specu.** Každý typ teček odpovídá toku z tabulek „Síťový provoz“ (`10-planning §7`,
+   `20-deployment §7`, `25 §7`). Tooltip toku vždy ukazuje odkaz na řádek tabulky. Objemy a rychlosti teček jsou
+   `ilustrativní model`.
+3. **Barva nikdy sama.** Tvar tečky + legenda + tooltip.
+
+### 12.2 V místnosti
+- **Kabely jako svazky**: kabely mezi stejnou dvojicí (rack ↔ stojan / rack) vedou společnou trasou přes **žlab
+  pod stropem** (žluté žlaby už v místnosti jsou) jako jeden svazek. Tloušťka svazku roste s počtem kabelů
+  (log škála, max 6 px), na svazku malý odznak počtu (`×8`) při zoomu ≥ 1. Dnešní „fontány“ kabelů z racku
+  (screenshot `ux2-room-demo.png`) tím zmizí. Obrys svazku ≥ 3:1 (OUTLINE), výplň neutrální.
+- Hover na svazek = rozvine se na jednotlivé kabely (jen ten svazek) a tooltip vypíše zapojení.
+- **Tečky** letí po trase svazku od zařízení k zařízení (agregace na dvojici zařízení × typ provozu). Rychlost
+  a hustota = ilustrativní objem. Tečka má tmavý obrys (kontrast na světlé podlaze, 4.5).
+- **„Síť firmy“** (uplink panel na stěně) je cílem toků do gateway / DNS / NTP / internetu (herní abstrakce,
+  10.2). Tečky k němu letí po uplinku switche.
+
+### 12.3 Co poběží jako první (pořadí podle specu)
+| Moment | Tok (co hráč uvidí) | Opora |
+|---|---|---|
+| Host po instalaci ESX, bez statické IP | tečky Management host → síť firmy (DHCP) – „host si říká o adresu“ | `25 §6.3` (výchozí DHCP), `§7` N1 |
+| DCUI „Test Management Network“ | krátká vlna: host → gateway, DNS (ping, resolve) | `25 §6.3` [U34], `§7` N2 |
+| Admin u počítače otevře Host Client | počítač → host, HTTPS | `20-deployment §7` řádek 3 |
+| NTP na hostu | host → síť firmy (NTP) | `20-deployment §4.1.3`, `§7` řádek 7 |
+| VCF Installer validace | installer → hosty (ping, kontrola obsazené IP), → DNS; vmkping vMotion / vSAN / TEP mezi hosty | `20-deployment §7` řádky 5, 6; `25 §7` N3–N6 |
+| Po bring-upu | vCenter ↔ hosty (443 / 902), heartbeats, vMotion, vSAN, overlay … | `20-deployment §7` řádky 18–20, `10-planning §7` |
+| **OOB / BMC** | ⏳ **čeká na spec** – barva a tvar rezervované (GRAPHICS), tok se zapne až s oporou v `25` | doc-researcher |
+
+Před bring-upem jde management provoz přes **jednu** pNIC na vSwitch0 (`vmnic0`), ostatní NIC jsou bez provozu
+(`25 §3.5`, `§7` „Fyzicky“). Vizualizace to musí respektovat: v detailu hosta svítí jen vmnic0.
+
+### 12.4 Detail hosta – karty vmnic (inspirace vizualizérem, vlastní provedení)
+Otevírá se z racku (9.6). Pixi pohled + DOM tabulka jako alternativa.
+```
+┌ esx-02 · síť hosta ────────────────────────────────────── stav: ● ESX online · před bring-upem ─┐
+│ PROVOZ (VMkernel)                                                                                │
+│ ┌ ◆ Management ─┐ ┌ ▲ vMotion ──┐ ┌ ■ vSAN ─────┐ ┌ ⬟ Host TEP ─┐                              │
+│ │ vmk0          │ │ nenastaveno │ │ nenastaveno │ │ nenastaveno │   (šedé = zatím neexistuje)   │
+│ │ 10.0.10.12/24 │ │             │ │             │ │             │                              │
+│ │ VLAN 10       │                                                                                │
+│ │ MTU 1500      │                                                                                │
+│ └───────┬───────┘                                                                                │
+│ ════════╪═══════ vSwitch0 (Standard) · MTU 1500 · uplink: 1 ══════════════════════════════════  │
+│  ┌──────┴───────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐                            │
+│  │ vmnic0  ●up  │ │ vmnic1  ●up  │ │ vmnic2  ○    │ │ vmnic3  ○    │                            │
+│  │ 25 GbE       │ │ 25 GbE       │ │ 25 GbE       │ │ 25 GbE       │                            │
+│  │ ▓▓░░░░  3 %  │ │ nevyužito    │ │ bez kabelu   │ │ bez kabelu   │                            │
+│  │ → sw-A p1    │ │ → sw-B p1    │ │              │ │              │                            │
+│  │ port: MTU 1500 trunk          │ │              │ │              │                            │
+│  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘                            │
+│ ⓘ Před VCF Installerem: vmk0 na vSwitch0 s právě jedním uplinkem, ostatní NIC „unclaimed“ (25 §3.5) │
+│ [Tabulka] [Konfigurovat síť] [Otevřít port switche]                             ilustrativní model │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+- Tři pásy shora dolů: **typy provozu (VMkernel)** → **virtuální switch** (vSwitch0 před bring-upem, VDS po něm,
+  `25 §7`) → **fyzické NIC (vmnic)** → (dole) **port switche**. Tečky letí z boxu typu provozu přes pás switche
+  do vmnic, kterou daný provoz používá, a ven. Mapování provoz → vmnic je z konfigurace modelu (teaming), ne
+  vymyšlené.
+- **Karta vmnic**: název, stav linku (tvar + barva), rychlost (z HW katalogu, `15-hardware`), vytížení jako pruh
+  (% = `ilustrativní model`, žlutá > 80 %, červená > 95 %, GRAPHICS), kam je zapojená, MTU a režim **portu
+  switche** (konfigurace hry, L2).
+- **MTU jako řetěz**: MTU se ukazuje tam, kde ho spec definuje – VMkernel (`25 §6.3`), virtuální switch (VSS max.
+  9000, VDS max. 9190, `25 §6.3`), port fyzického switche (`10-planning §3.3`). Když článek řetězu nestačí,
+  řetěz se zvýrazní na tom místě (`⛔`/`⚠` + hláška 3.2). Inspirace měla MTU a „queues“ na každé kartě; fronty
+  ve specu nejsou, proto je **nezobrazujeme**.
+- Nenastavené typy provozu jsou šedé boxy „nenastaveno“ (vysvětlí, co přijde: „vMotion nastaví VCF Installer“ –
+  jen pokud to spec říká, jinak bez textu).
+- „Tabulka“ = DOM tabulka téhož (přístupnost, kopírování hodnot).
+
+### 12.5 Tečky – tvary a legenda
+- Tvar podle typu (čitelné i pro barvoslepé a v šedi): Management `◆`, vMotion `▲`, vSAN `■`, NFS `●`,
+  NSX overlay `⬟` (pětiúhelník), VM `○` (prázdný kruh), OOB `✚` (⏳ rezervováno). Velikost 5–7 px + obrys.
+  Jedna sdílená textura (atlas 7 tvarů), tint barvou.
+- **Legenda v2**: místo velkého panelu vlevo nahoře (dnes ~350×290 px přes scénu) **čip vlevo dole** „Provoz ▾“,
+  který ukazuje jen **právě aktivní** typy (tvar + barva + název). Klik = rozbalí plnou legendu (typy, vytížení,
+  zahozené pakety, štítek ilustrativní). Klik na typ = **filtr** (zobrazit jen tento provoz, ostatní tečky 15 %
+  alpha). Hover na typ = zvýrazní jeho toky. Při prvním provozu se legenda jednou sama rozbalí (3.3), pak sbalí.
+- Klávesa `L` = rozbalit / sbalit, `Shift+L` + číslo = filtr (volitelně).
+- Tooltip toku (hover na tečky / svazek): `odkud → kam · typ · síť / VLAN · protokol (jen když ho spec uvádí) ·
+  „spec 25 §7 N2“ · objem ilustrativní`.
+
+### 12.6 Škálování (mnoho hostů) a LOD
+| Situace | Řešení |
+|---|---|
+| Hodně kabelů | svazky (12.2); v racku lanes (9.4) |
+| Hodně teček | globální rozpočet **≈ 200 teček** (sdílený s packetSim). Emise každého toku se škáluje dolů, každý aktivní tok má ale min. 1 tečku / 2 s, aby žádný „nezmizel“ |
+| Oddálená kamera (scale < 0,6) | agregace na **rack ↔ switch / síť firmy** (jeden proud na typ), tečky o 30 % větší, bez odznaků |
+| Přiblížená (scale ≥ 1,2) | agregace na **zařízení ↔ zařízení**; kabely ve svazku při hoveru |
+| Rack pohled | nejpodrobnější: konkrétní kabel (vmnic → port) |
+| > 32 hostů nebo FPS < 50 po 2 s | automaticky „úsporný režim“: místo teček animovaná čárkovaná linka (posun texture offsetu, 1 Graphics na svazek) + hláška v ⚙ |
+| Mimo obraz | culling – tečky mimo viewport se nesimulují vizuálně (jen čas) |
+| Reduced motion | statické pruhy hustoty (3.4) |
+
+### 12.7 Výkon (shrnutí)
+- Tečky = pool spritů v `ParticleContainer` (jen pozice, tint, alpha). Žádné filtry, glow jen předpečený v textuře.
+- Trasy (bezier / ortogonální) se vzorkují jednou při změně zapojení (`sampleBezier`, už existuje).
+- Měření: debug overlay FPS + počet teček; test na 1366×768, 16 hostů, 2 switche, 200 teček → 60 FPS.
+
+---
+
+## 13. Review současné místnosti (2026-11-21, `#/sandbox/mistnost/ukazka`)
+
+Screenshot 1366×768: `/tmp/claude-1000/-workspaces-vcf-game/79a2ed2c-cd7f-4ffa-b10c-8ab22e1fbc99/scratchpad/ux2-room-demo.png`.
+
+| Obrazovka | Problém / příležitost | Návrh | Priorita |
+|---|---|---|---|
+| Místnost | Rack nemá žádnou „interaktivní“ nápovědu (kurzor, obrys, tooltip). Klik na rack bez vybrané položky jen pošle panáčka. | Hover obrys + kurzor lupa + tooltip, klik = pohled racku (7.2, 9) | vysoká |
+| Místnost | Kabely z racku ke stojanu tvoří vysoký „vodotrysk“ 8 oblouků. Už s 1 switchem je scéna rušná, s 10 hosty bude nečitelná. | Svazky přes stropní žlab, detail až v racku (12.2) | vysoká |
+| Místnost | Legenda provozu (~350×290 px) trvale zakrývá levou část scény, i když žádný provoz neběží (bez ukázky). | Čip „Provoz ▾“ vlevo dole s aktivními typy (12.5); místo vlevo nahoře pro tracker | vysoká |
+| HUD | Čip „1. Fyzická stavba → postav rack“ je statický text (v ukázce s postaveným rackem pořád radí postavit rack). | Napojit na tracker (8): čip = „Další krok“ ze stavu | vysoká |
+| Místnost | Plakát na pravé stěně je dekorace bez funkce; chybí stůl s počítačem. | Plakát nahradit tabulí (10.1), stůl k levé stěně u dveří (11.1) | střední |
+| HUD | Přepínač „Ukázka (ilustrativní)“ je v HUDu stejně výrazný jako herní ovládání. | Přesunout do ⚙ / dev menu, v HUDu nechat jen pro `?debug` | nízká |
+| Místnost | Toast dole uprostřed je `role="status"` s `aria-live` – dobré. Text „Klikni na podlahu – panáček tam dojde“ ale neříká, co dělat **dál**. | Po zavedení trackeru toast jen pro výsledky akcí, vedení přebírá tracker | střední |
+| Inventář | Karta „Rack (prázdný)“ je čitelná, kategorie jsou `role="tab"` s klávesami 1–6 – dobré. | Zachovat; v pohledu racku inventář nahradit lištou Kabely (9.1) | – (pozitivní) |
+
+---
+
+## 14. Backlog v3 (prioritizovaný, MVP pořadí)
+
+Legenda: **UI** = ui-dev, **EN** = engine-dev, **MO** = domain-modeler, **SD** = scenario-designer, **RES** =
+doc-researcher. Velikost S / M / L. Nahrazuje / zpřesňuje položky #6, #8, #9 z kapitoly 5. Ostatní položky
+kapitoly 5 platí dál.
+
+### MVP-A „Vím, co dělat, a umím zapojit“ (nejvyšší priorita)
+| # | Položka | Kdo | Vel. | Závisí na |
+|---|---|---|---|---|
+| A1 | **View stack + přechody** (7.1–7.2): režimy Místnost / Rack / Tabule / PC, hash routy, `Esc`/Zpět, uložená kamera, hover obrys + lupa + tooltip u interaktivních objektů, reduced motion, skrytí místnosti při celoobrazovkovém pohledu | UI | M | – |
+| A2 | **Objective tracker** (8): schéma + registr selektorů nad snapshotem + `evaluateObjectives` (čistá funkce, testy) | EN | M | room state v engine (#2 z kap. 5) |
+| A3 | Tracker UI (8.2–8.5): 3 stavy, Ukaž mi, Proč?, Přeskočit + undo, `T`/`Shift+T`, HUD čip, aria-live; ⚙ dva přepínače (tracker / bubliny) | UI | M | A2 |
+| A4 | Obsah úkolů skupin A–C v JSON s `SpecRef` (8.7), T1–T7 jako první úkoly; OOB položka za `featureFlag` | SD | S | A2 |
+| A5 | **Rack pohled** (9.1–9.3): elevace se zkomprimovanými prázdnými U, server / switch s porty a LED, kabeláž drag + click-click, popover kabelu, odpojit / přepojit, Zapojit doporučeně | UI | L | A1 |
+| A6 | Auto-trasa kabelů v racku (`rackRoute.ts`, lanes, čistá funkce + testy) | UI | M | A5 |
+| A7 | DOM vrstva cílů portů + seznam zapojení (9.7) | UI | M | A5 |
+| A8 | Model portů v engine: NIC porty z HW konfigurace (`15-hardware` B), porty switche, uplink port, BMC port bez VCF pravidel; příkazy `connect / disconnect / recolor / label` | EN + MO | M | – |
+| A9 | Topologické validace kabeláže jako odznaky + Problémy (REQD-TOR-001, RCMD-TOR-001, REQD-LAG-001; 9.5) | MO + UI | S | A8 |
+
+### MVP-B „Vidím, co se děje“
+| # | Položka | Kdo | Vel. | Závisí na |
+|---|---|---|---|---|
+| B1 | Kabely v místnosti jako **svazky** přes stropní žlab + rozvinutí při hoveru (12.2) | UI | M | A8 |
+| B2 | **Toky provozu ze stavu** (12.3): DHCP / Test Management Network / NTP / admin HTTPS; „Síť firmy“ jako objekt na stěně; agregace na dvojice zařízení × typ | EN + UI | M | A8, ESX/DCUI (#7 z kap. 5) |
+| B3 | Tvary teček (atlas), legenda v2 jako čip s aktivními typy + filtr (12.5) | UI | S | – |
+| B4 | **Detail hosta – karty vmnic** (12.4): pásy VMkernel / vSwitch / vmnic / port, tečky, MTU řetěz, DOM tabulka | UI | L | A5, B2 |
+| B5 | LOD a rozpočet teček, úsporný režim, culling (12.6) | UI | M | B2 |
+
+### MVP-C „Pracovna a tabule“
+| # | Položka | Kdo | Vel. | Závisí na |
+|---|---|---|---|---|
+| C1 | **Počítač**: objekt na stole, přechod, plocha s dockem (11.1–11.2) | UI | M | A1 |
+| C2 | PC aplikace **Návrh VCF** – mřížka dlaždic + detail se sdílenými `OptionCard` / `WhyExpander` / `Message`; sdílený stav s pravým panelem přes `SandboxSession` (11.3–11.4) | UI (+ EN napojení session) | L | Návrh v2 (#11 z kap. 5) |
+| C3 | PC aplikace **Use case** (karty z `25 §2.1`, 🧩 pro nemodelované) | UI + MO | M | C1 |
+| C4 | **Tabule – auto HLD**, vrstva Fyzicky: `hld/layout.ts` (deterministický, testy) + ručně kreslený render s jitterem, miniatura v místnosti, Popis (a11y) (10.1–10.3, 10.6) | UI | L | A1 |
+| C5 | **Tabule – kreslení hráče**: fix, barvy, tloušťka, text, houba, undo/redo, smazat moje, uložení do save (10.4–10.5) | UI + EN (save) | M | C4, ukládání (#24 z kap. 5) |
+| C6 | Tabule – stránky Síť a Logicky | UI | M | C4, data sítí / návrhu |
+
+### Později
+| # | Položka | Kdo | Vel. |
+|---|---|---|---|
+| D1 | Konfigurace portu switche (trunk / VLAN / MTU) + MTU řetěz s hláškami installeru (`25 §5.4`) | MO + EN + UI | M |
+| D2 | PC: Prohlížeč → Host Client (NTP, certifikát), VCF Installer jako aplikace | UI + EN | L |
+| D3 | **OOB / BMC**: provoz, síť, úkoly, barva – **až po doplnění specu** `25` | RES → MO → UI | M |
+| D4 | PC: Obchod s porovnáním; Uložit tabuli jako PNG | UI | S |
+| D5 | Kariéra: tracker s body (stejná komponenta, bez Přeskočit) | SD + UI | M |
+
+**Doporučené pořadí pro první sprint**: A1 → A8 → A2 → A3 + A4 → A5 → A6 → A7 → A9 → B1 → B3. Tím vznikne
+hratelná smyčka „úkol → otevřu rack → zapojím → úkol hotový → kabely v místnosti čisté“. B2/B4 navazují hned po
+instalaci ESX (#7 z kap. 5).

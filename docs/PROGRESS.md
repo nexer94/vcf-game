@@ -65,9 +65,13 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
 - [ ] (z review, zbývá – řeší UI v2) gate fází přes hash a UI návrhu napojit na `SandboxSession`
 
 ### Sandbox v2 – interakce v místnosti (uživatel 2026-11-21, GRAPHICS.md „Interaktivní objekty“)
-- [ ] `ux-designer` – návrh: checkpointy/úkoly v Sandboxu (volitelné), rack → zoom → 2D kabeláž, tabule
-  s automatickým HLD + vlastní kresba, počítač s návrhem VCF v dlaždicích, provoz v2 (tečky, karty vmnic) *(běží)*
-- [ ] `doc-researcher` – OOB management (BMC) ve VCF 9.1 – co je dokumentované → `25` *(běží)*
+- [x] `ux-designer` – UX.md Část II (kap. 7–14): zásobník pohledů (Místnost → Rack → Host, Tabule, Počítač),
+  tracker úkolů (odvozený ze stavu, přeskočitelný), 2D rack + kabeláž, tabule (auto HLD 3 vrstvy + kresba hráče),
+  počítač s „OS“ (Návrh VCF v dlaždicích, Use case…), provoz v2 (svazky, tvary teček, karty vmnic); backlog v3
+- [x] `doc-researcher` – OOB (`25` §10): OOB je podle docs **mimo scope VCF**, není mezi sítěmi mgmt domény;
+  doloženo: BMC má vlastní NIC/IP, zapnutí hostů přes iLO/iDRAC, vzdálená instalace ESX (tabulka firmwaru),
+  firmware přes vLCM HSM; KB 376173 (vSwitchBMC) jako možná příčina selhání bring-upu. → ve hře OOB volitelný
+  krok „mimo VCF scope – herní“, první dokumentovaná síť = ESX management (vmk0)
 - [ ] `ui-dev` + `engine-dev` – implementace podle UX (po návrhu)
 
 ### Sandbox v1 (původní tok Návrh → Příprava → Deploy)

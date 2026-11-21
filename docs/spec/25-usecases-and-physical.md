@@ -12,7 +12,8 @@
 >
 > Nová fakta jsou tu: **(A)** katalog use cases / cest, jejich pořadí kroků a rozhodovací body (včetně cesty
 > „nejdřív vSphere, pak konvergence“) a výstupy a kontroly plánování a zdrojů; **(B)** stav sítě ESX hned po
-> instalaci, výchozí a maximální MTU, validace MTU a uplinků v installeru a jejich chybové hlášky.
+> instalaci, výchozí a maximální MTU, validace MTU a uplinků v installeru a jejich chybové hlášky; **(C)** out-of-band
+> management hostů (BMC) – co je a co není dokumentované (sekce 10, zdroje [U57]–[U83]).
 
 ---
 
@@ -499,3 +500,275 @@ Základ VCF 9.1: `https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and
 - [U54] KB 442109 – VMKernel adapter „is not assigned to a dedicated port group“: https://knowledge.broadcom.com/external/article/442109/vmkernel-adapter-validation-failure-is-n.html
 - [U55] Physical Data Center Network Design (VCF 9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/physical-datacenter-design-9-x.html
 - [U56] VMware Ports and Protocols (odkaz z Planning and Preparation 9.1): https://ports.broadcom.com/
+- [U57]–[U83]: zdroje sekce 10 (OOB management) jsou v 10.9.
+
+---
+
+## 10. OOB management (BMC)
+
+> Výzkum 2026-11-21, modelovaná verze 9.1.1. Otázka z game designu: první síť, kterou hráč v Sandboxu kabeluje, je
+> „management / OOB“. Je OOB síť (BMC: iDRAC / iLO / XCC / CIMC, IPMI, Redfish) ve VCF 9.x dokumentovaný požadavek,
+> doporučení, nebo nic? Struktura 10.1–10.9 kopíruje sekce 1–9.
+>
+> **Pozor na termín.** Ve VCF 9.1 znamená „out-of-band (OOB) operations“ i něco jiného: změny dělané přímo ve vCenteru
+> nebo NSX Manageru mimo workflow SDDC Manageru („These direct changes are called out-of-band (OOB) operations.“) [U82].
+> Ve hře proto vždy rozlišovat **OOB management (BMC)** a **OOB operations (config drift)**.
+
+### 10.1 Shrnutí
+
+**Verdikt: OOB síť pro BMC není v dokumentaci VCF 9.x požadavek ani doporučení. Design VCF ji výslovně vyřazuje ze
+scope.**
+- Physical Data Center Network Design (9.1, stejně i 9.0), sekce „Host to Physical Switch Mapping Models“: „In VMware
+  Cloud Foundation networking, switches utilized for out-of-band connectivity to the ESX host are out of scope.“
+  [U55][U57]
+- Seznamy sítí a VLAN pro management domain (Design Library, blueprinty, planning stránky) OOB / BMC síť **neobsahují**
+  (10.2.2) [U58][U60][U61][U62][U63][U64]. Nenašli jsme v nich žádné design ID (REQD/RCMD) o BMC.
+- Dokumentace přitom **předpokládá, že BMC existuje** a používá ho v konkrétních postupech:
+  - **Start VCF** (Fleet Management > VCF Shutdown and Startup, 9.1): hosty management domain se zapínají přes „an
+    out-of-band management interface, such as, ILO or iDRAC“ [U75][U76].
+  - **Vzdálená instalace ESX** (vSphere 9.1): „Remote management applications allow you to install ESX on servers that
+    are in remote locations.“ Podporované aplikace a minimální firmware jsou v tabulce [U67][U68].
+  - **vSphere DPM**: probuzení hosta ze standby přes IPMI nebo iLO. Vyžaduje nakonfigurovaný BMC s IP, „as distinct from
+    the IP address of the host“ [U73][U74].
+  - **KB / troubleshooting**: kontrola SEL / logů v iDRAC, iLO, Cisco IMC, Lenovo XCC; restart nebo vypnutí hosta
+    přes iLO/iDRAC [U80][U81].
+- **Firmware přes vSphere Lifecycle Manager** jde přes **hardware support manager (HSM)**. Je to vendorový plug-in
+  registrovaný jako vCenter extension. Dokumentace **neuvádí**, že by HSM komunikoval s BMC [U70][U71][U72].
+- **ESX management (vmk0)** a BMC jsou dokumentované jako **dvě různá rozhraní s různými IP** [U74]. Hardware health
+  přes CIM jde přes ESX host (vCenter ticket → CIM na host), ne přes BMC [U77]. Jak se BMC fyzicky kabeluje (dedikovaný
+  port, sdílený LOM, samostatný switch), VCF nepopisuje. Je to „out of scope“ [U55].
+
+### 10.2 Komponenty a vztahy
+
+#### 10.2.1 Co dokumentace o BMC říká (vSphere 9.1)
+- „The BMC is powered-on even when the host itself is powered-off.“ BMC poskytuje vzdálený přístup k ovládání
+  hardwaru přes sériovou linku nebo LAN [U74].
+- BMC má vlastní NIC: v DPM se zadává „IP address of the NIC associated with the BMC, as distinct from the IP address of
+  the host“ a „MAC address of the NIC associated with the BMC“ [U74].
+- Výrobci a jejich BMC v povolených zdrojích (pro herní vendory):
+
+| Vendor ve hře | BMC v dokumentaci | Kde | Zdroj |
+|---|---|---|---|
+| Dell | DRAC / iDRAC (DRAC 4–10) | remote install tabulka, startup VCF, KB | [U68][U75][U80] |
+| HPE | iLO (iLO – iLO 7) | remote install tabulka, DPM, startup VCF, KB | [U68][U73][U75][U80] |
+| Lenovo | XClarity Controller XCC2, XCC3 | remote install tabulka, KB (SEL) | [U68][U80] |
+| Cisco | Cisco IMC | jen KB (SEL logy) | [U80] |
+| Supermicro | – | v žádném nalezeném zdroji | – |
+
+#### 10.2.2 Sítě management domain podle dokumentace (OOB mezi nimi není)
+
+| Zdroj | Vyjmenované sítě / VLAN | OOB / BMC? |
+|---|---|---|
+| **[9.1]** Network Fabric Detailed Design – „VLAN Traffic Types“ [U60] | ESX Infrastructure Traffic („ESX Management, vMotion, vSAN, etc.“), VM Management Traffic („Optional segment that may be shared with ESX management VMkernel Segment“), NSX Edge Node Uplink Networks, NSX Host and Edge TEPs, NSX Edge RTEP (optional), Workload VM VLAN Segments, External VLAN for DTGW | ne |
+| **[9.1]** VMkernel Detailed Design [U43] | ESX Management (1500 default), vSphere vMotion (9000), vSAN (9000), NFS (9000), Host TEPs (9000) | ne |
+| **[9.1]** ESX Model [U58] | VCF-ESX-RCMD-NET-001 (ESX management oddělit od VM management), -002 (ESX management VLAN per workload domain), -003 („Use dedicated VLANs for each traffic type“) | ne |
+| **[9.1]** Blueprint „VCF Fleet in a Single Site with Minimal Footprint“ – Minimum Requirements [U61] | ESX Management (3 IPs), VM Management (24 IPs), vMotion (3 IPs), vSAN (3 IPs), Host TEP (6 IPs), (Optional) Edge TEP (4 IPs), (Optional) Edge Uplink (2 IPs) | ne |
+| **[9.1]** Blueprint – Single-Rack Network Fabric Model [U62] | Management VM Appliances, ESX management VMK, IP Storage VMKs (vSAN, NFS, iSCSI), vMotion VMK, Host TEP, NSX Edge node management, NSX Edge TEP, NSX Edge RTEP, NSX Edge Uplink, VNA – Stateful Services, VNA Node Management, VNA – EVPN Route Controller, BGP-EVPN Peering | ne |
+| **[9.0]** Blueprint minimal footprint – Planning and Preparation [U63] | „7x VLANS (with a physical network gateway interface attached)“: ESX Management, VM Management, vSAN (nebo NFS), vMotion, Host TEP, Edge TEP, Edge Uplink | ne |
+| **[9.1]** Network Deployment Options for VCF Components [U64] | ESX management network, VM management network, (dedikovaná) VCF management network, custom segment / distributed port group | ne |
+
+Pro hru: **první síť, kterou VCF dokumentuje, je ESX management** (vmk0, VLAN nastavená v DCUI, viz 3.5). OOB síť
+v seznamu chybí.
+
+#### 10.2.3 Vztah vmk0 (ESX management) ↔ BMC
+- Dvě různé IP: BMC NIC „as distinct from the IP address of the host“ [U74]. vmk0 je „one IP address for the management
+  network“ ESX [U30].
+- VCF neříká, jestli má BMC ležet ve stejné VLAN / subnetu jako vmk0, nebo v jiné. Switche pro OOB jsou „out of
+  scope“ [U55].
+- In-band hardware monitoring jde přes ESX management: aplikace se autentizuje do vCenteru, dostane ticket
+  `AcquireCimServicesTicket()` a pak volá CIM na ESX host („CIM-XML port 5989 or WS-Man port 433“, citováno doslova,
+  viz 10.8) [U77].
+- **Interní host ↔ BMC rozhraní (vSwitchBMC / vusb0)**: když je v iDRAC nebo iLO zapnuté USB/NIC rozhraní, ESX vytvoří
+  standard switch **vSwitchBMC** s uplinkem **vusb0** (KB uvádí vSphere 8.0 a 8.0.3). Podle KB to „might cause the
+  VMware Cloud Foundation Bring-Up process to fail“ [U78]. U Dellu existuje varianta s přepínačem „iDRAC“ na vusb0
+  a řešením „turn off the OS to iDRAC Pass-Through functionality“ v out-of-band iDRAC UI [U79]. Nejde o OOB síť, je to
+  vnitřní USB-NIC mezi OS a BMC.
+
+#### 10.2.4 Firmware a HSM (vSphere Lifecycle Manager 9.1)
+- „The hardware support manager is a plug-in that registers itself as a vCenter extension.“ Každý výrobce dodává
+  vlastní HSM. HSM poskytuje seznam firmware updatů a „is also responsible for retrieving the firmware versions on the
+  host hardware“ [U70].
+- Uvedené HSM [U71]: **Cisco** (Intersight, bez appliance ve vCenter), **Dell** (OpenManage Integration for VMware
+  vCenter – OMIVV, appliance), **HPE** (Compute Ops Management plug-in, HPE OneView for VMware vCenter), **Lenovo**
+  (XClarity Integrator for VMware vCenter, appliance), Hitachi (UCP Advisor). Plný seznam certifikovaných HSM je
+  v Broadcom Compatibility Guide [U71]. **Supermicro na stránce uveden není.**
+- Firmware update přes image jde jen u clusterů spravovaných image (ne baselines). Všechny hosty v clusteru musí být od
+  stejného výrobce [U72].
+- **[9.1]** „If both vCenter and ESX are of version 9.1 and later and no hardware support manager is configured“ lze
+  před remediací vygenerovat hardware compatibility report [U72].
+- Přes jakou síť nebo rozhraní HSM firmware na host dostane (BMC, Redfish, in-band), stránky **neuvádějí** [U70][U71].
+
+### 10.3 Prerekvizity
+- **Pro VCF deployment / bring-up: žádná dokumentovaná prerekvizita týkající se BMC/OOB.** Příprava ESX hostů
+  (9.1) BMC ani vzdálenou správu nezmiňuje [U17]. Krok instalace říká jen „Mount the ESX ISO on the host and restart the
+  machine“, bez určení, jak (fyzické médium / virtual media) [U66].
+- **Vzdálená instalace ESX** (volitelná cesta): jen podporované aplikace a minimální firmware z tabulky [U67][U68]
+  (10.6).
+- **vSphere DPM přes IPMI/iLO** [U74]:
+  - „Configure the BMC“ (podle dokumentace výrobce) před použitím IPMI nebo iLO jako wake protokolu.
+  - IPMI: „the BMC LAN channel is configured to be always available and to allow operator-privileged commands“. Na
+    některých systémech je třeba zapnout IPMI over LAN v BIOSu a vytvořit IPMI účet.
+  - Účet BMC, který umí host vzdáleně zapnout; IP a MAC NIC BMC; „The IP address should be static or a DHCP address
+    with infinite lease.“
+- **Startup VCF**: přístup k out-of-band rozhraní každého hosta management domain [U75][U76].
+- **HSM**: nasadit vendorový HSM a zaregistrovat ho jako vCenter extension. U Dellu cluster profile [U72].
+
+### 10.4 Workflow
+
+#### 10.4.1 Pořadí „nejdřív BMC, pak ESX přes virtual media“
+**Není dokumentováno jako postup VCF.** Doložené kousky:
+1. Instalace ESX (VCF 9.1, Install ESX on Hosts Using an ISO Image) [U66]: Mount ISO → restart → v BIOS/UEFI boot
+   z ISO → Enter → EULA → výběr disku → klávesnice → root heslo → F11 → reboot → první boot device = disk s ESX →
+   opakovat pro všechny hosty.
+2. Vzdálená varianta instalace (vSphere 9.1) [U67]: remote management aplikace lze použít pro interaktivní
+   i skriptovanou instalaci. Varování: „the virtual CD might encounter corruption problems with systems or networks
+   operating at peak capacity“. Při selhání dokončit instalaci z fyzického média.
+3. Pak příprava ESX dle 4.1 (DCUI síť, NTP, certifikát) [U17].
+
+Pořadí „BMC (IP, účet) → virtual media → instalace ESX → DCUI“ je **logické složení**, ne dokumentovaný postup.
+Ve hře ho označit jako herní zjednodušení (viz 10.10).
+
+#### 10.4.2 Start management domain (9.1) [U75][U76]
+1. „Power on the first ESX host in the management domain.“
+   - „Log in to the first ESX host in the domain by using the out-of-band management interface.“
+   - „Power on the ESX host according to the hardware vendor guide.“
+2. „Repeat the previous step to start all the remaining ESX hosts in the management domain.“
+3. Další kroky: vSAN – restart vSAN clusteru z vCenteru, začít clusterem s management vCenterem [U75]. NFS/FC – zapnout
+   vCenter z ESX Host Clientu, ověřit připojení hostů, exit maintenance mode [U76].
+
+#### 10.4.3 Nastavení IPMI/iLO pro DPM (vSphere Client, per host) [U74]
+1. Browse to the host. 2. Configure tab. 3. System > **Power Management**. 4. **Edit**. 5. BMC user name + password,
+IP adresa NIC BMC, MAC adresa NIC BMC. 6. OK.
+Pořadí wake protokolů: „If a host supports multiple protocols, they are used in the following order: IPMI, iLO, WOL.“
+[U73]
+
+#### 10.4.4 Firmware přes image (vSphere Client 9.1) [U72]
+Cluster / host spravovaný image → Updates → Hosts → Image → Edit → Firmware and Drivers Addon: **Select** → vybrat HSM
+→ vybrat firmware add-on → Select → validovat a uložit image → Image Compliance → remediovat nekompatibilní hosty.
+
+### 10.5 Chybové stavy
+
+| Situace | Následek / hláška | Verze / kontext | Zdroj |
+|---|---|---|---|
+| iDRAC/iLO USB-NIC rozhraní zapnuté → ESX vytvoří vSwitchBMC (vusb0) | „might cause the VMware Cloud Foundation Bring-Up process to fail“. Řešení: před instalací vypnout USB rozhraní v remote management aplikaci, nebo `esxcfg-advcfg -s 0 /Net/BMCNetworkEnable` + reboot. **Výjimka:** na systémech s DPU je vSwitchBMC nutný pro DPU management: „DO NOT "Disable vSwitchBMC creation"…“ | KB: vSphere 8.0 / 8.0.3, verze VCF neuvedena | [U78] |
+| Přepínač „iDRAC“ na vusb0 se po rebootu znovu vytváří | stará definice v lokální konfiguraci; smazat switch, uložit, reboot; „access the out-of-band iDRAC UI and turn off the OS to iDRAC Pass-Through functionality“ | KB bez verze | [U79] |
+| Host neumí IPMI, iLO ani WOL | „If a host does not support any of these protocols it cannot be put into standby mode by vSphere DPM.“ | vSphere 9.1 | [U73] |
+| BMC nepodporuje MD5 ani plaintext autentizaci (pro Operator) | IPMI nelze s hostem použít, vCenter zkusí Wake-on-LAN | vSphere 9.1 | [U74] |
+| Virtual CD při vzdálené instalaci | možné poškození při špičkovém zatížení systému/sítě → dokončit z fyzického média | vSphere 9.1 | [U67] |
+| HSM od jiného výrobce než hosty / hosty různých výrobců | prerekvizita „Verify that all hosts in the cluster are from the same vendor.“ (přesnou hlášku stránka neuvádí) | vSphere 9.1 | [U72] |
+| Neočekávaný reboot / shutdown hosta | může přijít přes iLO/iDRAC („An ESXi host can also be shut down or rebooted through out-of-band management interfaces such as iLO or iDRAC.“). Kontrola SEL „(such as HPE iLO, Dell iDRAC, Cisco IMC or Lenovo XCC)“ | KB: ESXi 7.0/8.0, VVF 9.0.x | [U80] |
+| Host „Not Responding“ | „Inspect the out-of-band management console (iDRAC, iLO, or BMC) for recorded ECC or multi-bit memory errors“ | KB: ESXi 8.0.3 | [U81] |
+
+### 10.6 Limity a čísla
+
+**Remote management – podporované modely a minimální firmware pro instalaci ESX** [U68] (9.1) / [U69] (9.0). Jen
+řádky relevantní pro herní vendory (plná tabulka obsahuje i Fujitsu iRMC S5/S6 a IBM RSA 2):
+
+| Model | Firmware 9.1 | Firmware 9.0 |
+|---|---|---|
+| Dell DRAC 10 | 1.10.17.00 | 1.10.17.00 |
+| Dell DRAC 9 | 6.0.30.00 | 6.0.30.00 |
+| Dell DRAC 7 / 6 / 5 / 4 | 1.30.30 (Build 43) / 1.54 (Build 15), 1.70 (Build 21) / 1.0, 1.45, 1.51 / 1.75 | stejné |
+| HP ILO / ILO 2 / ILO 3 / ILO 4 | 1.81, 1.92 / 1.8, 1.81 / 1.28 / 1.13 | stejné |
+| HP ILO 5 | 2.72 | 2.72 |
+| HPE ILO 6 | 1.10 | 1.10 |
+| HPE ILO 7 | **[9.1]** 1.20 | **[9.0]** 1.13.0 |
+| Lenovo XCC2 | 8.10 (iyx346k‑8.10) | stejné |
+| Lenovo XCC3 | 9.11 (qgx3a2g‑9.11) | stejné |
+| Cisco (CIMC), Supermicro | v tabulce **nejsou** | – |
+
+Další čísla:
+- Počet IP pro BMC, VLAN pro OOB, MTU OOB sítě: **nedokumentováno** (OOB je out of scope [U55]).
+- DPM: IP BMC statická nebo DHCP s nekonečným leasem [U74].
+- CIM ticket je třeba obnovovat zhruba každé 2 minuty [U77].
+
+### 10.7 Síťový provoz
+
+Toky doložené ve zdrojích (porty jen tam, kde je zdroj uvádí). Doplňuje sekci 7:
+
+| # | Odkud | Kam | Síť | Protokol / port | Kdy / účel | Zdroj |
+|---|---|---|---|---|---|---|
+| O1 | admin (stanice) | BMC hosta (iLO/iDRAC) | OOB (síť **nedokumentovaná**, out of scope) | neuvedeno | zapnutí hostů při startu VCF | [U75][U76] |
+| O2 | admin (remote management aplikace) | BMC hosta → virtual CD | OOB (nedokumentovaná) | neuvedeno | vzdálená instalace ESX z ISO | [U67] |
+| O3 | vCenter (DPM) | BMC NIC hosta (IP ≠ IP hosta) | síť, kde je BMC NIC (nedokumentovaná) | IPMI (port neuveden) / iLO | probuzení hosta ze standby | [U73][U74] |
+| O4 | vCenter (DPM) | ESX host | neuvedeno | Wake-on-LAN | fallback probuzení | [U73][U74] |
+| O5 | monitoring aplikace | vCenter (ticket), pak ESX host | ESX management (vmk0) | CIM-XML **5989**; WS-Man „433“ (doslova, viz 10.8) | in-band hardware monitoring | [U77] |
+| O6 | vCenter / vLCM | HSM (vendor appliance / Intersight) | neuvedeno (při proxy u vCenteru musí být HSM dosažitelný; IP 10.x.x.x je z proxy vyjmuta automaticky, jinak proxy výjimka) | neuvedeno | seznam firmware, verze, remediace | [U70][U71] |
+| O7 | ESX OS | BMC | interní USB-NIC (vusb0, vSwitchBMC) – ne síťový kabel | neuvedeno | OS ↔ BMC rozhraní (DPU management) | [U78][U79] |
+
+**Pro vizualizaci:** OOB kabel / OOB switch není dokumentovaná součást VCF networkingu [U55]. Pokud ho hra kreslí,
+musí být graficky odlišený jako „mimo VCF scope“ a bez toků management domain (vCenter, NSX, vSAN…). Jediné doložené
+toky přes BMC jsou O1–O3.
+
+### 10.8 Otevřené otázky
+1. **Planning and Preparation Workbook 9.1 / 9.1.1** (xlsx [U65]) – agent nedokázal přečíst binární xlsx. Zda záložky
+   „Prerequisite Checklist“ / „Management Domain Creation“ obsahují řádek pro BMC/OOB (IP, VLAN), je neověřené.
+   Doporučení: orchestrátor rozbalí xlsx (`unzip`, `xl/sharedStrings.xml`) a vyhledá „BMC|iLO|iDRAC|out-of-band|IPMI“.
+2. **Porty BMC** (IPMI, Redfish/HTTPS, virtual media) – žádný povolený zdroj je neuvádí. Portál Ports and Protocols
+   [U56] nešel stáhnout. Port IPMI (běžně 623/UDP) **nepřebírat z paměti**.
+3. **Redfish** – v žádném nalezeném zdroji VCF 9.x / vSphere 9.1 nezmíněn (ani u HSM, ani ve VCF Operations).
+4. **VCF Operations a BMC** – nenašli jsme integraci ani management pack pro BMC/Redfish ve VCF Operations 9.x. ESX
+   health ve VCF Operations 9.1 má kategorii hardware (memory, SSD), zdroj dat ale neuveden. Neověřeno.
+5. **Jak HSM komunikuje s hardwarem** (BMC vs. in-band) – v dokumentaci vSphere neuvedeno, řídí to OEM („The deployment
+   method, entitlement, licensing, and management of a hardware support manager plug-in … are determined by the
+   respective OEM“) [U70][U71].
+6. **WS-Man „port 433“** [U77] – pravděpodobně překlep za 443, ale nepotvrzeno. Ve hře použít jen CIM-XML 5989, nebo
+   nechat port neuvedený.
+7. **KB 376173 (vSwitchBMC)** [U78] – environment bez verze VCF; text zmiňuje vSphere 8.0 / 8.0.3 a „VMware Cloud
+   Foundation Bring-Up“. Platnost pro VCF Installer 9.1 a vztah k validaci „vSwitch0 s jedním uplinkem“ (5.3)
+   nejsou doloženy.
+8. **Supermicro a Cisco** – v tabulce remote install [U68] nejsou. Cisco má HSM přes Intersight [U71] a CIMC jen v KB
+   [U80]. Supermicro BMC ani HSM ve zdrojích není. Podporu je třeba ověřit v BCG (HSM / ReadyNode), např. skriptem
+   `tools/bcg`.
+9. **DPM ve VCF** – Design Library 9.1 (cluster design) DPM nezmiňuje (ani doporučení, ani zákaz) [U83]. Zda je DPM
+   v management domain VCF podporované nebo vhodné, není doloženo.
+10. **Shutdown hostů** – zda postup vypnutí management domain (9.1) používá BMC, nebylo ověřeno přímým čtením stránky
+    (vyhledávání naznačuje vSAN shutdown wizard / vSphere Client). Ověřit na „Shut Down the Management Domain“ 9.1.
+
+### 10.9 Zdroje (pokračování)
+- [U55] (už výše) Physical Data Center Network Design (VCF 9.1) – věta o OOB switchích „out of scope“.
+- [U57] Physical Data Center Network Design (VCF 9.0): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/external-services-design/datacenter-network-requirements/physical-datacenter-design-9-x.html
+- [U58] ESX Model – Design Library (VCF 9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/vsphere-detailed-design/esx-design.html
+- [U59] Design Library for VCF (9.1, rozcestník): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library.html
+- [U60] Network Fabric Detailed Design (VCF 9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/network-fabric-design.html
+- [U61] Minimal Footprint blueprint – Minimum Requirements (VCF 9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-in-a-single-site-with-minimal-footprint-blueprint/minimaltemo.html
+- [U62] Minimal Footprint blueprint – Single-Rack Network Fabric Model (VCF 9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-in-a-single-site-with-minimal-footprint-blueprint/management-domain-design-selections/physical-infrastructure-layer/single-rack-network-fabric-model.html
+- [U63] Planning and Preparation for VCF Fleet in a Single Site with Minimal Footprint (VCF 9.0): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/blueprints/vcf-fleet-basic-management-design/preparing-for.html
+- [U64] Network Deployment Options for VCF Components (VCF 9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/network-deployment-options-for-vcf-components.html
+- [U65] Planning and Preparation (VCF 9.1) + Workbook 9.1.1: https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation.html ; https://techdocs.broadcom.com/content/dam/broadcom/techdocs/us/en/assets/vmware-cis/vcf/vcf-9.1.1-planning-and-preparation-workbook.xlsx
+- [U66] Install ESX on Hosts Using an ISO Image (VCF 9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/install-esx-on-hosts-using-the-iso.html
+- [U67] Using Remote Management Applications (vSphere 9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/installing-and-setting-up-esxi/esxi-requirements/using-remote-management-applications.html
+- [U68] Supported Remote Management Server Models and Minimum Firmware Versions (vSphere 9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/installing-and-setting-up-esxi/esxi-requirements/using-remote-management-applications/supported-remote-management-server-models-and-minimum-firmware-versions.html
+- [U69] Totéž pro vSphere 9.0: https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-0/esx-installation-and-setup/installing-and-setting-up-esxi/esxi-requirements/using-remote-management-applications/supported-remote-management-server-models-and-minimum-firmware-versions.html
+- [U70] Firmware Updates with vSphere Lifecycle Manager (vSphere 9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/managing-host-and-cluster-lifecycle/using-images-to-install-and-update-esxi-hosts-and-clusters/firmware-updates.html
+- [U71] Deploying Hardware Support Managers (vSphere 9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/managing-host-and-cluster-lifecycle/using-images-to-install-and-update-esxi-hosts-and-clusters/firmware-updates/hardware-support-managers.html
+- [U72] Use an Image for Firmware Updates (vSphere 9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/managing-host-and-cluster-lifecycle/using-images-to-install-and-update-esxi-hosts-and-clusters/firmware-updates/use-an-image-for-firmware-updates.html
+- [U73] Managing Power Resources (vSphere DPM, vSphere 9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/vsphere-resource-management/using-drs-clusters-to-manage-resources/managing-power-resources.html
+- [U74] Configure IPMI or iLO Settings for vSphere DPM (vSphere 9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/vsphere-resource-management/using-drs-clusters-to-manage-resources/managing-power-resources/configure-ipmi-or-ilo-settings-for-vsphere-dpm.html
+- [U75] Start vSAN and the ESX Hosts in the Management Domain (VCF 9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/fleet-management/vcf-shutdown-and-startup/sddc-startup/start-the-management-domain/start-the-esx-hosts-and-vcenter-server-in-management-domain/start-vsan-and-the-esxi-hosts-in-the-management-domain.html
+- [U76] Start ESX Hosts with NFS or Fibre Channel Storage in the Management Domain (VCF 9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/fleet-management/vcf-shutdown-and-startup/sddc-startup/start-the-management-domain/start-the-esx-hosts-and-vcenter-server-in-management-domain/start-esx-hosts-without-vsan-storage-in-the-management-domain.html
+- [U77] Control Access for CIM-Based Hardware Monitoring Tools (vSphere 9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/vsphere-security/securing-esxi-hosts/general-security-recommendations/control-cim-based-hardware-monitoring-tool-access.html
+- [U78] KB 376173 – ESXi creates standard switch vSwitchBMC with uplink vusb0: https://knowledge.broadcom.com/external/article/376173/esxi-creates-standard-switch-vswitchbmc.html
+- [U79] KB 451680 – Automated iDRAC vSwitch Recreation Post-Reboot: https://knowledge.broadcom.com/external/article/451680/automated-idrac-vswitch-recreation-postr.html
+- [U80] KB 317245 – Investigating Unexpected ESXi Reboot or Shutdown: https://knowledge.broadcom.com/external/article/317245/unexpected-esxi-reboot-or-shutdown.html
+- [U81] KB 434645 – ESXi Host Enters Not Responding State with Management Agent Hang: https://knowledge.broadcom.com/external/article/434645/esxi-host-enters-not-responding-state-in.html
+- [U82] Configuration Drift and Out-of-Band Operations in VCF (9.1): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/working-with-workload-domains/configuration-drift-and-out-of-band-operations-in-vmware-cloud-foundation.html
+- [U83] vSphere Cluster Detailed Design (VCF 9.1; DPM / BMC nezmíněno): https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/cluster-models.html
+
+### 10.10 Dokumentované vs. herní scope (pro domain-modeler / scenario-designer)
+
+| Prvek ve hře | Status | Opora |
+|---|---|---|
+| VCF networking vyřazuje OOB switche ze scope | **fakt** | [U55][U57] |
+| OOB/BMC síť jako požadavek nebo doporučení VCF | **nedokumentováno** – nesmí blokovat validace VCF ani být podmínkou bring-upu | 10.1 |
+| Seznam sítí management domain (ESX mgmt, VM mgmt, vMotion, vSAN/NFS, Host TEP, Edge TEP, Edge uplink, volitelně VCF mgmt) | **fakt** | [U43][U60][U61][U63][U64] |
+| BMC existuje, je napájený i při vypnutém hostu, má vlastní NIC a IP odlišnou od IP hosta | **fakt** (vSphere 9.1 DPM) | [U74] |
+| Zapnutí hostů management domain přes iLO/iDRAC při startu VCF | **fakt** | [U75][U76] |
+| Instalace ESX přes remote management (virtual CD), podporované modely a min. firmware | **fakt** (vSphere 9.1) | [U67][U68] |
+| Pořadí „OOB kabel → BMC IP → virtual media → ESX“ | **herní zjednodušení** (logické složení, ne postup z dokumentace) | 10.4.1 |
+| BMC VLAN / subnet / MTU / port, OOB switch, kabeláž dedikovaného BMC portu | **herní scope** (out of scope VCF) | [U55] |
+| vmk0 ≠ BMC; první dokumentovaná síť je ESX management (DCUI VLAN, vSwitch0, vmnic0) | **fakt** | [U18][U32][U74] |
+| Firmware přes vLCM image + vendor HSM (Dell OMIVV, HPE COM/OneView, Lenovo XClarity Integrator, Cisco Intersight) | **fakt** | [U71][U72] |
+| HSM mluví s BMC / Redfish | **nedokumentováno** | 10.8 #3, #5 |
+| vSwitchBMC/vusb0 jako past při bring-upu | **fakt z KB s nejasnou verzí** – jen jako „možná příčina“, s odkazem na KB | [U78] |
+| Incidenty: neočekávaný reboot přes iLO/iDRAC, SEL logy v BMC, ECC chyby v OOB konzoli | **fakt z KB** (verze ESXi 7/8, VVF 9.0) | [U80][U81] |

@@ -25,7 +25,8 @@
 - **Provoz mezi hosty**: v místnosti se fyzické dráty kreslí jen decentně (může jich být hodně); hlavní je
   **barevné tečky „létající“ mezi zařízeními** podle typu provozu (styl vizualizace vmnic/uplinků s pakety
   jako na webových simulátorech – vlastní provedení). Detailní pohled na host = karty vmnic/uplinků
-  s vytížením a pakety. Jako první se rozběhne **management / OOB** komunikace (podle specu).
+  s vytížením a pakety. Jako první dokumentovaná síť naběhne **ESX management (vmk0)**; OOB/BMC je podle dokumentace mimo scope VCF
+  (`25` §10) – ve hře volitelný krok označený „mimo VCF scope – herní“, bez VCF provozu a bez vlivu na validace.
 - UI panely (obchod, konfigurace, wizardy) světlé a přátelské, ale přehledné; data a odkazy na dokumentaci vždy čitelné.
 - Žádná loga ani přesné kopie UI Broadcomu ani vendorů – vlastní ikony a barvy (vendor jen jako text/barevný štítek).
 
@@ -60,6 +61,24 @@ Přechody mezi úrovněmi plynulým zoomem (jako přelet nad mapou).
   s tmavým obrysem (`OUTLINE` z `render/room/palette.ts`), aby grafika měla ≥ 3 : 1 (WCAG 1.4.11). Fyzický
   kabel nese víc typů provozu (trunk) → kabel je neutrální, barvu typu provozu nesou pakety (volitelně
   proužek, když kabel nese jediný typ). Barva nikdy není jediný nosič informace (legenda, tooltip). Viz `UX.md` 2.5, 4.5.
+- **Provoz v2 (ux-designer 2026-11-21, `UX.md` kap. 12)**:
+  - Kabely v místnosti jako **svazky** přes stropní žlab (neutrální, obrys OUTLINE), detail jednotlivých kabelů
+    až v čelním pohledu racku. Tečky letí mezi zařízeními po trase svazku.
+  - **Tvar tečky podle typu** (kvůli barvosleposti): Management ◆, vMotion ▲, vSAN ■, NFS ●, NSX overlay ⬟,
+    VM ○ (prázdný kruh). Jeden atlas tvarů, tint barvou, tmavý obrys.
+  - **OOB / BMC**: rezervovaný tvar ✚ a barva (návrh růžovo-purpurová, např. `#d9579b`, finální odstín ověří
+    ui-dev kontrastem) – **použije se až po doplnění specu** (doc-researcher, `25`).
+  - Legenda je „vždy viditelná“ jako **čip vlevo dole** s aktivními typy; plná legenda po rozbalení.
+  - Kosmetické barvy kabelů (volba hráče v racku) se nesmí plést s barvami provozu: černá, bílá, žlutá,
+    růžová, hnědá (odstíny ui-dev).
+- **Čelní pohled racku (2D elevace)**: stejný kreslený styl (výrazné obrysy, syté barvy), plochý pohled zepředu,
+  zkomprimované prázdné U jako šrafovaný pás, porty jako zaoblené čtverečky s LED, kabely ortogonálně se
+  zaoblenými rohy v bočních kanálech. Vendor jen barevný proužek + text.
+- **Tabule**: téměř bílá plocha, hliníkový rám, polička s fixami jako nástrojová lišta. Auto diagram ručně
+  kresleným stylem (deterministický jitter, dvojitý tah fixy, rukopisné OFL písmo s českou diakritikou)
+  v **vyhrazené inkoustové barvě**, kterou hráč nemá v paletě; poznámky hráče barevnými fixami.
+- **Počítač**: stůl s monitorem u levé stěny; plocha počítače je vlastní jednoduchý světlý „OS“ (dock vlevo,
+  jedno maximalizované okno) – žádná napodobenina existujícího OS ani UI Broadcomu.
 
 ## Technika
 - PixiJS (WebGL), sprity generované z vektorů, batching, cíl 60 FPS i na Chromebooku.
