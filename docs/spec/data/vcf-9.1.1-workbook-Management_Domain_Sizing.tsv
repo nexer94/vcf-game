@@ -1,0 +1,117 @@
+# Source: VCF 9.1.1 Planning and Preparation Workbook, sheet 'Management Domain Sizing'
+# URL: https://techdocs.broadcom.com/content/dam/broadcom/techdocs/us/en/assets/vmware-cis/vcf/vcf-9.1.1-planning-and-preparation-workbook.xlsx
+# Extracted: 2026-11-21T14:43Z (cell=value, tab-separated; values as stored, formulas not evaluated)
+B2=        VMware Cloud Foundation Management Domain Sizing Inputs
+B6=Management Domain Assumptions	G6=Management Domain Virtual Machine Requirement Summary	O6=Host Requirement Summary	U6=Notes
+B7=Component	E7=Value	G7=Component	J7=Nodes	K7=vCPU	L7=RAM (GB)	M7=Disk (GB)	O7=Management Hosts	R7=Number of Hosts	U7=General Guidance
+• This sizing sheet is a standalone calculation. Inputs from other tabs within the workbook do not affect the final calculation.
+• Deployment Model and Size sets the predefined values as determined by VCF Installer.
+• Configure the Assumptions and Host parameters according to your preference. Appliance sizes are listed per appliance.
+• The over-subscription ratio of 2:1 are designed to ensure a performant management domain for most deployments. Higher Ratios are supported. Regardless of the ratios you choose, you should monitor the platform continuously and add hardware if consistent performance bottlenecks are observed
+• Select the principal storage as VCF 9.x Supports vSAN and Non-vSAN Storage in the Management Domain. vSAN Policy used for sizing calculation is determined on VMware recommended host count and not minimum.
+
+Customer Workload
+• Add additonal vCPU, RAM or Disk requirements that may be required to accurately size the Management Domain.
+
+vSphere and NSX Sizing
+• As each workload domain requires additional vSphere and, optionally, NSX components to be deployed, this tab allows you to correctly calculate the requirements for your management domain by selecting the intended number and profile of workload domains you plan to deploy.
+• The management domain is mandatory and cannot be deselected. Its NSX Manager instance is required and can be shared with future workload domains. 
+• A maximum of four NSX Local Manager instances may be federated by a single NSX Global Manager instance. This includes inter-region and intra-region NSX Local Manager instances. Factor in this maximum when deciding whether to include Global Manager resources for a new workload domain.
+
+VCF Operations and Automation Sizing
+• If VCF Operations already exists, then sizing input is not required for VCF Operations. Similar for VCF Automation.
+• Cloud Proxy selection is automatic, if you are deploying VCF Operations or have an Exisiting VCF Operations.
+
+VCF services runtime
+• Components such as Software depot , LCM, Identity broker, SALT are enabled by default when deploying VCF service runtime on the first VCF Instance.
+• Components Realtime Data, Software depot and Identity broker are configured within the VCFMS instance. No additional appliances are deployed. 
+• Real-time Metric, Log management, are enabled as part of day 2 deployment and are deployed within the VCFMS instance. 
+• Log management size should not be larger than the Instance Profile. The VCFMS cluster scales to accommodate the log management deployment.
+• Software depot and Identity broker are deployed, sized by default in the First VCF Instance. Optional Software depots and Identity broker deployments can be sized for additional VCF Instances. vCPU and RAM requirements for these components are allocated from the existing VCFMS cluster.
+
+Security Service Platform:
+• License Hub for vDefend and Avi is required if deploying Avi Load Balancers or Security Service Platform. A single License Hub is required per VCF Fleet.
+• SSPI = Security Services Platform Installer; SSP = Security Services Platform; A single SSP installer can manage up to 5 SSP instances.
+• The SSP form factor selection is based on the respective management or workload domain NSX Manager appliance size. A medium form factor is required to activate Security Intelligence. For a larger configuration and inventory scale, you must use the large or extra-large form factor.
+• To activate all vDefend Advanced Threat Prevention capabilities, including Malware Prevention Service, Network Traffic Analysis, NDR Sensor, and Network Detection and Response, you need a large SSP form factor with at least 8 worker nodes.
+B8=Host and Operations Reserve (%)	E8=30	G8=SDDC Manager	J8=1	K8=4	L8=16	M8=914	O8=Hosts count based on User Specification	R8=4
+B9=Storage Estimated Growth (%)	E9=10	G9=Management Domain vCenter	J9=1	K9=8	L9=30	M9=2233	O9=CPU usage Per Host (based on N-1 hosts)	R9=26 CPUs
+G10=Management Domain NSX Managers (Local / Global)	J10=3	K10=18	L10=72	M10=900	O10=RAM usage Per Host (based on N-1 hosts)	R10=74 GB RAM
+B11=Management Domain Host Parameters 	G11=Management Domain NSX Edges	J11=0	K11=0	L11=0	M11=0
+B12=Attribute	E12=Value	G12=Management Domain Virtual Network Appliances	J12=0	K12=0	L12=0	M12=0	O12=vSAN Storage Requirements if used as Primary Storage
+B13=CPU Cores	E13=128	G13=Management Domain Supervisor 	J13=0	K13=0	L13=0	M13=0	O13=Storage Type	R13=vSAN-ESA
+B14=RAM Count (GB)	E14=1024	G14=Management Domain AVI Load Balancer	J14=0	K14=0	L14=0	M14=0	O14=Component	R14=GB
+B15=CPU Oversubscription (X:1)	E15=1	G15=Management Domain Security Services Platform	J15=0	K15=0	L15=0	M15=0	O15=Virtual Machine Capacity Requirements	R15=7847
+B16=Memory Oversubscription (X:1)	E16=1	G16=Security Services Platform Installer	J16=0	K16=0	L16=0	M16=0	O16=Swap File Requirements	R16=220
+G17=vDefend and AVI Licensing Hub	J17=0	K17=0	L17=0	M17=0	O17=Interim Total  (VM Capacity + Swap File)	R17=8067
+B18=VCF Instance Profile	G18=Workload Domain vCenter	J18=0	K18=0	L18=0	M18=0	O18=vSAN ESA Adaptive RAID-5 2+1	R18=12101
+B19=Component	E19=Value	G19=Workload Domain NSX Managers (Local / Global)	J19=0	K19=0	L19=0	M19=0	O19=Host Rebuild and Operations Reserve	R19=15732
+B20=Instance Model	E20=First Instance	G20=Workload Domain AVI Load Balancer	J20=0	K20=0	L20=0	M20=0	O20=Estimated Growth	R20=17306
+B21=Availability model 	E21=High Availability	G21=Workload Domain Security Services Platform	J21=0	K21=0	L21=0	M21=0	O21=Storage per Host (based on N-1 hosts)	R21=5769 GB Disk
+B22=Size 	E22=Medium	G22=VCF services runtime control nodes	J22=3	K22=12	L22=30	M22=300
+B23=VCF Management Services	G23=VCF services runtime worker nodes	J23=3	K23=36	L23=72	M23=3300	O23=Advanced Management Domain Sizing
+B24=VCF services runtime	E24=Include	G24=VCF Operations	J24=0	K24=0	L24=0	M24=0	O24=Advanced Management Domain Sizing	R24=Unselected
+B25=Log Management	E25=Exclude	G25=Cloud Proxy	J25=0	K25=0	L25=0	M25=0	O25=vCenter Appliance Size	R25=Medium
+B26=Log Management Replicas	E26=Exclude	G26=License Server	J26=0	K26=0	L26=0	M26=0	O26=vCenter Storage Size	R26=Default
+B27=Real-time metrics	E27=Exclude	G27=VCF Automation	J27=0	K27=0	L27=0	M27=0	O27=NSX Manager Model	R27=Mandatory - HA Cluster
+B28=Software Depot (Additional Instance) 	E28=Exclude	G28=VCF Operations for networks	J28=0	K28=0	L28=0	M28=0	O28=NSX Manager Size	R28=Medium
+B29=Identity Broker (Additional Instance)	E29=Exclude	G29=VCF Operations for networks collector	J29=0	K29=0	L29=0	M29=0	O29=VCF Operations Model	R29=Exclude
+B30=VCF Fleet Components	G30=Protection Blueprint Requirements	J30=0	K30=0	L30=0	M30=0	O30=VCF Operations Size	R30=Exclude
+B31=VCF Operations	E31=Exclude	G31=Customer Workload 	J31=0	K31=0	L31=0	M31=200	O31=Cloud Proxy	R31=Exclude
+B32=VCF Operations Continous Availability 	E32=Exclude	G32=Totals	J32=11	K32=78 vCPUs	L32=220 GB	M32=7847 GB	O32=VCF Automation	R32=Exclude
+B33=Cloud Proxy	E33=Exclude
+B34=VCF Automation	E34=Exclude
+B35=VCF Operations for networks	E35=Exclude
+B36=License Hub for vDefend and Avi	E36=Exclude
+B38=Management Domain
+B39=Domain	C39=Select	D39=vCenter               CPUs : RAM	F39=vCenter         Disk	H39=NSX Model	I39=NSX LM               CPU : RAM : Disk	L39=NSX Connectivity    CPU : RAM : Disk	O39=  Supervisor Control Plane	Q39=NSX GM           CPU : RAM : Disk	S39=Avi LB                 CPU : RAM : Disk	W39=Security Services Platform         CPU : RAM : Disk	Z39=Notes
+B40=m01	C40=Included	D40=Medium	E40=8 CPUS : 30 GB	F40=Large	G40=2233 GB	H40=Mandatory - HA Cluster	I40=Medium	J40=6 CPUS : 24 GB : 300 GB	L40=Excluded	M40=0 GB : 0 RAM : 0 GB	O40=Excluded	P40=Medium	Q40=Excluded	R40=0 CPU : 0 GB : 0 GB	S40=Excluded	T40=0 CPUs : 0 GB : 0 GB	W40=Excluded	X40=0 CPUs : 0 GB : 0 GB	Z40=vCenter 400 Hosts - 4000 VM | NSX 128 Hosts - 5 vSphere Clusters
+B42=Workload Domains
+B43=Domain	C43=Select	D43=vCenter                CPUs : RAM	F43=vCenter          Disk	H43=NSX Model	I43=NSX LM                 CPU : RAM : Disk	L43=Federation	M43=NSX GM                  CPU : RAM : Disk	R43=Site Protection DR                   CPU : RAM : Disk	U43=Avi LB                 CPU : RAM : Disk	X43=SSP               CPU : RAM : Disk	Z43=Notes
+B44=w01	C44=Excluded	D44=Medium	E44=0 CPUs : 0 GB	F44=Default	G44=0 GB	H44=Dedicated - HA Cluster	I44=Medium	J44=0 CPUs : 0 GB : 0 GB	L44=Excluded	M44=Medium	N44=0 CPUs : 0 GB : 0 GB	R44=Exclude	S44=0 CPUs :0 GB : 0 GB	U44=Excluded	V44=0 CPUs : 0 GB : 0 GB	X44=Excluded	Y44=0 CPUs : 0 GB : 0 GB
+B45=w02	C45=Excluded	D45=Medium	E45=0 CPUs : 0 GB	F45=Default	G45=0 GB	H45=Dedicated - HA Cluster	I45=Large	J45=0 CPUs : 0 GB : 0 GB	L45=Excluded	M45=Medium	N45=0 CPUs : 0 GB : 0 GB	R45=Exclude	S45=0 CPUs :0 GB : 0 GB	U45=Excluded	V45=0 CPUs : 0 GB : 0 GB	X45=Excluded	Y45=0 CPUs : 0 GB : 0 GB
+B46=w03	C46=Excluded	D46=Medium	E46=0 CPUs : 0 GB	F46=Default	G46=0 GB	H46=Dedicated - HA Cluster	I46=Medium	J46=0 CPUs : 0 GB : 0 GB	L46=Excluded	M46=Medium	N46=0 CPUs : 0 GB : 0 GB	R46=Exclude	S46=0 CPUs :0 GB : 0 GB	U46=Excluded	V46=0 CPUs : 0 GB : 0 GB	X46=Excluded	Y46=0 CPUs : 0 GB : 0 GB
+B47=w04	C47=Excluded	D47=Medium	E47=0 CPUs : 0 GB	F47=Default	G47=0 GB	H47=Dedicated - HA Cluster	I47=XLarge	J47=0 CPUs : 0 GB : 0 GB	L47=Excluded	M47=Large	N47=0 CPUs : 0 GB : 0 GB	R47=Exclude	S47=0 CPUs :0 GB : 0 GB	U47=Excluded	V47=0 CPUs : 0 GB : 0 GB	X47=Excluded	Y47=0 CPUs : 0 GB : 0 GB
+B48=w05	C48=Excluded	D48=Medium	E48=0 CPUs : 0 GB	F48=Default	G48=0 GB	H48=Dedicated - HA Cluster	I48=Large	J48=0 CPUs : 0 GB : 0 GB	L48=Excluded	M48=Large	N48=0 CPUs : 0 GB : 0 GB	R48=Exclude	S48=0 CPUs :0 GB : 0 GB	U48=Excluded	V48=0 CPUs : 0 GB : 0 GB	X48=Excluded	Y48=0 CPUs : 0 GB : 0 GB
+B49=w06	C49=Excluded	D49=Medium	E49=0 CPUs : 0 GB	F49=Default	G49=0 GB	H49=Dedicated - HA Cluster	I49=Large	J49=0 CPUs : 0 GB : 0 GB	L49=Excluded	M49=Large	N49=0 CPUs : 0 GB : 0 GB	R49=Exclude	S49=0 CPUs :0 GB : 0 GB	U49=Excluded	V49=0 CPUs : 0 GB : 0 GB	X49=Excluded	Y49=0 CPUs : 0 GB : 0 GB
+B50=w07	C50=Excluded	D50=Medium	E50=0 CPUs : 0 GB	F50=Default	G50=0 GB	H50=Dedicated - HA Cluster	I50=Large	J50=0 CPUs : 0 GB : 0 GB	L50=Excluded	M50=Large	N50=0 CPUs : 0 GB : 0 GB	R50=Exclude	S50=0 CPUs :0 GB : 0 GB	U50=Excluded	V50=0 CPUs : 0 GB : 0 GB	X50=Excluded	Y50=0 CPUs : 0 GB : 0 GB
+B51=w08	C51=Excluded	D51=Medium	E51=0 CPUs : 0 GB	F51=Default	G51=0 GB	H51=Dedicated - HA Cluster	I51=Large	J51=0 CPUs : 0 GB : 0 GB	L51=Excluded	M51=Large	N51=0 CPUs : 0 GB : 0 GB	R51=Exclude	S51=0 CPUs :0 GB : 0 GB	U51=Excluded	V51=0 CPUs : 0 GB : 0 GB	X51=Excluded	Y51=0 CPUs : 0 GB : 0 GB
+B52=w09	C52=Excluded	D52=Medium	E52=0 CPUs : 0 GB	F52=Default	G52=0 GB	H52=Dedicated - HA Cluster	I52=Large	J52=0 CPUs : 0 GB : 0 GB	L52=Excluded	M52=Large	N52=0 CPUs : 0 GB : 0 GB	R52=Exclude	S52=0 CPUs :0 GB : 0 GB	U52=Excluded	V52=0 CPUs : 0 GB : 0 GB	X52=Excluded	Y52=0 CPUs : 0 GB : 0 GB
+B53=w10	C53=Excluded	D53=Medium	E53=0 CPUs : 0 GB	F53=Default	G53=0 GB	H53=Dedicated - HA Cluster	I53=Large	J53=0 CPUs : 0 GB : 0 GB	L53=Excluded	M53=Large	N53=0 CPUs : 0 GB : 0 GB	R53=Exclude	S53=0 CPUs :0 GB : 0 GB	U53=Excluded	V53=0 CPUs : 0 GB : 0 GB	X53=Excluded	Y53=0 CPUs : 0 GB : 0 GB
+B54=w11	C54=Excluded	D54=Medium	E54=0 CPUs : 0 GB	F54=Default	G54=0 GB	H54=Dedicated - HA Cluster	I54=Large	J54=0 CPUs : 0 GB : 0 GB	L54=Excluded	M54=Large	N54=0 CPUs : 0 GB : 0 GB	R54=Exclude	S54=0 CPUs :0 GB : 0 GB	U54=Excluded	V54=0 CPUs : 0 GB : 0 GB	X54=Excluded	Y54=0 CPUs : 0 GB : 0 GB
+B55=w12	C55=Excluded	D55=Medium	E55=0 CPUs : 0 GB	F55=Default	G55=0 GB	H55=Dedicated - HA Cluster	I55=Large	J55=0 CPUs : 0 GB : 0 GB	L55=Excluded	M55=Large	N55=0 CPUs : 0 GB : 0 GB	R55=Exclude	S55=0 CPUs :0 GB : 0 GB	U55=Excluded	V55=0 CPUs : 0 GB : 0 GB	X55=Excluded	Y55=0 CPUs : 0 GB : 0 GB
+B56=w13	C56=Excluded	D56=Medium	E56=0 CPUs : 0 GB	F56=Default	G56=0 GB	H56=Dedicated - HA Cluster	I56=Large	J56=0 CPUs : 0 GB : 0 GB	L56=Excluded	M56=Large	N56=0 CPUs : 0 GB : 0 GB	R56=Exclude	S56=0 CPUs :0 GB : 0 GB	U56=Excluded	V56=0 CPUs : 0 GB : 0 GB	X56=Excluded	Y56=0 CPUs : 0 GB : 0 GB
+B57=w14	C57=Excluded	D57=Medium	E57=0 CPUs : 0 GB	F57=Default	G57=0 GB	H57=Dedicated - HA Cluster	I57=Large	J57=0 CPUs : 0 GB : 0 GB	L57=Excluded	M57=Large	N57=0 CPUs : 0 GB : 0 GB	R57=Exclude	S57=0 CPUs :0 GB : 0 GB	U57=Excluded	V57=0 CPUs : 0 GB : 0 GB	X57=Excluded	Y57=0 CPUs : 0 GB : 0 GB
+B58=w15	C58=Excluded	D58=Medium	E58=0 CPUs : 0 GB	F58=Default	G58=0 GB	H58=Dedicated - HA Cluster	I58=Large	J58=0 CPUs : 0 GB : 0 GB	L58=Excluded	M58=Large	N58=0 CPUs : 0 GB : 0 GB	R58=Exclude	S58=0 CPUs :0 GB : 0 GB	U58=Excluded	V58=0 CPUs : 0 GB : 0 GB	X58=Excluded	Y58=0 CPUs : 0 GB : 0 GB
+B59=w16	C59=Excluded	D59=Medium	E59=0 CPUs : 0 GB	F59=Default	G59=0 GB	H59=Dedicated - HA Cluster	I59=Large	J59=0 CPUs : 0 GB : 0 GB	L59=Excluded	M59=Large	N59=0 CPUs : 0 GB : 0 GB	R59=Exclude	S59=0 CPUs :0 GB : 0 GB	U59=Excluded	V59=0 CPUs : 0 GB : 0 GB	X59=Excluded	Y59=0 CPUs : 0 GB : 0 GB
+B60=w17	C60=Excluded	D60=Medium	E60=0 CPUs : 0 GB	F60=Default	G60=0 GB	H60=Dedicated - HA Cluster	I60=Large	J60=0 CPUs : 0 GB : 0 GB	L60=Excluded	M60=Large	N60=0 CPUs : 0 GB : 0 GB	R60=Exclude	S60=0 CPUs :0 GB : 0 GB	U60=Excluded	V60=0 CPUs : 0 GB : 0 GB	X60=Excluded	Y60=0 CPUs : 0 GB : 0 GB
+B61=w18	C61=Excluded	D61=Medium	E61=0 CPUs : 0 GB	F61=Default	G61=0 GB	H61=Dedicated - HA Cluster	I61=Large	J61=0 CPUs : 0 GB : 0 GB	L61=Excluded	M61=Large	N61=0 CPUs : 0 GB : 0 GB	R61=Exclude	S61=0 CPUs :0 GB : 0 GB	U61=Excluded	V61=0 CPUs : 0 GB : 0 GB	X61=Excluded	Y61=0 CPUs : 0 GB : 0 GB
+B62=w19	C62=Excluded	D62=Medium	E62=0 CPUs : 0 GB	F62=Default	G62=0 GB	H62=Dedicated - HA Cluster	I62=Large	J62=0 CPUs : 0 GB : 0 GB	L62=Excluded	M62=Large	N62=0 CPUs : 0 GB : 0 GB	R62=Exclude	S62=0 CPUs :0 GB : 0 GB	U62=Excluded	V62=0 CPUs : 0 GB : 0 GB	X62=Excluded	Y62=0 CPUs : 0 GB : 0 GB
+B63=w20	C63=Excluded	D63=Medium	E63=0 CPUs : 0 GB	F63=Default	G63=0 GB	H63=Dedicated - HA Cluster	I63=Large	J63=0 CPUs : 0 GB : 0 GB	L63=Excluded	M63=Large	N63=0 CPUs : 0 GB : 0 GB	R63=Exclude	S63=0 CPUs :0 GB : 0 GB	U63=Excluded	V63=0 CPUs : 0 GB : 0 GB	X63=Excluded	Y63=0 CPUs : 0 GB : 0 GB
+B64=w21	C64=Excluded	D64=Medium	E64=0 CPUs : 0 GB	F64=Default	G64=0 GB	H64=Dedicated - HA Cluster	I64=Large	J64=0 CPUs : 0 GB : 0 GB	L64=Excluded	M64=Large	N64=0 CPUs : 0 GB : 0 GB	R64=Exclude	S64=0 CPUs :0 GB : 0 GB	U64=Excluded	V64=0 CPUs : 0 GB : 0 GB	X64=Excluded	Y64=0 CPUs : 0 GB : 0 GB
+B65=w22	C65=Excluded	D65=Medium	E65=0 CPUs : 0 GB	F65=Default	G65=0 GB	H65=Dedicated - HA Cluster	I65=Large	J65=0 CPUs : 0 GB : 0 GB	L65=Excluded	M65=Large	N65=0 CPUs : 0 GB : 0 GB	R65=Exclude	S65=0 CPUs :0 GB : 0 GB	U65=Excluded	V65=0 CPUs : 0 GB : 0 GB	X65=Excluded	Y65=0 CPUs : 0 GB : 0 GB
+B66=w23	C66=Excluded	D66=Medium	E66=0 CPUs : 0 GB	F66=Default	G66=0 GB	H66=Dedicated - HA Cluster	I66=Large	J66=0 CPUs : 0 GB : 0 GB	L66=Excluded	M66=Large	N66=0 CPUs : 0 GB : 0 GB	R66=Exclude	S66=0 CPUs :0 GB : 0 GB	U66=Excluded	V66=0 CPUs : 0 GB : 0 GB	X66=Excluded	Y66=0 CPUs : 0 GB : 0 GB
+B67=w24	C67=Excluded	D67=Medium	E67=0 CPUs : 0 GB	F67=Default	G67=0 GB	H67=Dedicated - HA Cluster	I67=Medium	J67=0 CPUs : 0 GB : 0 GB	L67=Excluded	M67=Large	N67=0 CPUs : 0 GB : 0 GB	R67=Exclude	S67=0 CPUs :0 GB : 0 GB	U67=Excluded	V67=0 CPUs : 0 GB : 0 GB	X67=Excluded	Y67=0 CPUs : 0 GB : 0 GB
+B68=w25	C68=Excluded	D68=Medium	E68=0 CPUs : 0 GB	F68=Default	G68=0 GB	H68=Dedicated - HA Cluster	I68=Medium	J68=0 CPUs : 0 GB : 0 GB	L68=Excluded	M68=Large	N68=0 CPUs : 0 GB : 0 GB	R68=Exclude	S68=0 CPUs :0 GB : 0 GB	U68=Excluded	V68=0 CPUs : 0 GB : 0 GB	X68=Excluded	Y68=0 CPUs : 0 GB : 0 GB
+B69=w26	C69=Excluded	D69=Medium	E69=0 CPUs : 0 GB	F69=Default	G69=0 GB	H69=Dedicated - HA Cluster	I69=Medium	J69=0 CPUs : 0 GB : 0 GB	L69=Excluded	M69=Large	N69=0 CPUs : 0 GB : 0 GB	R69=Exclude	S69=0 CPUs :0 GB : 0 GB	U69=Excluded	V69=0 CPUs : 0 GB : 0 GB	X69=Excluded	Y69=0 CPUs : 0 GB : 0 GB
+B70=w27	C70=Excluded	D70=Medium	E70=0 CPUs : 0 GB	F70=Default	G70=0 GB	H70=Dedicated - HA Cluster	I70=Medium	J70=0 CPUs : 0 GB : 0 GB	L70=Excluded	M70=Large	N70=0 CPUs : 0 GB : 0 GB	R70=Exclude	S70=0 CPUs :0 GB : 0 GB	U70=Excluded	V70=0 CPUs : 0 GB : 0 GB	X70=Excluded	Y70=0 CPUs : 0 GB : 0 GB
+B71=w28	C71=Excluded	D71=Medium	E71=0 CPUs : 0 GB	F71=Default	G71=0 GB	H71=Dedicated - HA Cluster	I71=Medium	J71=0 CPUs : 0 GB : 0 GB	L71=Excluded	M71=Large	N71=0 CPUs : 0 GB : 0 GB	R71=Exclude	S71=0 CPUs :0 GB : 0 GB	U71=Excluded	V71=0 CPUs : 0 GB : 0 GB	X71=Excluded	Y71=0 CPUs : 0 GB : 0 GB
+B72=w29	C72=Excluded	D72=Medium	E72=0 CPUs : 0 GB	F72=Default	G72=0 GB	H72=Dedicated - HA Cluster	I72=Medium	J72=0 CPUs : 0 GB : 0 GB	L72=Excluded	M72=Large	N72=0 CPUs : 0 GB : 0 GB	R72=Exclude	S72=0 CPUs :0 GB : 0 GB	U72=Excluded	V72=0 CPUs : 0 GB : 0 GB	X72=Excluded	Y72=0 CPUs : 0 GB : 0 GB
+B73=w30	C73=Excluded	D73=Medium	E73=0 CPUs : 0 GB	F73=Default	G73=0 GB	H73=Dedicated - HA Cluster	I73=Medium	J73=0 CPUs : 0 GB : 0 GB	L73=Excluded	M73=Large	N73=0 CPUs : 0 GB : 0 GB	R73=Exclude	S73=0 CPUs :0 GB : 0 GB	U73=Excluded	V73=0 CPUs : 0 GB : 0 GB	X73=Excluded	Y73=0 CPUs : 0 GB : 0 GB
+B74=w31	C74=Excluded	D74=Medium	E74=0 CPUs : 0 GB	F74=Default	G74=0 GB	H74=Dedicated - HA Cluster	I74=Medium	J74=0 CPUs : 0 GB : 0 GB	L74=Excluded	M74=Large	N74=0 CPUs : 0 GB : 0 GB	R74=Exclude	S74=0 CPUs :0 GB : 0 GB	U74=Excluded	V74=0 CPUs : 0 GB : 0 GB	X74=Excluded	Y74=0 CPUs : 0 GB : 0 GB
+B75=w32	C75=Excluded	D75=Medium	E75=0 CPUs : 0 GB	F75=Default	G75=0 GB	H75=Dedicated - HA Cluster	I75=Medium	J75=0 CPUs : 0 GB : 0 GB	L75=Excluded	M75=Large	N75=0 CPUs : 0 GB : 0 GB	R75=Exclude	S75=0 CPUs :0 GB : 0 GB	U75=Excluded	V75=0 CPUs : 0 GB : 0 GB	X75=Excluded	Y75=0 CPUs : 0 GB : 0 GB
+B76=w33	C76=Excluded	D76=Medium	E76=0 CPUs : 0 GB	F76=Default	G76=0 GB	H76=Dedicated - HA Cluster	I76=Medium	J76=0 CPUs : 0 GB : 0 GB	L76=Excluded	M76=Large	N76=0 CPUs : 0 GB : 0 GB	R76=Exclude	S76=0 CPUs :0 GB : 0 GB	U76=Excluded	V76=0 CPUs : 0 GB : 0 GB	X76=Excluded	Y76=0 CPUs : 0 GB : 0 GB
+B77=w34	C77=Excluded	D77=Medium	E77=0 CPUs : 0 GB	F77=Default	G77=0 GB	H77=Dedicated - HA Cluster	I77=Medium	J77=0 CPUs : 0 GB : 0 GB	L77=Excluded	M77=Large	N77=0 CPUs : 0 GB : 0 GB	R77=Exclude	S77=0 CPUs :0 GB : 0 GB	U77=Excluded	V77=0 CPUs : 0 GB : 0 GB	X77=Excluded	Y77=0 CPUs : 0 GB : 0 GB
+B78=w35	C78=Excluded	D78=Medium	E78=0 CPUs : 0 GB	F78=Default	G78=0 GB	H78=Dedicated - HA Cluster	I78=Medium	J78=0 CPUs : 0 GB : 0 GB	L78=Excluded	M78=Large	N78=0 CPUs : 0 GB : 0 GB	R78=Exclude	S78=0 CPUs :0 GB : 0 GB	U78=Excluded	V78=0 CPUs : 0 GB : 0 GB	X78=Excluded	Y78=0 CPUs : 0 GB : 0 GB
+B80=Protection Blueprint: Deployment
+B81=Select Option	E81=Feature	I81=Result	J81=Information
+B82=Exclude	E82=Site Protection and Disaster Recovery for VMware Cloud Foundation	I82=Excluded	J82=Cause: Not Selected. Site Protection and Disaster Recovery will not be deployed
+B83=Exclude	E83=On Premise Ransomware Recovery for VMware Cloud Foundation	I83=Excluded	J83=Cause: Not Selected. On Premise Ransomware Recovery will not be deployed
+B85=Protection Blueprint Sizing Details
+B86=Name	F86=Value	G86=Nodes	H86=vCPU	I86=Memory 	J86=Storage(GB)	K86=Notes
+B87=Site Protection and Disaster Recovery for VMware Cloud Foundation
+B88=VMware Live Recovery Appliance Size MGMT Domain	F88=Standard	G88=0	H88=0	I88=0	J88=0	K88=No sizing optionality for the appliance
+B89=VMware Live Recovery Appliance Size Workload Domain	F89=Standard	G89=0	H89=0	I89=0	J89=0	K89=No sizing optionality for the appliance
+B90=On Premise Ransomware Recovery 
+B91=VMware Live Recovery Appliance Size	F91=Standard	G91=0	H91=0	I91=0	J91=0	K91=No sizing optionality for the appliance
+E92=Totals	G92=0	H92=0 CPUs	I92=0 GB	J92=0 GB

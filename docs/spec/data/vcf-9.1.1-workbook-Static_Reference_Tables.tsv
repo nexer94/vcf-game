@@ -1,0 +1,654 @@
+# Source: VCF 9.1.1 Planning and Preparation Workbook, sheet 'Static Reference Tables'
+# URL: https://techdocs.broadcom.com/content/dam/broadcom/techdocs/us/en/assets/vmware-cis/vcf/vcf-9.1.1-planning-and-preparation-workbook.xlsx
+# Extracted: 2026-11-21T14:43Z (cell=value, tab-separated; values as stored, formulas not evaluated)
+A1= 
+B2=Static Reference Tables
+B3=The following values are used for lookups throughout the rest of the workbook
+B6=Sizing Value References	E6=Include / Exclude
+B7=Constant	C7=Value	E7=Include	F7=Include
+B8=vCenter Appliance Size List	C8=Tiny	E8=Exclude	F8=Excluded
+B9=vCenter Appliance Size List	C9=Small
+B10=vCenter Appliance Size List	C10=Medium	E10=Yes / No	F10=Instance 	G10=First Instance	H10=Additional Instance	I10=VVF
+B11=vCenter Appliance Size List	C11=Large	E11=Yes	F11=First Instance	G11=Deploy a new VCF fleet	H11=Deploy a VCF Instance in an existing VCF fleet	I11=Deploy new VMware vSphere Foundation
+B12=vCenter Appliance Size List	C12=XLarge	E12=No	F12=Additional Instance	G12=Create Workload Domain	H12=Create Workload Domain
+B13=vCenter Storage Size List	C13=Default	G13=Create Cluster	H13=Create Cluster
+B14=vCenter Storage Size List	C14=Large	E14=Deployment Type	G14=Deploy deferred components	H14=Deploy deferred components
+B15=vCenter Storage Size List	C15=XLarge	E15=Full Instance
+B16=NSX-T Manager Size List	C16=Extra_Small	E16=None Chosen
+B17=NSX-T Manager Size List	C17=Small	E17=Workload Domain
+B18=NSX-T Manager Size List	C18=Medium	E18=Cluster
+B19=NSX-T Manager Size List	C19=Large	E19=One Or More VVDs
+B20=NSX-T Manager Size List	C20=XLarge
+B21=NSX-T Edge Size List	C21=Excluded	E21=Deployment Type
+B22=NSX-T Edge Size List	C22=NSX Edge Small	E22=None Chosen
+B23=NSX-T Edge Size List	C23=NSX Edge Medium	E23=Full Instance
+B24=NSX-T Edge Size List	C24=NSX Edge Large	E24=Cluster
+B25=NSX-T Edge Size List	C25=NSX Edge XLarge
+B26=NSX-T Edge Size List	C26=VNA Small
+B27=NSX-T Edge Size List	C27=VNA Medium
+B28=NSX-T Edge Size List	C28=VNA Large
+B29=NSX-T Edge Size List	C29=VNA XLarge
+B31=Lookup Tables
+B32=SDDC Manager	C32=Value
+B33=CPU	C33=4
+B34=RAM	C34=16
+B35=Disk	C35=914
+B36=vCenter Appliance CPU	C36=Value
+B37=Tiny	C37=2
+B38=Small	C38=4
+B39=Medium	C39=8
+B40=Large	C40=16
+B41=XLarge	C41=24
+B42=vCenter Appliance RAM	C42=Value
+B43=Tiny	C43=14
+B44=Small	C44=21
+B45=Medium	C45=30
+B46=Large	C46=39
+B47=XLarge	C47=58
+B48=vCenter Disk	C48=Value
+B49=TinyDefault	C49=619
+B50=TinyLarge	C50=2059
+B51=TinyXLarge	C51=4319
+B52=Tinylstorage	C52=2059
+B53=Tinyxlstorage	C53=4319
+B54=SmallDefault	C54=734
+B55=SmallLarge	C55=2084
+B56=SmallXLarge	C56=4344
+B57=Smalllstorage	C57=2084
+B58=Smallxlstorage	C58=4344
+B59=MediumDefault	C59=933
+B60=MediumLarge	C60=2233
+B61=MediumXLarge	C61=4493
+B62=Mediumlstorage	C62=2233
+B63=Mediumxlstorage	C63=4493
+B64=LargeDefault	C64=1383
+B65=LargeLarge	C65=2283
+B66=Largelstorage	C66=2283
+B67=Largexlstorage	C67=4553
+B68=LargeXLarge	C68=4543
+B69=XLargeDefault	C69=2308
+B70=XLargeLarge	C70=2408
+B71=XLargeXLarge	C71=4668
+B72=XLargelstorage	C72=2408
+B73=Xlargexlstorage	C73=4668
+B74=NSX-T Manager CPU	C74=Value
+B75=Extra_Small	C75=2
+B76=Small	C76=4
+B77=Medium	C77=6
+B78=Large	C78=12
+B79=XLarge	C79=24
+B80=NSX-T Manager RAM	C80=Value
+B81=Extra_Small	C81=8
+B82=Small	C82=16
+B83=Medium	C83=24
+B84=Large	C84=48
+B85=XLarge	C85=96
+B86=NSX-T Manager Disk	C86=Value
+B87=Extra_Small	C87=300
+B88=Small	C88=300
+B89=Medium	C89=300
+B90=Large	C90=300
+B91=XLarge	C91=400
+B92=NSX-T Edge CPU	C92=Value
+B93=NSX Edge Small	C93=2
+B94=NSX Edge Medium	C94=4
+B95=NSX Edge Large	C95=8
+B96=NSX Edge XLarge	C96=16
+B97=VNA Small	C97=2
+B98=VNA Medium	C98=4
+B99=VNA Large	C99=8
+B100=VNA XLarge	C100=16
+B101=NSX-T Edge RAM	C101=Value
+B102=NSX Edge Small	C102=4
+B103=NSX Edge Medium	C103=8
+B104=NSX Edge Large	C104=32
+B105=NSX Edge XLarge	C105=64
+B106=VNA Small	C106=4
+B107=VNA Medium	C107=8
+B108=VNA Large	C108=32
+B109=VNA XLarge	C109=64
+B110=NSX-T Edge Disk	C110=Value
+B111=NSX Edge Small	C111=200
+B112=NSX Edge Medium	C112=200
+B113=NSX Edge Large	C113=200
+B114=NSX Edge XLarge	C114=200
+B115=VNA Small	C115=200
+B116=VNA Medium	C116=200
+B117=VNA Large	C117=200
+B118=VNA XLarge	C118=200
+B119=Identity Broker CPU	C119=Value
+B120=Small	C120=2
+B121=Medium	C121=2
+B122=Large	C122=4
+B123=XLarge	C123=4
+B124=Identity Broker RAM	C124=Value
+B125=Small	C125=4
+B126=Medium	C126=4
+B127=Large	C127=8
+B128=XLarge	C128=8
+B129=Identity Broker Disk	C129=Value
+B130=Small	C130=10
+B131=Medium	C131=10
+B132=Large	C132=20
+B133=XLarge	C133=20
+B134=VCF Automation CPU	C134=Value
+B135=Small	C135=24
+B136=Medium	C136=24
+B137=Large	C137=32
+B138=VCF Automation RAM	C138=Value
+B139=Small	C139=96
+B140=Medium	C140=96
+B141=Large	C141=128
+B142=VCF Automation Disk	C142=Value
+B143=Small	C143=600
+B144=Medium	C144=900
+B145=Large	C145=1200
+B146=vRLI CPU	C146=Value
+B147=Small	C147=8
+B148=Medium	C148=12
+B149=Large	C149=16
+B150=vRLI RAM	C150=Value
+B151=Small	C151=16
+B152=Medium	C152=24
+B153=Large	C153=32
+B154=vRLI Disk	C154=Value
+B155=Small	C155=575
+B156=Medium	C156=575
+B157=Large	C157=575
+B158=VCF Operations CPU	C158=Value
+B159=Extra Small	C159=2
+B160=Small	C160=4
+B161=Medium	C161=8
+B162=Large	C162=16
+B163=Extra Large	C163=24
+B164=VCF Operations RAM	C164=Value
+B165=Extra Small	C165=8
+B166=Small	C166=16
+B167=Medium	C167=32
+B168=Large	C168=48
+B169=Extra Large	C169=128
+B170=VCF Operations Disk	C170=Value
+B171=Extra Small	C171=274
+B172=Small	C172=274
+B173=Medium	C173=274
+B174=Large	C174=274
+B175=Extra Large	C175=274
+B176=VCF Operations Proxy CPU	C176=Value
+B177=Small	C177=4
+B178=Standard	C178=8
+B180=VCF Operations Proxy RAM	C180=Value
+B181=Small	C181=16
+B182=Standard	C182=48
+B184=VCF Operations Proxy Disk	C184=Value
+B185=Small	C185=264
+B186=Standard	C186=264
+B188=VRMS CPU	C188=Value
+B189=Light	C189=2
+B190=Standard	C190=4
+B191=VRMS RAM	C191=Value
+B192=Light	C192=8
+B193=Standard	C193=8
+B194=VRMS Disk	C194=Value
+B195=Light	C195=33
+B196=Standard	C196=33
+B197=SRM CPU	C197=Value
+B198=Light	C198=2
+B199=Standard	C199=8
+B200=SRM RAM	C200=Value
+B201=Light	C201=8
+B202=Standard	C202=24
+B203=SRM Disk	C203=Value
+B204=Light	C204=20
+B205=Standard	C205=800
+B206=Health Reporting and Monitoring - HVM	C206=Value
+B207=CPU	C207=2
+B208=RAM	C208=8
+B209=Disk	C209=20
+B210=VCF Operations for networks CPU	C210=Value
+B211=Small	C211=4
+B212=Medium	C212=8
+B213=Large	C213=12
+B214=XL	C214=16
+B215=XXL	C215=24
+B216=VCF Operations for networks RAM	C216=Value
+B217=Small	C217=16
+B218=Medium	C218=32
+B219=Large	C219=48
+B220=XL	C220=64
+B221=XXL	C221=128
+B222=VCF Operations for networks DISK 	C222=Value
+B223=Small	C223=1024
+B224=Medium	C224=1024
+B225=Large	C225=2048
+B226=XL	C226=2048
+B227=XXL	C227=2048
+B228=VCF Operations for networks - Collector CPU	C228=Value
+B229=Small	C229=2
+B230=Medium	C230=4
+B231=Large	C231=8
+B232=XL	C232=8
+B233=XXL	C233=16
+B234=VCF Operations for networks - Collector RAM	C234=Value
+B235=Small	C235=4
+B236=Medium	C236=12
+B237=Large	C237=16
+B238=XL	C238=24
+B239=XXL	C239=48
+B240=VCF Operations for networks - Collecter DISK 	C240=Value
+B241=Small	C241=250
+B242=Medium	C242=250
+B243=Large	C243=250
+B244=XL	C244=250
+B245=XXL	C245=300
+B246=Cloud-Based Ransomware	C246=Value
+B247=CPU	C247=8
+B248=RAM	C248=12
+B249=Disk	C249=100
+B250=Cross-Cloud Mobility - HCX Conn	C250=Value
+B251=CPU	C251=4
+B252=RAM	C252=12
+B253=Disk	C253=65
+B254=AVI Load Balancer CPU	C254=Value
+B255=Small	C255=6
+B256=Large	C256=16
+B257=X-Large	C257=16
+B258=AVI Load Balancer Ram	C258=Value
+B259=Small	C259=32
+B260=Large	C260=48
+B261=X-Large	C261=64
+B262=AVI Load Balancer Disk	C262=Value
+B263=Small	C263=512
+B264=Large	C264=1400
+B265=X-Large	C265=1750
+B266=SSP CPU	C266=Value
+B267=Excluded	C267=96
+B268=Include
+B269=Deployed in WLD
+B270=Medium	C270=64
+B271=Large	C271=96
+B272=XLarge	C272=160
+B273=SSP RAM 	C273=Value
+B274=Medium	C274=222
+B275=Large	C275=350
+B276=XLarge	C276=606
+B277=SSP Disk	C277=Value
+B278=Medium	C278=3260
+B279=Large	C279=3600
+B280=XLarge	C280=6120
+B281=SSP Workers	C281=Value
+B282=Medium	C282=2
+B283=Large	C283=4
+B284=XLarge	C284=8
+B285=SSP Controller	C285=Value
+B286=Medium	C286=3
+B287=Large	C287=3
+B288=XLarge	C288=3
+B289=SSPI	C289=Value
+B290=Medium	C290=1
+B291=Large	C291=1
+B292=XLarge	C292=1
+B293=SSPI CPU	C293=Value
+B294=Medium	C294=4
+B295=Large	C295=4
+B296=XLarge	C296=4
+B297= RAM	C297=Value
+B298=Medium	C298=6
+B299=Large	C299=6
+B300=XLarge	C300=6
+B301=SSPI Table 	C301=Value
+B302=Medium	C302=400
+B303=Large	C303=400
+B304=XLarge	C304=400
+B305=Deployment model 	C305=Value
+C306=Small
+C307=Medium
+C308=Large
+B309=SSP License 	C309=Value
+B310=CPU	C310=6
+B311=RAM	C311=12
+B312=Storage	C312=256
+B313=Deployment Size Control Node	C313=Value
+B314=Simple	C314=1
+B315=High Availability	C315=3
+B316=VCFMS Control Node CPU	C316=Value
+B317=Small	C317=4
+B318=Small HA	C318=4
+B319=Medium	C319=4
+B320=Large	C320=8
+B321=VCFMS Control Node RAM 	C321=Value
+B322=Small	C322=10
+B323=Small HA	C323=10
+B324=Medium	C324=10
+B325=Large	C325=14
+B326=VCFMS Control Node Disk	C326=Value
+B327=Small	C327=100
+B328=Small HA	C328=100
+B329=Medium	C329=100
+B330=Large	C330=100
+B331=VCFMS Worker Node	C331=Value
+B332=First InstanceSimpleSmall	C332=2
+B333=First InstanceHigh AvailabilitySmall	C333=3
+B334=First InstanceHigh AvailabilityMedium	C334=3
+B335=First InstanceHigh AvailabilityLarge	C335=3
+B336=Additional InstanceSimpleSmall	C336=1
+B337=Additional InstanceHigh AvailabilitySmall	C337=3
+B338=Additional InstanceHigh AvailabilityMedium	C338=3
+B339=Additional InstanceHigh AvailabilityLarge	C339=3
+B340=VCFMS Worker Node CPU	C340=Value
+B341=First InstanceSimpleSmall	C341=12
+B342=First InstanceHigh AvailabilitySmall	C342=10
+B343=First InstanceHigh AvailabilityMedium	C343=12
+B344=First InstanceHigh AvailabilityLarge	C344=16
+B345=Additional InstanceSimpleSmall	C345=12
+B346=Additional InstanceHigh AvailabilitySmall	C346=10
+B347=Additional InstanceHigh AvailabilityMedium	C347=12
+B348=Additional InstanceHigh AvailabilityLarge	C348=16
+B349=VCFMS Worker Node RAM 	C349=Value
+B350=First InstanceSimpleSmall	C350=24
+B351=First InstanceHigh AvailabilitySmall	C351=16
+B352=First InstanceHigh AvailabilityMedium	C352=24
+B353=First InstanceHigh AvailabilityLarge	C353=32
+B354=Additional InstanceSimpleSmall	C354=24
+B355=Additional InstanceHigh AvailabilitySmall	C355=16
+B356=Additional InstanceHigh AvailabilityMedium	C356=24
+B357=Additional InstanceHigh AvailabilityLarge	C357=32
+B358=VCFMS Worker Node Disk	C358=Value
+B359=First InstanceSimpleSmall	C359=2900
+B360=First InstanceHigh AvailabilitySmall	C360=2800
+B361=First InstanceHigh AvailabilityMedium	C361=3300
+B362=First InstanceHigh AvailabilityLarge	C362=4002
+B363=Additional InstanceSimpleSmall	C363=1000
+B364=Additional InstanceHigh AvailabilitySmall	C364=1000
+B365=Additional InstanceHigh AvailabilityMedium	C365=1202
+B366=Additional InstanceHigh AvailabilityLarge	C366=1500
+B367=VODAP CPU Per Replica	C367=Value
+B368=SimpleSmall	C368=16
+B369=High AvailabilitySmall	C369=16
+B370=High AvailabilityMedium	C370=31
+B371=High AvailabilityLarge	C371=47
+B372=VODAP RAM Per Replica	C372=Value
+B373=SimpleSmall	C373=20
+B374=High AvailabilitySmall	C374=20
+B375=High AvailabilityMedium	C375=41
+B376=High AvailabilityLarge	C376=62
+B377=Log Managment CPU Per Replica	C377=Value
+B378=Small	C378=8
+B379=Medium	C379=16
+B380=Large	C380=32
+B382=Log Managment RAM Per Replica
+B383=Small	C383=16
+B384=Medium	C384=32
+B385=Large	C385=64
+B387=VCFMS Calculations 	C387=Value
+B388=Number of Nodes Ram	C388=3	D388=2	E388=48
+B389=Number of Nodes CPU	C389=3	D389=3	E389=24
+B390=Ram Requirements 	C390=72	D390=29
+B391=CPU Requirements 	C391=36	D391=20	F391=Worker Override Values	G391=Worker Override Values	H391=Worker Overhead	I391=Worker Overhead
+B392=Day-N Calculations 	C392=CPU	D392=RAM	E392=Disk	F392=CPU	G392=RAM	H392=Ram	I392=CPU	J392=Calculated Nodes 
+B393=Log Management	C393=0	D393=0	E393=0	F393=12	G393=24	H393=8	I393=4	J393=3
+B394=Real-time Metrics	C394=0	D394=0	E394=0	J394=3
+B395=Software Depot 	C395=0	D395=0	E395=0
+B396=Identity Broker 	C396=0	D396=0	E396=0
+B397=Day-0 Calculations 	C397=CPU	D397=RAM
+C398=19.8	D398=28.14
+B399=Supervisor  	C399=CPU
+B400=Tiny	C400=2
+B401=Small	C401=4
+B402=Medium	C402=8
+B403=Large	C403=16
+B404=Xlarge	C404=32
+B405=Supervisor  	C405=RAM
+B406=Tiny	C406=8
+B407=Small	C407=16
+B408=Medium	C408=24
+B409=Large	C409=32
+B410=Xlarge	C410=64
+B411=Supervisor  	C411=Disk
+B412=Tiny	C412=48
+B413=Small	C413=48
+B414=Medium	C414=48
+B415=Large	C415=48
+B416=Xlarge	C416=48
+B417=Identity Broker 	C417=CPU
+B418=SimpleSmall	C418=1.5
+B419=High AvailabilitySmall	C419=3.5
+B420=High AvailabilityMedium	C420=6
+B421=High AvailabilityLarge	C421=12
+B422=Identity Broker 	C422=RAM
+B423=SimpleSmall	C423=2
+B424=High AvailabilitySmall	C424=5
+B425=High AvailabilityMedium	C425=9
+B426=High AvailabilityLarge	C426=24
+B427=Identity Broker 	C427=Disk
+B428=SimpleSmall	C428=20
+B429=High AvailabilitySmall	C429=60
+B430=High AvailabilityMedium	C430=60
+B431=High AvailabilityLarge	C431=120
+B432=Software Depot 	C432=CPU
+B433=SimpleSmall	C433=0.9
+B434=High AvailabilitySmall	C434=0.9
+B435=High AvailabilityMedium	C435=1.8
+B436=High AvailabilityLarge	C436=3
+B437=Software Depot 	C437=RAM
+B438=SimpleSmall	C438=1.25
+B439=High AvailabilitySmall	C439=1.25
+B440=High AvailabilityMedium	C440=2.64
+B441=High AvailabilityLarge	C441=5
+B442=Software Depot 	C442=Disk
+B443=SimpleSmall	C443=1500
+B444=High AvailabilitySmall	C444=1500
+B445=High AvailabilityMedium	C445=1500
+B446=High AvailabilityLarge	C446=1500
+B447=Salt	C447=CPU
+B448=SimpleSmall	C448=0.7
+B449=High AvailabilitySmall	C449=0.7
+B450=High AvailabilityMedium	C450=1.5
+B451=High AvailabilityLarge	C451=2.5
+B452=Salt	C452=RAM
+B453=SimpleSmall	C453=1.5
+B454=High AvailabilitySmall	C454=1.5
+B455=High AvailabilityMedium	C455=2.5
+B456=High AvailabilityLarge	C456=4.5
+B457=Salt Raas	C457=CPU
+B458=SimpleSmall	C458=1.1499999999999999
+B459=High AvailabilitySmall	C459=1.1499999999999999
+B460=High AvailabilityMedium	C460=4.5
+B461=High AvailabilityLarge	C461=7
+B462=Salt Raas	C462=RAM
+B463=SimpleSmall	C463=2.6
+B464=High AvailabilitySmall	C464=2.6
+B465=High AvailabilityMedium	C465=6
+B466=High AvailabilityLarge	C466=9
+B467=Telemetry Acceptor	C467=CPU
+B468=SimpleSmall	C468=0.5
+B469=High AvailabilitySmall	C469=0.5
+B470=High AvailabilityMedium	C470=1
+B471=High AvailabilityLarge	C471=1
+B472=Telemetry Acceptor	C472=RAM
+B473=SimpleSmall	C473=0.5
+B474=High AvailabilitySmall	C474=0.5
+B475=High AvailabilityMedium	C475=1
+B476=High AvailabilityLarge	C476=1
+B477=Fleet LCM	C477=CPU
+B478=SimpleSmall	C478=2
+B479=High AvailabilitySmall	C479=2.5
+B480=High AvailabilityMedium	C480=2.5
+B481=High AvailabilityLarge	C481=2.5
+B482=Fleet LCM	C482=RAM
+B483=SimpleSmall	C483=3
+B484=High AvailabilitySmall	C484=3.5
+B485=High AvailabilityMedium	C485=3.5
+B486=High AvailabilityLarge	C486=3.5
+B487=SDDC LCM	C487=CPU
+B488=SimpleSmall	C488=2
+B489=High AvailabilitySmall	C489=2.5
+B490=High AvailabilityMedium	C490=2.5
+B491=High AvailabilityLarge	C491=2.5
+B492=SDDC LCM	C492=RAM
+B493=SimpleSmall	C493=3
+B494=High AvailabilitySmall	C494=3.5
+B495=High AvailabilityMedium	C495=3.5
+B496=High AvailabilityLarge	C496=3.5
+B497=CIDR	C497=Mask	D497=CIDR
+B498=32	C498=255.255.255.255	D498=32
+B499=31	C499=255.255.255.254	D499=31
+B500=30	C500=255.255.255.252	D500=30
+B501=29	C501=255.255.255.248	D501=29
+B502=28	C502=255.255.255.240	D502=28
+B503=27	C503=255.255.255.224	D503=27
+B504=26	C504=255.255.255.192	D504=26
+B505=25	C505=255.255.255.128	D505=25
+B506=24	C506=255.255.255.0	D506=24
+B507=23	C507=255.255.254.0	D507=23
+B508=22	C508=255.255.252.0	D508=22
+B509=21	C509=255.255.248.0	D509=21
+B510=20	C510=255.255.240.0	D510=20
+B511=19	C511=255.255.224.0	D511=19	E511=1
+B512=18	C512=255.255.192.0	D512=18	E512=2
+B513=17	C513=255.255.128.0	D513=17	E513=3
+B514=16	C514=255.255.0.0	D514=16	E514=4
+B515=15	C515=255.254.0.0	D515=15	E515=5
+B516=14	C516=255.252.0.0	D516=14	E516=6
+B517=13	C517=255.248.0.0	D517=13	E517=7
+B518=12	C518=255.240.0.0	D518=12	E518=8
+B519=11	C519=255.224.0.0	D519=11	E519=9
+B520=10	C520=255.192.0.0	D520=10	E520=10
+B521=9	C521=255.128.0.0	D521=9	E521=11
+B522=8	C522=255.0.0.0	D522=8	E522=12
+B523=7	C523=254.0.0.0	D523=7	E523=13
+B524=6	C524=252.0.0.0	D524=6	E524=14
+B525=5	C525=248.0.0.0	D525=5	E525=15
+B526=4	C526=240.0.0.0	D526=4	E526=16
+B527=3	C527=224.0.0.0	D527=3	E527=17
+B528=2	C528=192.0.0.0	D528=2	E528=18
+B529=1	C529=128.0.0.0	D529=1	E529=19
+B530=0	C530=0.0.0.0	D530=0
+B531=NSX-T Deployment	C531=NSX-T Deployment
+C532=Shared
+C533=Dedicated - Single Node
+C534=Dedicated - HA Cluster
+C535=Workload Domain Type
+B536=N/A
+B537=AMD Opteron Generation 1 (Rev. E)
+B538=AMD Opteron Generation 2 (Rev. F)
+B539=AMD Opteron Generation 3 (Greyhound)
+B540=AMD Opteron Generation 3 (no 3Dnow!) (Greyhound)
+B541=AMD Opteron Generation 4 (Bulldozer)
+B542=AMD Opteron "Piledriver" Generation
+B543=AMD Opteron "Steamroller" Generation
+B544=AMD "Zen" Generation
+B545=AMD "Zen 2" Generation
+B546=AMD "Zen 3" Generation
+B547=AMD "Zen 4" Generation
+B548=Intel "Merom" Generation (Intel Xeon Core 2)
+B549=Intel "Penryn" Generation (Intel Xeon 45nm Core2)
+B550=Intel "Nehalem" Generation (Intel Xeon Core i7)
+B551=Intel "Westmere" Generation (Intel Xeon 32nm Core i7)
+B552=Intel "Sandy Bridge" Generation
+B553=Intel "Ivy Bridge" Generation
+B554=Intel "Haswell" Generation
+B555=Intel "Broadwell" Generation
+B556=Intel "Skylake" Generation
+B557=Intel "Cascade Lake" Generation
+B558=Intel "Ice Lake" Generation
+B559=Intel "Sapphire Rapids" Generation
+B560=MGMT Domain 5.x Storage Option
+B561=vSAN-ESA
+B562=vSAN-OSA
+B563=WLD Domain 5.x Storage Option
+B564=vSAN-ESA	C564=vSAN-ESA
+B565=vSAN-OSA	C565=vSAN-OSA
+B566=vSAN Storage Cluster	C566=vSAN Compute Cluster
+B567=NFSv3	C567=vSAN Storage Cluster
+B568=VMFS on Fibre Channel (FC)	C568=NFSv3
+C569=VMFS on Fibre Channel (FC)
+B570=vSphere Lifecycle Manager - OSA
+B571=Images
+B572=Baselines
+B573=vSphere Lifecycle Manager  - ESA
+B574=Images
+B575=AWS Regions 
+B576=Asia Pacific (Osaka)
+B577=Asia Pacific (Mumbai)
+B578=Asia Pacific (Hyderabad)
+B579=Asia Pacific (Singapore)
+B580=Asia Pacific (Sydney)
+B581=Asia Pacific (Jakarta)
+B582=Asia Pacific (Melbourne)
+B583=Canada (Central)
+B584=China (Beijing)
+B585=China (Ningxia)
+B586=Europe (Frankfurt)
+B587=Europe (Zurich)
+B588=Europe (Stockholm)
+B589=Europe (Milan)
+B590=Europe (Spain)
+B591=Europe (Ireland)
+B592=Europe (London)
+B593=Europe (Paris)
+B594=Israel (Tel Aviv)
+B595=Middle East (UAE)
+B596=Middle East (Bahrain)
+B597=South America (Sao Paulo)
+B598=US East (N. Virginia)
+B599=US East (Ohio)
+B600=AWS GovCloud (US-East)
+B601=AWS GovCloud (US-West)
+B602=US West (N. California) 
+B603=US West (Oregon)
+B604=Storage FTT 
+B605=1
+B606=2
+B607=3
+B608=Auto-Policy management
+B609=Cluster Type
+B610=Dedicated Compute
+B611=Dedicated Edge
+B612=Shared Edge and Compute
+B613=Rack number Include / Exclude
+B614=Include
+B615=Exclude
+B616=LAG Load Balancing
+B617=Source MAC
+B618=Destination MAC
+B619=Source and destination MAC
+B620=Destination IP and vLAN
+B621=Source IP and vLAN
+B622=Source and destination IP and vLAN
+B623=Destination TCP/UDP port
+B624=Source TCP/UDP port
+B625=Source and destination TCP/UDP port
+B626=Destination IP and TCP/UDP port
+B627=Source IP and TCP/UDP port
+B628=Source and destination IP and TCP/UDP port
+B629=Destination IP and TCP/UDP port and vLAN
+B630=Source IP and TCP/UDP port and vLAN
+B631=Source and destination IP and TCP/UDP port and vLAN
+B632=Destination IP
+B633=Source IP
+B634=Source and destination IP
+B635=vLAN
+B636=vLAN source port ID
+B639=vCenter Size	C639=Supported Limits
+B640=Tiny	C640=10 Hosts 100 VMs
+B641=Small	C641=100 Hosts 1000 VMs
+B642=Medium	C642=400 Hosts - 4000 VM
+B643=Large	C643=1000 Hosts - 10000 VMs
+B644=XLarge	C644=2000 Hosts - 35000 VMS
+B646=NSX Size	C646=Supported Limits
+B647=Extra_Small	C647=Cloud Service Manager Only
+B648=Small	C648=POC only
+B649=Medium	C649=128 Hosts - 5 vSphere Clusters
+B650=Large	C650=1024 Hosts - 256 vSphere Clusters
+B651=XLarge	C651=2048 Hosts - 512 vSphere Clusters
+B656=vSAN MAX VDS Profile	C656=Standard VDS Profile	D656=VVF VDS Profile
+B657=vSAN Max Storage Traffic Separation	C657=Default	D657=Default
+B658=vSAN Max Storage Traffic and NSX Traffic Separation	C658=Storage Traffic Separation	D658=Storage Traffic Separation
+C659=NSX Traffic Separation	D659=Custom Switch Configuration
+C660=Storage Traffic and NSX Traffic Separation
+C661=Custom Switch Configuration
+B663=NSX GM Size calculations 
+B664=0
+B665=0
+B666=0
+B667=0
