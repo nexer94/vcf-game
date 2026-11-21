@@ -7,6 +7,7 @@
  * The right-side panel "Návrhová rozhodnutí" shares the same state (session / sharedDesignState).
  */
 import type { DesignDecisionId } from '../../model';
+import { specRefInline } from '../sandbox/sourcePopover';
 import { button, docLink, h } from '../dom';
 import { badge, chip, iconText, message } from '../messages';
 import { icon } from '../icons';
@@ -114,12 +115,12 @@ export function createDesignApp(o: DesignAppOptions): PcApp {
       ...hw.requirements.map((r) => h('div', { class: `req ${r.met === null ? 'req-neutral' : r.met ? 'req-ok' : 'req-bad'}` },
         h('span', { 'aria-hidden': 'true' }, r.met === null ? '○ ' : r.met ? '✔ ' : '✖ '),
         h('span', { class: 'sr-only' }, r.met === null ? 'Požadavek: ' : r.met ? 'Splněno: ' : 'Nesplněno: '),
-        h('span', { lang: 'en' }, r.issue.message), h('span', { class: 'spec-ref' }, ` ${r.issue.specRef}`))),
+        h('span', { lang: 'en' }, r.issue.message), specRefInline(r.issue.specRef))),
       ...hw.errors.filter((e) => !hw.requirements.some((r) => r.issue.message === e.issue.message)).map((e) =>
-        h('div', { class: 'req req-bad' }, h('span', { 'aria-hidden': 'true' }, '✖ '), h('span', { lang: 'en' }, e.issue.message), h('span', { class: 'spec-ref' }, ` ${e.issue.specRef}`))),
+        h('div', { class: 'req req-bad' }, h('span', { 'aria-hidden': 'true' }, '✖ '), h('span', { lang: 'en' }, e.issue.message), specRefInline(e.issue.specRef))),
       ...[...hw.errors, ...hw.warnings].filter((e) => e.unlock).map((e) =>
         button(`${e.unlock!.text} ▸`, () => o.onUnlock(e.unlock!), { class: 'btn btn-small unlock-btn', title: 'Herní akce – odemkne volbu podle požadavku z dokumentace' })),
-      ...hw.warnings.map((w) => h('div', { class: 'req req-warn' }, iconText('warning', ' '), h('span', { lang: 'en' }, w.issue.message), h('span', { class: 'spec-ref' }, ` ${w.issue.specRef}`))),
+      ...hw.warnings.map((w) => h('div', { class: 'req req-warn' }, iconText('warning', ' '), h('span', { lang: 'en' }, w.issue.message), specRefInline(w.issue.specRef))),
     );
   }
 
@@ -131,7 +132,7 @@ export function createDesignApp(o: DesignAppOptions): PcApp {
       opt.rules.length ? h('ul', { class: 'rule-list' }, ...opt.rules.map(ruleLi)) : null,
       opt.consequences.length ? h('ul', { class: 'conseq-list' }, ...opt.consequences.map(conseqLi)) : null,
       sources(opt.sources),
-      h('div', { class: 'spec-ref' }, `Spec: ${d.specRef}`),
+      specRefInline(d.specRef),
     );
     return h('article', { class: `opt-card${opt.selected ? ' chosen' : ''}${opt.available ? '' : ' blocked'}`, 'aria-label': opt.label },
       h('div', { class: 'opt-head' },
@@ -146,8 +147,8 @@ export function createDesignApp(o: DesignAppOptions): PcApp {
       opt.description ? h('p', { class: 'opt-desc' }, opt.description) : null,
       ...opt.recommended.slice(0, 2).map((t) => h('div', { class: 'opt-rec' }, h('span', { 'aria-hidden': 'true' }, '★ '), t)),
       hwBlock(opt),
-      ...opt.errors.map((e) => h('div', { class: 'req req-bad' }, h('span', { 'aria-hidden': 'true' }, '✖ '), 'Nelze: ', h('span', { lang: 'en' }, e.message), e.specRef ? h('span', { class: 'spec-ref' }, ` ${e.specRef}`) : null)),
-      ...opt.warnings.map((w) => h('div', { class: 'req req-warn' }, iconText('warning', ' '), h('span', { lang: 'en' }, w.message), h('span', { class: 'spec-ref' }, ` ${w.specRef}`))),
+      ...opt.errors.map((e) => h('div', { class: 'req req-bad' }, h('span', { 'aria-hidden': 'true' }, '✖ '), 'Nelze: ', h('span', { lang: 'en' }, e.message), e.specRef ? specRefInline(e.specRef) : null)),
+      ...opt.warnings.map((w) => h('div', { class: 'req req-warn' }, iconText('warning', ' '), h('span', { lang: 'en' }, w.message), specRefInline(w.specRef))),
       why,
       h('div', { class: 'opt-foot' },
         opt.selected
@@ -174,7 +175,7 @@ export function createDesignApp(o: DesignAppOptions): PcApp {
             d.consequences.length ? h('ul', { class: 'conseq-list' }, ...d.consequences.map(conseqLi)) : null,
             d.rules.length ? h('ul', { class: 'rule-list' }, ...d.rules.map(ruleLi)) : null)
         : null,
-      h('div', { class: 'decision-foot' }, sources(d.sources), h('span', { class: 'spec-ref' }, ` Spec: ${d.specRef}`)),
+      h('div', { class: 'decision-foot' }, sources(d.sources), specRefInline(d.specRef)),
     );
   }
 

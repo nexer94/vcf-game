@@ -531,6 +531,7 @@ export const sandboxRoomScreen: ScreenDef = {
       applyZoneVars(ui, zones);
       ui.classList.toggle('panel-open', panelOpen);
       if (view.kind === 'room' && !transition) camera?.set(fitRoom());
+      if (!transition) rackPanel?.refit();
       bubble?.reposition();
     }
     setSourceObstacles(() => zones.obstacles);

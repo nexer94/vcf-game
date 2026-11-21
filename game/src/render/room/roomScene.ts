@@ -854,7 +854,7 @@ export class RoomScene {
   /** World rect of the avatar (speech bubble anchor 'avatar', UX 18.1). */
   avatarRect(): { x: number; y: number; width: number; height: number } {
     const p = isoToScreen(this.avatar.x, this.avatar.y);
-    return { x: p.x - 10, y: p.y - 46, width: 20, height: 46 };
+    return { x: p.x - 10, y: p.y - 60, width: 20, height: 60 };
   }
 
   cabinetRect(id: string): { x: number; y: number; width: number; height: number } | null {

@@ -5,51 +5,11 @@
  * (game/src/scenarios/sources). Max. 3 links; the "spec §" line is small and grey, never with bracket ids.
  * One popover instance for the whole app; placed with the shared `placePopover` (22.2), Esc closes and returns focus.
  */
-import { resolveSpecRef, sourceLinksForKeys, stripSourceIds, type SourceLink } from '../../scenarios/sources';
+import { stripSourceIds } from '../../scenarios/sources';
+import { hasSources, resolveSources, type SourceSpec } from './sourceResolve';
+export { hasSources, resolveSources, type ResolvedSources, type SourceSpec } from './sourceResolve';
 import { button, h } from '../dom';
 import { placePopover, type Rect } from './layoutZones';
-
-export interface SourceSpec {
-  /** Spec reference(s) as used in game data ("10-planning §3.3 [P19]"). */
-  readonly specRef?: string | readonly string[];
-  /** Explicit registry keys (`ObjectiveBubble.sourceKeys`). */
-  readonly keys?: readonly string[];
-  /** Extra direct link (e.g. BCG page of a server model) shown first. */
-  readonly extra?: { readonly label: string; readonly url: string };
-  /** Default spec file for ids without a file prefix. */
-  readonly defaultFile?: string;
-  /** "Proč to platí" – 1–2 sentences (paraphrase). */
-  readonly why?: string;
-  /** Rule code (e.g. VCF-NET-REQD-TOR-001). */
-  readonly rule?: string;
-}
-
-export interface ResolvedSources {
-  readonly links: readonly SourceLink[];
-  readonly more: number;
-  readonly specLine: string;
-  readonly unknown: number;
-}
-
-export function resolveSources(s: SourceSpec): ResolvedSources {
-  const fromRef = s.specRef ? resolveSpecRef(s.specRef, { ...(s.defaultFile ? { defaultFile: s.defaultFile } : {}), max: 99 }) : null;
-  const fromKeys = s.keys?.length ? sourceLinksForKeys(s.keys) : null;
-  const all: SourceLink[] = [];
-  if (s.extra) all.push({ key: `extra:${s.extra.url}`, label: s.extra.label, title: s.extra.label, url: s.extra.url, domain: 'compatibilityguide' });
-  for (const l of [...(fromKeys?.links ?? []), ...(fromRef?.links ?? [])]) if (!all.some((x) => x.url === l.url)) all.push(l);
-  return {
-    links: all.slice(0, 3),
-    more: Math.max(0, all.length - 3),
-    specLine: fromRef?.specLine ?? '',
-    unknown: (fromRef?.unknownKeys.length ?? 0) + (fromKeys?.unknownKeys.length ?? 0),
-  };
-}
-
-/** True when there is anything to show. */
-export const hasSources = (s: SourceSpec): boolean => {
-  const r = resolveSources(s);
-  return r.links.length > 0 || r.specLine !== '';
-};
 
 let pop: HTMLElement | null = null;
 let opener: HTMLElement | null = null;
@@ -129,4 +89,10 @@ export function sourceButton(s: SourceSpec, label = 'Zdroj ▾', cls = 'src-btn'
 /** First readable title of a reference (for inline labels like "Zdroj: <title>"). */
 export function firstSourceTitle(s: SourceSpec): string | undefined {
   return resolveSources(s).links[0]?.title;
+}
+
+/** Inline spec reference for the player: text WITHOUT bracket ids (UX P5) + "Zdroj ▾" with readable page titles. */
+export function specRefInline(ref: string, prefix = ' '): HTMLElement {
+  const btn = sourceButton({ specRef: ref });
+  return h('span', { class: 'spec-ref' }, `${prefix}${stripSourceIds(ref)}`, btn ? ' ' : '', btn ?? '');
 }

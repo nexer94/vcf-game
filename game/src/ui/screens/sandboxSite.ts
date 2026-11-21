@@ -1,4 +1,5 @@
 import { button, docLink, h } from '../dom';
+import { specRefInline } from '../sandbox/sourcePopover';
 import { badge, chip } from '../messages';
 import { blueprintCards, SITE_WHY_LINKS, UPCOMING_BLUEPRINTS, type BlueprintCard, type BlueprintVariant } from '../sandbox/blueprints';
 import { formatLinkGame, presetLayout, sharedSitePort } from '../sandbox/siteLayout';
@@ -66,7 +67,7 @@ export const sandboxSiteScreen: ScreenDef = {
           ),
           h('p', { class: 'small' },
             h('a', { href: c.url, target: '_blank', rel: 'noopener noreferrer', class: 'doc-link', title: c.url }, 'Proč?'),
-            h('span', { class: 'muted' }, ` ${c.specRef}`)),
+            specRefInline(c.specRef)),
         ),
         c.variants.length
           ? h('div', { class: `site-variants${c.variants.length > 1 ? ' site-variants-many' : ''}` },
@@ -87,13 +88,13 @@ export const sandboxSiteScreen: ScreenDef = {
         h('ul', { class: 'site-cards' }, ...cards),
         h('details', { class: 'more intro-more' },
           h('summary', null, 'Připravujeme další blueprinty'),
-          h('ul', { class: 'facts' }, ...UPCOMING_BLUEPRINTS.map((b) => h('li', null, h('span', { lang: 'en' }, docLink(b.title, b.url)), h('span', { class: 'muted small' }, ` – ${b.specRef}`)))),
+          h('ul', { class: 'facts' }, ...UPCOMING_BLUEPRINTS.map((b) => h('li', null, h('span', { lang: 'en' }, docLink(b.title, b.url)), specRefInline(b.specRef)))),
         ),
         h('details', { class: 'more intro-more' },
           h('summary', null, 'Proč na rozvržení záleží?'),
           h('p', null, 'Co pro VCF znamenají místnosti, budovy a vzdálená lokalita (availability zone, stretched cluster, witness, druhá VCF Instance) ',
             'a jaké jsou požadavky na linky mezi nimi, říká dokumentace:'),
-          h('ul', { class: 'facts' }, ...SITE_WHY_LINKS.map((l) => h('li', null, docLink(l.label, l.url), h('span', { class: 'muted small' }, ` – ${l.specRef}`)))),
+          h('ul', { class: 'facts' }, ...SITE_WHY_LINKS.map((l) => h('li', null, docLink(l.label, l.url), specRefInline(l.specRef)))),
           h('p', { class: 'muted small' }, 'Rozměry místností, RTT a propustnost linek ve hře jsou herní hodnoty (', badge('illustrative'), ').'),
         ),
         h('div', { class: 'intro-foot' }, back),

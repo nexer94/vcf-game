@@ -6,6 +6,7 @@
  * (no invented steps).
  */
 import { USE_CASES, type UseCaseId } from '../../modes/sandbox/useCases';
+import { specRefInline } from '../sandbox/sourcePopover';
 import { button, docLink, h } from '../dom';
 import { message } from '../messages';
 import { icon } from '../icons';
@@ -38,7 +39,7 @@ export function createUseCaseApp(o: UseCaseAppOptions): PcApp {
       chosen
         ? h('section', { class: 'uc-chosen', 'aria-label': 'Vybraný use case' },
             h('h3', null, `Vybráno: ${chosen.id} – `, h('span', { lang: 'en' }, chosen.title)),
-            h('p', { class: 'small' }, 'Pořadí kroků a prerekvizity: ', docLink('dokumentace TechDocs', chosen.url), h('span', { class: 'spec-ref' }, ` · spec ${chosen.specRef}`)),
+            h('p', { class: 'small' }, 'Pořadí kroků a prerekvizity: ', docLink('dokumentace TechDocs', chosen.url), specRefInline(chosen.specRef)),
             h('p', { class: 'muted small' }, 'Hra zatím nemá pořadí kroků tohoto use case jako vlastní data – řiď se odkazem a úkoly v trackeru.'),
             chosen.gameScopeNote ? message({ type: 'game-limit', compact: true, body: chosen.gameScopeNote }) : null,
             ...chosen.limitations.map((i) => message({ type: 'game-limit', compact: true, body: h('span', { lang: 'en' }, i.message), reference: `${i.code} · Spec: ${i.specRef}` })),
@@ -56,7 +57,7 @@ export function createUseCaseApp(o: UseCaseAppOptions): PcApp {
               u.modelled ? h('span', { class: 'ui-badge badge-ok' }, 'hratelné') : h('span', { class: 'ui-badge badge-game-simplification', title: 'Hra tuto cestu zatím nesimuluje – není to chyba VCF.' }, icon('puzzle', { className: 'badge-icon' }), 'herní omezení'),
             ),
             h('div', { class: 'uc-title', lang: 'en' }, u.title),
-            h('div', { class: 'small' }, docLink('TechDocs', u.url), h('span', { class: 'spec-ref' }, ` spec ${u.specRef}`)),
+            h('div', { class: 'small' }, docLink('TechDocs', u.url), specRefInline(u.specRef)),
             isChosen
               ? h('span', { class: 'ok small' }, '✓ vybráno')
               : button('Vybrat', () => choose(u.id), { class: 'btn btn-small', disabled: !o.port.ops, 'aria-label': `Vybrat ${u.id}: ${u.title}` }),

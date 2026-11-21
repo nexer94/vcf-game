@@ -68,7 +68,7 @@ export function computeZones(s: ZoneState): Zones {
 }
 
 /** Write the zone sizes as CSS variables on the room UI root. */
-export function applyZoneVars(el: HTMLElement, z: Zones): void {
+export function applyZoneVars(el: { readonly style: { setProperty(name: string, value: string): void } }, z: Zones): void {
   el.style.setProperty('--top-h', `${z.hudH}px`);
   el.style.setProperty('--checklist-w', `${z.checklistW}px`);
   el.style.setProperty('--right-w', `${z.rightW}px`);

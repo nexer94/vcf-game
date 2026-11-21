@@ -83,7 +83,7 @@
 .src-pop {
   position: fixed; left: 0; top: 0; z-index: 60; width: 360px; max-width: min(420px, calc(100vw - 32px)); max-height: calc(100vh - 96px);
   overflow: auto; box-sizing: border-box; background: var(--panel); border: 1px solid var(--outline); border-radius: var(--radius);
-  box-shadow: var(--shadow); padding: 8px 12px; font-size: 13px; color: var(--text);
+  box-shadow: var(--shadow); padding: 8px 12px; font: 13px/1.4 var(--font); color: var(--text);
 }
 .src-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .src-links a { color: var(--accent); }
@@ -172,7 +172,7 @@
 .room-ui .rack-list { top: calc(var(--top-h) + 52px); max-height: calc(100vh - 160px); }
 
 /* ---- NIC slot popover */
-.nic-pop { position: fixed; left: 0; top: 0; z-index: 55; width: 400px; max-width: min(420px, calc(100vw - 32px)); max-height: calc(100vh - 96px); overflow: auto; box-sizing: border-box; background: var(--panel); border: 1px solid var(--outline); border-radius: var(--radius); box-shadow: var(--shadow); padding: 8px 12px; font-size: 13px; }
+.nic-pop { position: fixed; left: 0; top: 0; z-index: 55; width: 400px; max-width: min(420px, calc(100vw - 32px)); max-height: calc(100vh - 96px); overflow: auto; box-sizing: border-box; background: var(--panel); border: 1px solid var(--outline); border-radius: var(--radius); box-shadow: var(--shadow); padding: 8px 12px; font: 13px/1.4 var(--font); color: var(--text); }
 .nic-list { border: 0; padding: 0; margin: 4px 0; display: grid; gap: 4px; }
 .nic-list legend { font-weight: 700; margin-bottom: 4px; }
 .nic-row { display: flex; gap: 6px; align-items: baseline; }

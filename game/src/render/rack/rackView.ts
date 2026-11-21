@@ -354,18 +354,14 @@ export class RackElevationView {
       g.roundRect(x, y, w, h, 3).fill(DEVICE.switchFace).stroke({ color: OUTLINE, width: 1.6 });
       const t = txt(d.label, Math.min(12, U * 0.6), 0xffffff, '800');
       t.anchor.set(0, 0.5);
-      t.position.set(x + 8, y + h / 2 - (d.preinstalled && h >= U * 0.9 ? 3 : 0));
+      t.position.set(x + 8, y + h / 2 - (h >= U * 1.6 ? 5 : 0));
       layer.addChild(t);
-      if (d.preinstalled) {
-        const sub = txt('předinstalováno · herní', Math.min(7.5, U * 0.36), 0xc9d3ea, '700');
-        sub.anchor.set(0, 0);
+      const sub = txt(d.preinstalled ? 'předinstalováno · herní' : (d.sublabel ?? 'generický').slice(0, 14), Math.min(8, U * 0.4), 0xc9d3ea, '700');
+      // 1U: second line does not fit -> under the name only when the device is taller; else hidden (tooltip / panel).
+      if (h >= U * 1.6) {
         sub.position.set(x + 8, y + h / 2 + 2);
         layer.addChild(sub);
-      } else {
-        const sub = txt((d.sublabel ?? 'generický').slice(0, 14), Math.min(7.5, U * 0.36), 0xdfe8ff, '700');
-        sub.position.set(x + 8, y + h / 2 + 2);
-        layer.addChild(sub);
-      }
+      } else sub.destroy();
     }
     for (const p of this.layoutCache.ports.values()) {
       if (p.deviceId !== d.id) continue;

@@ -198,8 +198,9 @@ export function createShop(opts: ShopOptions): ShopHandle {
   function rackCard(r: ShopRackItem): HTMLElement {
     const b = button('Koupit', () => opts.onBuy(r.id, 1), { class: 'btn btn-small btn-primary', 'aria-label': `Koupit ${r.label}` });
     return h('article', { class: 'shop-card v3 rack-card', 'aria-label': r.label },
-      h('div', { class: 'mini-rack-row' }, h('span', { class: 'mini-rack', style: `height:${Math.round(r.heightU * 1.3)}px`, 'aria-hidden': 'true' }, h('span', { class: 'mini-rack-tor' })), h('span', { class: 'mini-u-label' }, `${r.heightU}U`)),
-      h('div', { class: 'card-model', title: r.label }, r.label),
+      h('div', { class: 'card-top' },
+        h('span', { class: 'mini-rack', style: `height:${Math.round(r.heightU * 0.7)}px`, 'aria-hidden': 'true' }, h('span', { class: 'mini-rack-tor' })),
+        h('div', { class: 'card-top-text' }, h('div', { class: 'card-model', title: r.label }, r.label), h('span', { class: 'mini-u-label' }, `${r.heightU}U`))),
       h('div', { class: 'card-line' }, 'ToR switch nahoře v ceně'),
       h('div', { class: 'card-badges' }, chip('generický · herní', 'badge-generic', 'No-name rack a ToR switch – herní zjednodušení, hodnoty nejsou z dokumentace')),
       h('div', { class: 'card-foot' }, h('strong', { class: 'card-price' }, formatPrice(r.price)), b),
@@ -219,12 +220,12 @@ export function createShop(opts: ShopOptions): ShopHandle {
   function renderUnplaced(s: RoomState): void {
     const list = s.inventory;
     unplacedChip.hidden = list.length === 0;
-    unplacedChip.textContent = `Nezaracováno: ${list.length} ${unplacedOpen ? '▾' : '▸'}`;
+    unplacedChip.textContent = `Neumístěno: ${list.length} ${unplacedOpen ? '▾' : '▸'}`;
     unplacedChip.setAttribute('aria-expanded', String(unplacedOpen && list.length > 0));
     unplacedPop.hidden = !unplacedOpen || list.length === 0;
     if (unplacedPop.hidden) return;
     unplacedPop.replaceChildren(
-      h('div', { class: 'pop-head' }, h('strong', null, 'Nezaracováno'), button('×', () => { unplacedOpen = false; render(); }, { class: 'btn btn-small', 'aria-label': 'Zavřít' })),
+      h('div', { class: 'pop-head' }, h('strong', null, 'Neumístěno'), button('×', () => { unplacedOpen = false; render(); }, { class: 'btn btn-small', 'aria-label': 'Zavřít' })),
       h('ul', { class: 'unplaced-list' }, ...list.map((e) => {
         const on = picked === e.id;
         return h('li', null,

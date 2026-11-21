@@ -73,6 +73,8 @@ export interface RackPanel {
   escape(): boolean;
   /** Camera that the view uses (for the crossfade). */
   readonly camera: Camera;
+  /** Layout zones changed (right panel opened / closed): fit the rack into the free area. */
+  refit(): void;
   dispose(): void;
 }
 
@@ -211,7 +213,7 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
     const nSrv = inRack.filter((d) => d.kind === 'server').length;
     const nTor = inRack.filter((d) => d.kind === 'switch').length;
     title.textContent = `Rack ${rack.label}`;
-    subtitle.textContent = `· ${rack.heightU}U · ${nSrv} ${nSrv === 1 ? 'server' : nSrv >= 2 && nSrv <= 4 ? 'servery' : 'serverů'} · ${nTor} ${nTor === 1 ? 'ToR' : 'switche'}`;
+    subtitle.textContent = `· ${rack.heightU}U · ${nSrv} ${nSrv === 1 ? 'server' : nSrv >= 2 && nSrv <= 4 ? 'servery' : 'serverů'} · ${nTor} ${nTor === 1 ? 'ToR' : 'switche'}${inRack.some((d) => d.preinstalled) ? ' (předinstalováno · herní)' : ''}`;
     otherRacks.replaceChildren(
       ...state.racks.filter((r) => r.tile && r.id !== o.rackId).map((r) => button(`${r.label} ▶`, () => o.onOpenRack(r.id), { class: 'btn btn-small', title: `Otevřít rack ${r.label}` })),
     );
@@ -382,7 +384,7 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
       const b = button('', () => o.onOpenDevice!(d.id), {
         class: 'dev-btn',
         'data-devbtn': d.id,
-        title: `${dev.label}: otevřít panel (Enter)${dev.kind === 'server' ? ' · dvojklik = síť hosta' : ''}`,
+        title: `${dev.label}${dev.preinstalled ? ' – předinstalováno · herní' : ''}: otevřít panel (Enter)${dev.kind === 'server' ? ' · dvojklik = síť hosta' : ''}`,
         'aria-label': `${dev.kind === 'server' ? 'Server' : 'Switch'} ${dev.label} – otevřít panel`,
       });
       if (dev.kind === 'server' && o.onOpenHost) b.addEventListener('dblclick', () => o.onOpenHost!(d.id));
@@ -756,6 +758,9 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
     },
     get camera() {
       return cam;
+    },
+    refit() {
+      controls?.set(fit());
     },
     dispose() {
       off();

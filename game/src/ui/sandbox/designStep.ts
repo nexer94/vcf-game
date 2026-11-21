@@ -1,4 +1,5 @@
 import { drawDesignPreview, type DesignPreviewData } from '../../render/designPreview';
+import { specRefInline } from './sourcePopover';
 import { button, docLink, h } from '../dom';
 import { badge, badgeLegend, chip, message } from '../messages';
 import { icon } from '../icons';
@@ -212,7 +213,7 @@ function decisionEl(d: DesignDecision, props: DesignStepProps): HTMLElement {
           d.rules.length ? h('ul', { class: 'rule-list' }, ...d.rules.map(ruleItem)) : null,
         )
       : null,
-    h('div', { class: 'decision-foot' }, sourceList(d.sources), h('span', { class: 'spec-ref' }, `Spec: ${d.specRef}`)),
+    h('div', { class: 'decision-foot' }, sourceList(d.sources), specRefInline(d.specRef)),
   );
 }
 
@@ -314,7 +315,7 @@ function summaryEl(data: DesignStepData, props: DesignStepProps): HTMLElement {
               ? UNDECIDED
               : [w.vsan !== undefined ? `vSAN ${w.vsan}` : null, w.nfsOrFc !== undefined ? `NFS/FC ${w.nfsOrFc}` : null].filter(Boolean).join(' · ') || 'neuvedeno',
             w ? openQBadge(w.openQuestion) : null,
-            w ? h('span', { class: 'spec-ref' }, ` ${w.specRef}`) : null)
+            w ? specRefInline(w.specRef) : null)
         : null,
       row('NSX Manager',
         s.nsxManagers.length === 0
