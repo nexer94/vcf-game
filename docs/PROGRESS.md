@@ -40,9 +40,12 @@
 - [x] `domain-modeler` – `model/deployedInventory.ts`: VM_SIZES (workbook 9.1.1), inventoryForFleet, totalsForFleet
   (documented vs per-VM vs planning), kapacita a vytížení clusteru (2:1 vCPU:pCPU), placeVms (game-scope),
   10 presetů scénářů s1–s5; 45 testů
-- [ ] `engine-dev` – `modes/scenarios`: ScenarioSession(preset) → plně nasazený stav, read-only, inventář/součty/vytížení *(běží)*
+- [x] `engine-dev` – `modes/scenarios`: ScenarioSession (replay do nasazeného stavu, read-only kromě inspect/camera),
+  listScenarios (10), snapshot meta/inventář/placement/součty (documented vs perVm vs planning)/vytížení N-1/toky na
+  úrovni hostů; herní volba: WLD hosty dostanou 100G NIC kvůli jednomu modelu ToR (označeno v notes)
 - [x] 10 presetů scénářů s1–s5 v `model/deployedInventory.ts`
-- [ ] `ui-dev` – prohlížeč hotových scénářů (seznam, místnost read-only, záložky VM / Zdroje / Hosty / O scénáři) *(běží)*
+- [x] `ui-dev` – Hotové scénáře: seznam (10), místnost read-only s provozem, záložky VM / Zdroje / Hosty / O scénáři,
+  výběr host ↔ VM, porovnání dvou scénářů; routy `#/scenare…`
 
 ### Sandbox v3 – zjednodušení + Kariéra level 1 (uživatel 2026-11-22)
 - [x] `ux-designer` – UX.md Část III (kap. 16–27) + GRAPHICS (bez červeného pruhu, šedý rošt místo jantarových žlabů,

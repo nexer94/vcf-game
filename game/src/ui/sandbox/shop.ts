@@ -2,8 +2,9 @@
  * Shop v3 (UX.md Part III ch. 19.1–19.2): two tabs only – Racky / Servery.
  *   Servery: step 1 = vendor tiles (Dell · HPE · Lenovo · Cisco · Supermicro, colour tag + text, no logos),
  *            step 2 = fixed-size cards of the vendor's starter configurations (15 B.3; traps hidden unless enabled).
- *   Card: mini front in U scale, name, cores · RAM / drives · NIC ports, "✓ certified VCF 9.1" (Zdroj popover with the
- *   BCG page), vSAN ESA profile, price (game) and "Koupit" → placement right away (no backpack tab).
+ *   Card (minimal, user 2026-11-22): mini front in U scale with the vendor colour tag, model, U, vSAN ESA profile, price
+ *   (game) and "Koupit" → placement right away. "Detail ▾" / click on the card = popover with cores · RAM / drives ·
+ *   NIC, "✓ certified VCF 9.1" (Zdroj popover with the BCG page), deviation / trap note and "Koupit 4".
  * Not placed items = chip "Nezaracováno: N ▸" in the shop bar. Data come from RoomState.catalog (engine); the UI
  * never decides certification, profile or trap status.
  */
@@ -12,6 +13,7 @@ import { chip } from '../messages';
 import { VENDOR_TAG } from '../../render/room/palette';
 import type { HwVendor } from '../../model';
 import { openSourcePopover } from './sourcePopover';
+import { placePopover } from './layoutZones';
 import type { InventoryEntry, RoomState, ShopRackItem, ShopServerItem } from './sessionPort';
 
 import type { ShopTab } from './panelData';
@@ -96,8 +98,11 @@ export function createShop(opts: ShopOptions): ShopHandle {
   const items = h('div', { class: 'inv-items', role: 'tabpanel' });
   const scrollL = button('‹', () => items.scrollBy({ left: -items.clientWidth * 0.8, behavior: 'smooth' }), { class: 'inv-scroll inv-scroll-l', 'aria-label': 'Posunout doleva', tabindex: '-1' });
   const scrollR = button('›', () => items.scrollBy({ left: items.clientWidth * 0.8, behavior: 'smooth' }), { class: 'inv-scroll inv-scroll-r', 'aria-label': 'Posunout doprava', tabindex: '-1' });
+  // Detail popover of a server card (minimal cards, user 2026-11-22).
+  let detailId: string | null = null;
+  const detailPop = h('div', { class: 'shop-detail-pop', role: 'dialog', 'aria-label': 'Detail sestavy', hidden: true });
   const unplacedPop = h('div', { class: 'unplaced-pop', role: 'dialog', 'aria-label': 'Nezaracováno', hidden: true });
-  const el = h('footer', { class: 'room-inv v3', 'aria-label': 'Obchod' },
+  const el = h('footer', { class: 'room-inv v3', 'aria-label': 'Obchod' }, detailPop,
     h('div', { class: 'inv-head' }, tabs, unplacedChip, h('span', { class: 'inv-spacer' }), note, toggle),
     h('div', { class: 'inv-body' }, crumbs, h('div', { class: 'inv-scroller' }, scrollL, items, scrollR)),
     unplacedPop,
@@ -109,7 +114,11 @@ export function createShop(opts: ShopOptions): ShopHandle {
       e.preventDefault();
     }
   }, { passive: false });
-  items.addEventListener('scroll', () => updateScrollButtons());
+  items.addEventListener('scroll', () => {
+    updateScrollButtons();
+    const card = detailId ? items.querySelector<HTMLElement>(`[data-item="${CSS.escape(detailId)}"]`) : null;
+    if (card) placeDetail(card);
+  });
   el.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
@@ -156,19 +165,13 @@ export function createShop(opts: ShopOptions): ShopHandle {
     opts.onBuy(id, e?.shiftKey ? 4 : 1);
   }
 
-  function serverCard(s: ShopServerItem): HTMLElement {
-    const cores = s.sockets * s.coresPerSocket;
-    const drives = s.drives.reduce((n, d) => n + d.count, 0);
-    const iface = [...new Set(s.drives.map((d) => d.iface))].join('/');
-    const nicPorts = s.nics.reduce((n, x) => n + x.count * x.ports, 0);
-    const speed = s.maxNicGbE || Math.max(0, ...s.nics.flatMap((n) => n.speedsGbE));
-    const cert = s.certified91
-      ? button(h('span', null, '✓ certified VCF 9.1'), () => openSourcePopover(cert!, { extra: { label: `Broadcom Compatibility Guide: ${s.vendor} ${s.model}`, url: s.bcgUrl }, specRef: '15-hardware §2.2' }), { class: 'ui-badge badge-cert', title: 'Broadcom Compatibility Guide uvádí ESXi 9.1 – klik = zdroj' })
-      : null;
-    const dev = s.starterStatus === 'dev';
-    const trap = s.starterStatus === 'req' || s.starterStatus === 'ext';
-    const buyBtn = button(`Koupit`, () => undefined, { class: 'btn btn-small btn-primary', title: 'Koupit a umístit · Shift+klik = koupit 4 (cluster)', 'aria-label': `Koupit ${s.vendor} ${s.model}` });
-    buyBtn.addEventListener('click', (e) => buy(s.id, e));
+  /** "Koupit" with Shift+click = 4 and touch long-press = 4 (cluster). */
+  function buyButton(s: ShopServerItem, label = 'Koupit'): HTMLButtonElement {
+    const buyBtn = button(label, () => undefined, { class: 'btn btn-small btn-primary', title: 'Koupit a umístit · Shift+klik = koupit 4 (cluster)', 'aria-label': `Koupit ${s.vendor} ${s.model}` });
+    buyBtn.addEventListener('click', (e) => {
+      closeDetail(false);
+      buy(s.id, e);
+    });
     let pressT = 0;
     buyBtn.addEventListener('pointerdown', (e) => {
       if (e.pointerType !== 'touch') return;
@@ -180,19 +183,122 @@ export function createShop(opts: ShopOptions): ShopHandle {
     buyBtn.addEventListener('pointerup', () => {
       if (pressT > 0) clearTimeout(pressT);
     });
-    return h('article', { class: `shop-card v3${trap ? ' trap' : ''}`, 'aria-label': `${s.vendor} ${s.model}` },
+    return buyBtn;
+  }
+
+  const shortModel = (s: ShopServerItem): string => s.model.replace(/^(Dell |HPE |Lenovo |Cisco |Supermicro )/i, '');
+  const profileChip = (s: ShopServerItem): HTMLElement | null =>
+    s.profile ? chip(s.profile.replace(/^vsan-esa-/i, '').replace(/^vSAN-/, 'ESA '), 'badge-profile', `Profil vSAN ESA odvozený modelem z konfigurace (15 §6.1)${s.profileNetworkLimited ? ' – omezeno sítí' : ''}`) : null;
+
+  /**
+   * Minimal card (user 2026-11-22): vendor colour tag (mini front), model, U height, profile badge, price, "Koupit".
+   * Everything else (cores / RAM / disks / NIC, certification + BCG, deviation / trap, sources) in the detail popover.
+   */
+  function serverCard(s: ShopServerItem): HTMLElement {
+    const dev = s.starterStatus === 'dev';
+    const trap = s.starterStatus === 'req' || s.starterStatus === 'ext';
+    const full = `${s.vendor} ${shortModel(s)}`;
+    const detailBtn = button('Detail ▾', () => toggleDetail(s.id), { class: 'link-btn card-detail-btn', 'aria-expanded': String(detailId === s.id), 'aria-haspopup': 'dialog', 'aria-label': `Detail sestavy ${full}`, title: 'Parametry, certifikace a zdroje' });
+    const card = h('article', { class: `shop-card v3 server-card${trap ? ' trap' : ''}${detailId === s.id ? ' expanded' : ''}`, 'aria-label': full, 'data-item': s.id },
       h('div', { class: 'card-top' },
         miniFront(s.rackUnits, s.vendor),
         h('div', { class: 'card-top-text' },
-          h('div', { class: 'card-model', title: `${s.model} (sestava ${s.id})` }, s.model.replace(/^(Dell |HPE |Lenovo |Cisco |Supermicro )/i, '')),
-          h('div', { class: 'card-line' }, `${cores} jader · ${s.ramGB} GB`))),
-      h('div', { class: 'card-line' }, `${drives}× ${iface || 'disk'} · ${nicPorts}× ${speed ? `${speed}G` : 'NIC'} · `, uLabel(s.rackUnits, s.rackUnitsGameDefault !== false)),
-      h('div', { class: 'card-badges' },
-        cert,
-        dev ? chip('odchylka', 'badge-dev', s.note || 'Sestava se odchyluje od doporučení (15 B.3)') : trap ? chip('nevhodná', 'badge-trap', s.note || 'Nevhodná sestava (15 B.3)') : s.profile ? chip(s.profile.replace(/^vsan-esa-/i, '').replace(/^vSAN-/, 'ESA '), 'badge-profile', `Profil vSAN ESA odvozený modelem z konfigurace (15 §6.1)${s.profileNetworkLimited ? ' – omezeno sítí' : ''}`) : null,
-      ),
-      h('div', { class: 'card-foot' }, h('strong', { class: 'card-price' }, formatPrice(s.price)), buyBtn),
+          h('div', { class: 'card-model', title: `${s.model} (sestava ${s.id})` }, shortModel(s)),
+          h('div', { class: 'card-meta' },
+            uLabel(s.rackUnits, s.rackUnitsGameDefault !== false),
+            profileChip(s),
+            dev || trap ? h('span', { class: `card-warn${trap ? ' bad' : ''}`, title: `${dev ? 'Odchylka' : 'Nevhodná sestava'} – viz Detail`, 'aria-label': dev ? 'odchylka' : 'nevhodná' }, '⚠') : null,
+          ),
+          detailBtn)),
+      h('div', { class: 'card-foot' }, h('strong', { class: 'card-price' }, formatPrice(s.price)), buyButton(s)),
     );
+    card.addEventListener('click', (e) => {
+      if (e.target instanceof Element && e.target.closest('button, a')) return;
+      toggleDetail(s.id);
+    });
+    return card;
+  }
+
+  // ------------------------------------------------------------ detail popover of a server card
+  function onDetailKey(e: KeyboardEvent): void {
+    if (e.key !== 'Escape' || document.querySelector('.src-pop')) return; // Zdroj popover on top closes first
+    e.preventDefault();
+    e.stopPropagation();
+    closeDetail(true);
+  }
+  function onDetailOutside(e: PointerEvent): void {
+    const t = e.target;
+    if (!(t instanceof Element)) return;
+    if (detailPop.contains(t) || t.closest('.src-pop') || t.closest('.server-card')) return;
+    closeDetail(false);
+  }
+  function closeDetail(focusBack: boolean): void {
+    if (!detailId) return;
+    const id = detailId;
+    detailId = null;
+    detailPop.hidden = true;
+    detailPop.replaceChildren();
+    document.removeEventListener('keydown', onDetailKey, true);
+    document.removeEventListener('pointerdown', onDetailOutside, true);
+    const card = items.querySelector<HTMLElement>(`[data-item="${CSS.escape(id)}"]`);
+    card?.classList.remove('expanded');
+    card?.querySelector('.card-detail-btn')?.setAttribute('aria-expanded', 'false');
+    if (focusBack) card?.querySelector<HTMLElement>('.card-detail-btn')?.focus({ preventScroll: true });
+  }
+  function toggleDetail(id: string): void {
+    if (detailId === id) return closeDetail(true);
+    closeDetail(false);
+    detailId = id;
+    document.addEventListener('keydown', onDetailKey, true);
+    document.addEventListener('pointerdown', onDetailOutside, true);
+    renderDetail(true);
+  }
+  function renderDetail(focus: boolean): void {
+    const s = detailId && state ? state.catalog.servers.find((x) => x.id === detailId) : undefined;
+    const card = detailId ? items.querySelector<HTMLElement>(`[data-item="${CSS.escape(detailId)}"]`) : null;
+    if (!s || !card || !open) return closeDetail(false);
+    for (const c of items.querySelectorAll('.server-card')) c.classList.toggle('expanded', c === card);
+    card.querySelector('.card-detail-btn')?.setAttribute('aria-expanded', 'true');
+    const cores = s.sockets * s.coresPerSocket;
+    const dev = s.starterStatus === 'dev';
+    const trap = s.starterStatus === 'req' || s.starterStatus === 'ext';
+    const cert = s.certified91
+      ? button(h('span', null, '✓ certified VCF 9.1'), () => openSourcePopover(cert!, { extra: { label: `Broadcom Compatibility Guide: ${s.vendor} ${s.model}`, url: s.bcgUrl }, specRef: '15-hardware §2.2' }), { class: 'ui-badge badge-cert', title: 'Broadcom Compatibility Guide uvádí ESXi 9.1 – klik = zdroj' })
+      : chip('bez certifikace 9.1', 'badge-muted', 'Broadcom Compatibility Guide neuvádí ESXi 9.1 pro tento model');
+    const row = (k: string, ...v: (Node | string | null)[]): HTMLElement => h('div', { class: 'sd-row' }, h('span', { class: 'sd-k' }, k), h('span', { class: 'sd-v' }, ...v));
+    detailPop.replaceChildren(...[
+      h('div', { class: 'pop-head' },
+        h('span', { class: 'sd-title' }, h('span', { class: 'vendor-tag', style: `background:${css(VENDOR_TAG[s.vendor])}` }, s.vendor), h('strong', null, shortModel(s))),
+        button('×', () => closeDetail(true), { class: 'btn btn-small', 'aria-label': 'Zavřít detail (Esc)' })),
+      h('div', { class: 'sd-sub muted' }, `sestava ${s.id}`),
+      h('div', { class: 'sd-rows' },
+        row('CPU', `${s.sockets}× socket · ${cores} jader`),
+        row('RAM', `${s.ramGB} GB`),
+        row('Disky', ...s.drives.flatMap((d, i) => [i ? h('br') : null, `${d.count}× ${d.label} (${d.capacityTB} TB, ${d.iface})`])),
+        row('NIC', ...s.nics.flatMap((n, i) => [i ? h('br') : null, `${n.count}× ${n.label} (${n.ports} porty · ${n.speedsGbE.join('/')} GbE)`])),
+        s.boot ? row('Boot', s.boot) : null,
+        row('Výška', uLabel(s.rackUnits, s.rackUnitsGameDefault !== false), s.rackUnitsUrl ? h('a', { href: s.rackUnitsUrl, target: '_blank', rel: 'noopener noreferrer', class: 'sd-link' }, ' datasheet ↗') : null),
+      ),
+      h('div', { class: 'card-badges sd-badges' }, cert, profileChip(s)),
+      dev || trap ? h('p', { class: `sd-note${trap ? ' bad' : ''}` }, h('strong', null, dev ? 'Odchylka: ' : 'Nevhodná sestava: '), s.note || 'Sestava se odchyluje od doporučení (15 B.3).') : null,
+      h('div', { class: 'card-foot' }, h('strong', { class: 'card-price' }, formatPrice(s.price), h('small', { class: 'muted' }, ' herní cena')), buyButton(s, 'Koupit'), buyButton4(s)),
+    ].filter((x) => x !== null) as HTMLElement[]);
+    detailPop.hidden = false;
+    placeDetail(card);
+    if (focus) detailPop.querySelector<HTMLElement>('.btn-primary')?.focus({ preventScroll: true });
+  }
+  function buyButton4(s: ShopServerItem): HTMLButtonElement {
+    return button('Koupit 4', () => {
+      closeDetail(false);
+      opts.onBuy(s.id, 4);
+    }, { class: 'btn btn-small', title: 'Koupit 4 stejné (cluster) – jako Shift+klik', 'aria-label': `Koupit 4× ${s.vendor} ${s.model}` });
+  }
+  function placeDetail(card: HTMLElement): void {
+    const a = card.getBoundingClientRect();
+    const size = { w: detailPop.offsetWidth || 340, h: detailPop.offsetHeight || 240 };
+    const hud = { x: 0, y: 0, w: innerWidth, h: 56 };
+    const p = placePopover({ x: a.left, y: a.top, w: a.width, h: a.height }, size, [hud], { w: innerWidth, h: innerHeight }, ['top', 'right', 'left', 'bottom'], 8);
+    detailPop.style.transform = `translate(${p.x}px, ${Math.max(56, p.y)}px)`;
   }
 
   function rackCard(r: ShopRackItem): HTMLElement {
@@ -200,9 +306,9 @@ export function createShop(opts: ShopOptions): ShopHandle {
     return h('article', { class: 'shop-card v3 rack-card', 'aria-label': r.label },
       h('div', { class: 'card-top' },
         h('span', { class: 'mini-rack', style: `height:${Math.round(r.heightU * 0.7)}px`, 'aria-hidden': 'true' }, h('span', { class: 'mini-rack-tor' })),
-        h('div', { class: 'card-top-text' }, h('div', { class: 'card-model', title: r.label }, r.label), h('span', { class: 'mini-u-label' }, `${r.heightU}U`))),
-      h('div', { class: 'card-line' }, 'ToR switch nahoře v ceně'),
-      h('div', { class: 'card-badges' }, chip('generický · herní', 'badge-generic', 'No-name rack a ToR switch – herní zjednodušení, hodnoty nejsou z dokumentace')),
+        h('div', { class: 'card-top-text' }, h('div', { class: 'card-model', title: r.label }, r.label),
+          h('div', { class: 'card-meta' }, h('span', { class: 'mini-u-label' }, `${r.heightU}U`), chip('generický · herní', 'badge-generic', 'No-name rack a ToR switch – herní zjednodušení, hodnoty nejsou z dokumentace')),
+          h('div', { class: 'card-line', title: 'ToR switch nahoře v ceně' }, '+ ToR switch v ceně'))),
       h('div', { class: 'card-foot' }, h('strong', { class: 'card-price' }, formatPrice(r.price)), b),
     );
   }
@@ -250,6 +356,7 @@ export function createShop(opts: ShopOptions): ShopHandle {
     renderUnplaced(state);
     crumbs.replaceChildren();
     if (!open) {
+      closeDetail(false);
       items.replaceChildren();
       return;
     }
@@ -272,6 +379,7 @@ export function createShop(opts: ShopOptions): ShopHandle {
       );
     }
     items.replaceChildren(...list);
+    if (detailId) renderDetail(false);
     requestAnimationFrame(updateScrollButtons);
   }
 
@@ -290,6 +398,7 @@ export function createShop(opts: ShopOptions): ShopHandle {
     setOpen,
     tabRect: (t) => tabButtons.get(t)?.getBoundingClientRect() ?? null,
     dispose() {
+      closeDetail(false);
       el.remove();
     },
   };

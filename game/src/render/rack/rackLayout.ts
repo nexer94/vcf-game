@@ -1,9 +1,10 @@
 /**
  * 2D front elevation of a rack – v3 (UX.md §19.3, GRAPHICS.md "Čelní pohled racku"). Pure geometry, no PixiJS.
  *
- * - Vertical rack, devices in U scale: 1 U = `uPx` (18 px at 1366×768, 22 px at 1920×1080); a 2U server is exactly
- *   twice a 1U ToR. U numbering from the top; the left ruler shows ranges ("7–8").
- * - Empty runs of >= 6 U are compressed into a band 3 U high ("18 U volné", break marks).
+ * - Vertical rack. Empty U = `uPx` (18 px at 1366×768, 22 px at 1920×1080); devices are drawn `devScale` (1.5×)
+ *   taller per U so a 2U server reads clearly and has room for its label, NIC ports and slots (user 2026-11-22: it
+ *   may look like ~3U). A 2U server is still exactly twice a 1U ToR; the ruler keeps the real U ranges ("7–8").
+ * - Empty runs of >= 4 U are compressed into a band 2 U high ("18 U volné", break marks) so the rack still fits.
  * - The selected rack is the first column; other columns only when cables lead there.
  * - Servers: LED, NIC ports, free NIC slots "[+]" (UX 19.4), grey BMC port. Switches: two port rows, uplink framed.
  * - Reserved U for the recommended second ToR (UX 19.5): dashed outline row.
@@ -105,6 +106,8 @@ export interface ElevationLayout {
   /** y of the thin bar to the ceiling tray (cables leaving the view end here). */
   readonly trayY: number;
   readonly uPx: number;
+  /** Drawn height of one device U (uPx × devScale). */
+  readonly devU: number;
   readonly columns: readonly ColumnLayout[];
   readonly devices: ReadonlyMap<string, DeviceGeom>;
   readonly ports: ReadonlyMap<string, PortGeom>;
@@ -113,10 +116,12 @@ export interface ElevationLayout {
 
 export const ELEV = {
   uPx: 18,
-  /** Compressed empty band = 3 U high. */
-  bandU: 3,
+  /** Devices are drawn this many times taller per U than an empty U (readability; drawing scale only). */
+  devScale: 1.5,
+  /** Compressed empty band = 2 U high. */
+  bandU: 2,
   /** Minimum empty run that gets compressed. */
-  compressMin: 6,
+  compressMin: 4,
   margin: 20,
   /** Space above the racks for the thin bar to the ceiling tray + labels. */
   trayH: 40,
@@ -133,7 +138,7 @@ export const ELEV = {
   switchRows: 2,
 } as const;
 
-/** Rows of a rack from the top, compressing empty runs (>= compressMin U -> one band of bandU). */
+/** Rows of a rack from the top, compressing empty runs (>= compressMin U -> one band of bandU); devices devScale×. */
 export function rackRows(rack: ElevRack, top: number, compress = true, uPx: number = ELEV.uPx): ElevRow[] {
   const at = new Map<number, ElevDevice>();
   for (const d of rack.devices) at.set(d.u + d.heightU - 1, d);
@@ -146,7 +151,7 @@ export function rackRows(rack: ElevRack, top: number, compress = true, uPx: numb
   while (u >= 1) {
     const dev = at.get(u);
     if (dev) {
-      const h = dev.heightU * uPx;
+      const h = Math.round(dev.heightU * uPx * ELEV.devScale);
       rows.push({ kind: 'device', deviceId: dev.id, y, h, topU: u, bottomU: dev.u });
       y += h;
       u = dev.u - 1;
@@ -250,7 +255,7 @@ export function layoutElevation(racks: readonly ElevRack[], opts: ElevationOptio
       devices.set(d.id, g);
       const parts = deviceParts(d, g.w, g.h);
       for (const s of parts.slots) {
-        const sh = Math.min(g.h - 4, uPx * 1.2);
+        const sh = Math.min(g.h - 6, uPx * 1.5);
         slots.set(`${d.id}#${s.slot}`, { id: `${d.id}#${s.slot}`, deviceId: d.id, slot: s.slot, x: g.x + s.x - ELEV.slotW / 2, y: g.y + g.h / 2 - sh / 2, w: ELEV.slotW, h: sh });
       }
       const local = parts.ports;
@@ -285,6 +290,7 @@ export function layoutElevation(racks: readonly ElevRack[], opts: ElevationOptio
     height: maxBottom + ELEV.margin,
     trayY: ELEV.margin + 10,
     uPx,
+    devU: Math.round(uPx * ELEV.devScale),
     columns,
     devices,
     ports,

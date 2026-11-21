@@ -11,6 +11,7 @@ import { sandboxSiteScreen } from './screens/sandboxSite';
 import type { AppContext, MountedScreen, ScreenDef } from './screens/screen';
 import { trafficDemoScreen } from './screens/trafficDemo';
 import { scenariosScreen } from './screens/scenarios';
+import { scenarioRoomScreen } from './screens/scenarioRoom';
 
 const SCREENS: Readonly<Record<Route['name'], ScreenDef>> = {
   menu: mainMenuScreen,
@@ -20,6 +21,7 @@ const SCREENS: Readonly<Record<Route['name'], ScreenDef>> = {
   'sandbox-room': sandboxRoomScreen,
   career: careerScreen,
   scenarios: scenariosScreen,
+  scenario: scenarioRoomScreen,
   traffic: trafficDemoScreen,
 };
 

@@ -30,6 +30,7 @@ import { parentView, ROOM_VIEW, sameView, viewLabel, type RoomView } from '../sa
 import { createDemoRoomPort, setCareerLevel, setPlayMode, sharedRoomPort, type InventoryEntry, type ObjectiveView, type RackTileHint, type RoomPlacement, type RoomPort, type RoomState } from '../sandbox/sessionPort';
 import { createChecklist, type Checklist } from '../sandbox/checklist';
 import { createSpeechBubble, type SpeechBubble } from '../sandbox/bubble';
+import { worldRectToScreen } from '../sandbox/bubbleAnchor';
 import { applyZoneVars, computeZones, type Rect, type Zones } from '../sandbox/layoutZones';
 import { closeSourcePopover, setSourceObstacles } from '../sandbox/sourcePopover';
 import { createServerConsole, type ServerConsole } from '../sandbox/serverConsole';
@@ -241,6 +242,7 @@ export const sandboxRoomScreen: ScreenDef = {
       stage.rack.root.visible = false;
       ui.classList.add('console-open');
       consoleView = createServerConsole({ ops, serverId: id, host: ui, announce: (t, bad) => say(t, bad), onClose: () => closeConsole() });
+      relayout(); // checklist -> HUD chip, bubble hidden under the full-area console
     }
     function closeConsole(): void {
       if (!consoleView) return;
@@ -252,6 +254,7 @@ export const sandboxRoomScreen: ScreenDef = {
         stage.rack.root.visible = consoleHidden.rack;
       }
       consoleHidden = null;
+      if (!disposed) relayout();
     }
     function openHost(id: string): void {
       const rackId = state?.devices.find((x) => x.id === id)?.mount?.rackId;
@@ -487,6 +490,8 @@ export const sandboxRoomScreen: ScreenDef = {
         obstacles: () => zones.obstacles,
         scene: () => zones.scene,
         onShow: (a) => showAnchor(a),
+        // Full-screen views (PC, whiteboard, console, site overview) and camera flights: no bubble on top.
+        visible: () => !consoleView && !overview.active && !transition && (view.kind === 'room' || view.kind === 'rack' || view.kind === 'host'),
       });
       ui.appendChild(bubble.el);
       bubblesToggle.addEventListener('change', () => bubble?.setEnabled(bubblesToggle.checked));
@@ -516,16 +521,20 @@ export const sandboxRoomScreen: ScreenDef = {
     function relayout(): void {
       const panelOpen = sideOpen || panels.openId !== null;
       const inRoom = view.kind === 'room' && !overview.active;
-      const clMode = checklist ? (view.kind === 'room' || view.kind === 'rack' ? checklist.mode : 'hidden') : 'hidden';
+      // Checklist cap per view: room = as the user left it; rack / host = at most the collapsed bar; full-screen views
+      // (PC, whiteboard, console, overview) = only the HUD chip – nothing of the tracker stays over them.
+      const fullScreen = !!consoleView || overview.active || view.kind === 'pc' || view.kind === 'board';
+      checklist?.setCap(fullScreen ? 'hidden' : view.kind === 'rack' || view.kind === 'host' ? 'bar' : 'open');
+      const clMode = checklist ? checklist.mode : 'hidden';
       zones = computeZones({ viewportW: innerWidth, viewportH: innerHeight, checklist: clMode, rightPanel: panelOpen, shop: inRoom ? (shop.open ? 'open' : 'collapsed') : 'none' });
       if (checklist && zones.autoCollapseChecklist && checklist.mode === 'open') {
         checklistAuto = true;
-        checklist.setMode('bar');
+        checklist.setMode('bar', true);
         return;
       }
-      if (checklist && checklistAuto && !zones.autoCollapseChecklist && checklist.mode === 'bar') {
+      if (checklist && checklistAuto && !zones.autoCollapseChecklist && checklist.userMode === 'bar') {
         checklistAuto = false;
-        checklist.setMode('open');
+        checklist.setMode('open', true);
         return;
       }
       applyZoneVars(ui, zones);
@@ -539,8 +548,7 @@ export const sandboxRoomScreen: ScreenDef = {
     /** Screen rect of a bubble anchor ('avatar' | 'object:<kind>:<id>' | 'ui:<id>'). */
     function anchorRect(a: string): Rect | null {
       const cam = camera?.camera ?? null;
-      const toScreen = (r: { x: number; y: number; width: number; height: number }): Rect | null =>
-        cam ? { x: cam.x + r.x * cam.scale, y: cam.y + r.y * cam.scale, w: r.width * cam.scale, h: r.height * cam.scale } : null;
+      const toScreen = (r: { x: number; y: number; width: number; height: number }): Rect | null => (cam ? worldRectToScreen(cam, r) : null);
       if (a === 'avatar') {
         if (view.kind !== 'room') return null;
         const r = room.avatarRect?.();
@@ -568,6 +576,16 @@ export const sandboxRoomScreen: ScreenDef = {
       return null;
     }
     function showAnchor(a: string): void {
+      if (a === 'avatar') {
+        // Edge arrow "Ukaž": centre the free scene on the avatar (same zoom).
+        if (view.kind !== 'room') return goTo(ROOM_VIEW);
+        const cam = camera?.camera;
+        const r = room.avatarRect?.();
+        if (!cam || !r) return;
+        const z = zones.scene;
+        camera?.set({ x: z.x + z.w / 2 - (r.x + r.width / 2) * cam.scale, y: z.y + z.h / 2 - (r.y + r.height / 2) * cam.scale, scale: cam.scale });
+        return;
+      }
       if (a.startsWith('ui:shop')) {
         if (view.kind !== 'room') goTo(ROOM_VIEW);
         shop.setTab(a.includes('rack') ? 'racks' : 'servers');
@@ -736,8 +754,7 @@ export const sandboxRoomScreen: ScreenDef = {
       shop.el.hidden = hidden;
       chip.el.hidden = hidden;
       side.hidden = hidden || !sideOpen;
-      if (checklist) checklist.el.hidden = hidden || checklist.mode === 'hidden';
-      if (bubble) bubble.el.hidden = hidden;
+      // Checklist / bubble: capped in relayout() (overview = full-screen view).
     };
     function showOverview(): void {
       if (overview.active) return;
@@ -748,11 +765,13 @@ export const sandboxRoomScreen: ScreenDef = {
       tip.hidden = true;
       setRoomUiHidden(true);
       overview.show();
+      relayout();
     }
     function hideOverview(): void {
       if (!overview.active) return;
       overview.hide();
       setRoomUiHidden(false);
+      relayout();
       room.world.visible = true;
       room.world.alpha = 1;
       attachRoomControls(fitRoom());
@@ -818,6 +837,11 @@ export const sandboxRoomScreen: ScreenDef = {
       queueMicrotask(() => relayout());
       // Leaving another object view first (e.g. rack R1 -> R2): no animation between object views.
       if (prev.kind !== 'room') closeObjectView(prev, false, true);
+      if (next.kind === 'pc' || next.kind === 'board') {
+        // Full-screen views: no object panel / Zdroj popover / tooltip stays over the PC or the whiteboard.
+        panels.close();
+        closeSourcePopover();
+      }
       savedRoomCam ??= camera?.camera ?? fitRoom();
       camera?.dispose();
       camera = null;
@@ -1022,6 +1046,8 @@ export const sandboxRoomScreen: ScreenDef = {
     let chipMs = 0;
     const offFrame = stage.onFrame((snap, real) => {
       time.update(snap);
+      // Speech bubble follows its anchor every frame (zoom, pan, avatar walk, transitions); DOM only on change.
+      bubble?.reposition();
       if (fadeMs >= 0 && !transition) {
         fadeMs += real;
         room.world.alpha = Math.min(1, fadeMs / 220);

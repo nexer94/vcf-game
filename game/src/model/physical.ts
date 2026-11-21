@@ -1055,7 +1055,8 @@ export function computeTrafficFlows(ctx: NetContext, fctx: FlowContext = {}): Tr
   return { flows, ...aggregateTraffic(ctx, flows) };
 }
 
-function aggregateTraffic(ctx: NetContext, flows: readonly TrafficFlow[]): Pick<TrafficView, 'uplinks' | 'links'> {
+/** Per-uplink / per-cable aggregates of a flow list (also used by modes that merge flow lists, e.g. Hotové scénáře). */
+export function aggregateTraffic(ctx: NetContext, flows: readonly TrafficFlow[]): Pick<TrafficView, 'uplinks' | 'links'> {
   const { state, catalog } = ctx;
   const linkAgg = new Map<string, { byClass: Partial<Record<FlowTrafficClass, number>>; total: number; flowIds: string[] }>();
   for (const f of flows)

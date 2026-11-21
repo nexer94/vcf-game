@@ -20,11 +20,11 @@ const rackB: ElevRack = {
 };
 
 describe('rack elevation layout', () => {
-  it('compresses empty runs of >= 6 U into one band 3 U high (UX 19.3)', () => {
+  it('compresses empty runs of >= 4 U into one band 2 U high (UX 19.3, compressed more – user 2026-11-22)', () => {
     const rows = rackRows(rackA, 0, true, 18);
     expect(rows.map((r) => r.kind)).toEqual(['device', 'empty', 'device', 'device']);
     const band = rows[1]!;
-    expect(band).toMatchObject({ kind: 'empty', compressed: true, topU: 41, bottomU: 5, h: 54 });
+    expect(band).toMatchObject({ kind: 'empty', compressed: true, topU: 41, bottomU: 5, h: 36 });
     // Without compression every empty U has its own row.
     expect(rackRows(rackA, 0, false).filter((r) => r.kind === 'empty')).toHaveLength(37);
   });
@@ -36,6 +36,15 @@ describe('rack elevation layout', () => {
     expect(rowRange(dev('srv-02'))).toBe('3–4');
     expect(rowRange(dev('sw-a'))).toBe('42');
     expect(uRangeLabel(1, 2)).toBe('U1–2');
+  });
+
+  it('draws devices 1.5x taller per U than empty U (readability) but keeps 1U vs 2U and the ruler', () => {
+    const rows = rackRows(rackA, 0, true, 18);
+    const dev = (id: string) => rows.find((r) => r.kind === 'device' && r.deviceId === id)!;
+    expect(dev('sw-a').h).toBe(27);
+    expect(dev('srv-01').h).toBe(54);
+    expect(rowRange(dev('srv-01'))).toBe('1–2');
+    expect(layoutElevation([rackA], { uPx: 18 }).devU).toBe(27);
   });
 
   it('keeps the reserved ToR-B U as its own row', () => {

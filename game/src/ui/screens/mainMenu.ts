@@ -5,7 +5,7 @@ import { icon } from '../icons';
 import type { ScreenDef } from './screen';
 
 /**
- * Main menu over the cosy room backdrop: Kariéra (primary) → Hotové scénáře (placeholder) → Sandbox
+ * Main menu over the cosy room backdrop: Kariéra (primary) → Hotové scénáře → Sandbox
  * (user decision 2026-11-22); the traffic demo and the demo room are small secondary links.
  */
 export const mainMenuScreen: ScreenDef = {
@@ -26,11 +26,11 @@ export const mainMenuScreen: ScreenDef = {
     );
     const scenarios = button(
       h('span', { class: 'menu-item-body' },
-        h('span', { class: 'menu-item-title' }, 'Hotové scénáře', h('span', { class: 'ui-chip chip-soon' }, 'Připravujeme')),
-        h('span', { class: 'menu-item-desc' }, 'Plně nasazená prostředí k prozkoumání.'),
+        h('span', { class: 'menu-item-title' }, 'Hotové scénáře'),
+        h('span', { class: 'menu-item-desc' }, 'Plně nasazená prostředí k prozkoumání – hardware, běžící VM a kolik zdrojů spotřebují.'),
       ),
       () => ctx.navigate({ name: 'scenarios' }),
-      { class: 'menu-item menu-soon' },
+      { class: 'menu-item' },
     );
     const sandbox = button(
       h('span', { class: 'menu-item-body' },

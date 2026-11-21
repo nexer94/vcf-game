@@ -30,8 +30,18 @@ export interface Checklist {
   /** Small HUD chip when hidden ("☰ Postup 3/9"). */
   readonly hudChip: HTMLButtonElement;
   update(items: readonly ObjectiveView[], nextId?: string): void;
-  setMode(m: ChecklistMode): void;
+  /** User / auto mode change. `auto` = layout-driven (does not override a view cap). */
+  setMode(m: ChecklistMode, auto?: boolean): void;
+  /**
+   * Cap of the shown mode for the current view (screen decides): 'open' = no cap, 'bar' = at most the collapsed
+   * bar (rack / host view), 'hidden' = only the HUD chip (full-screen PC, whiteboard, console). A user action
+   * (chip / bar click, T) "peeks" over the cap until the cap changes again.
+   */
+  setCap(c: ChecklistMode): void;
+  /** Effective (shown) mode = user mode limited by the view cap. */
   readonly mode: ChecklistMode;
+  /** The user's own mode (without the view cap). */
+  readonly userMode: ChecklistMode;
   /** Bounding rect of the active step (bubble anchor 'ui:checklist'). */
   activeRect(): DOMRect | null;
   dispose(): void;
@@ -39,6 +49,10 @@ export interface Checklist {
 
 export function createChecklist(o: ChecklistOptions): Checklist {
   let mode: ChecklistMode = 'open';
+  let cap: ChecklistMode = 'open';
+  let peek = false;
+  const RANK: Readonly<Record<ChecklistMode, number>> = { hidden: 0, bar: 1, open: 2 };
+  const eff = (): ChecklistMode => (mode === 'hidden' ? 'hidden' : peek ? mode : RANK[cap] < RANK[mode] ? cap : mode);
   let items: readonly ObjectiveView[] = [];
   let nextId: string | undefined;
   let lastActive = '';
@@ -47,8 +61,15 @@ export function createChecklist(o: ChecklistOptions): Checklist {
   const el = h('section', { class: 'checklist', role: 'region', 'aria-label': 'Postup' });
   const hudChip = button('', () => setMode('open'), { class: 'hud-chip checklist-chip', title: 'Zobrazit postup (Shift+T)', hidden: true });
 
-  function setMode(m: ChecklistMode): void {
-    mode = m;
+  function setMode(m: ChecklistMode, auto = false): void {
+    // In a capped view a user "show" (chip / bar click, T) peeks over the cap.
+    if (!auto && cap !== 'open' && m !== 'hidden' && RANK[m] > RANK[cap]) {
+      peek = true;
+      mode = m;
+    } else {
+      peek = false;
+      mode = m;
+    }
     render();
     o.onModeChange(m);
   }
@@ -60,6 +81,7 @@ export function createChecklist(o: ChecklistOptions): Checklist {
   function render(): void {
     const m = checklistModel(items, nextId);
     const a = m.active;
+    const mode = eff();
     hudChip.hidden = mode !== 'hidden';
     hudChip.textContent = `☰ Postup ${m.done}/${m.total}`;
     el.hidden = mode === 'hidden';
@@ -133,7 +155,16 @@ export function createChecklist(o: ChecklistOptions): Checklist {
       el.append(live);
     },
     setMode,
+    setCap(c) {
+      if (c === cap) return;
+      cap = c;
+      peek = false;
+      render();
+    },
     get mode() {
+      return eff();
+    },
+    get userMode() {
       return mode;
     },
     activeRect: () => el.querySelector('.cl-active')?.getBoundingClientRect() ?? null,

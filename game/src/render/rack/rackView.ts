@@ -319,18 +319,19 @@ export class RackElevationView {
     if (!geo) return;
     const { x, y, w, h } = geo;
     const U = this.layoutCache.uPx;
+    const DU = this.layoutCache.devU;
     if (d.kind === 'server') {
       g.roundRect(x, y, w, h, 3).fill(DEVICE.serverFace).stroke({ color: OUTLINE, width: 1.6 });
       g.roundRect(x + 3, y + 3, 8, h - 6, 2).fill(d.tagColor ?? 0x2560c4);
       // Drive bays (per U one row).
-      const bays = Math.max(1, Math.round(h / U));
+      const bays = Math.max(1, d.heightU);
       for (let r = 0; r < bays; r++) for (let bx = x + 150; bx < x + 205; bx += 9) g.roundRect(bx, y + 3 + r * (h / bays), 7, h / bays - 6, 1.5);
       g.fill(DEVICE.serverShade).stroke({ color: DEVICE.bay, width: 1 });
-      const t = txt(d.label, Math.min(13, U * 0.62), OUTLINE, '800');
-      t.position.set(x + 15, y + 2);
+      const t = txt(d.label, Math.min(14, DU * 0.5), OUTLINE, '800');
+      t.position.set(x + 15, y + 3);
       layer.addChild(t);
       if (h >= U * 1.6) {
-        const sub = txt((d.sublabel ?? '').slice(0, 24), Math.min(10, U * 0.48), 0x4a5566, '700');
+        const sub = txt((d.sublabel ?? '').slice(0, 20), Math.min(11, DU * 0.4), 0x4a5566, '700');
         sub.position.set(x + 15, y + h / 2 + 1);
         layer.addChild(sub);
       }
@@ -352,7 +353,7 @@ export class RackElevationView {
       }
     } else {
       g.roundRect(x, y, w, h, 3).fill(DEVICE.switchFace).stroke({ color: OUTLINE, width: 1.6 });
-      const t = txt(d.label, Math.min(12, U * 0.6), 0xffffff, '800');
+      const t = txt(d.label, Math.min(13, DU * 0.5), 0xffffff, '800');
       t.anchor.set(0, 0.5);
       t.position.set(x + 8, y + h / 2 - (h >= U * 1.6 ? 5 : 0));
       layer.addChild(t);

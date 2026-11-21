@@ -35,6 +35,8 @@ describe('router', () => {
       { name: 'career', level: 'c1-l1' },
       { name: 'career', level: 'c1-l1', result: true },
       { name: 'scenarios' },
+      { name: 'scenarios', compare: true },
+      { name: 'scenario', id: 's2-ha-medium' },
       { name: 'sandbox-room', demo: false, career: 'c1-l1' },
       { name: 'sandbox-room', demo: false, career: 'c1-l1', view: { kind: 'rack', rackId: 'r01' } },
       { name: 'traffic' },

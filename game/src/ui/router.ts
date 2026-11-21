@@ -25,8 +25,10 @@ export type Route =
     }
   /** Career: level list (no `level`), briefing of a level, or its result screen. */
   | { readonly name: 'career'; readonly level?: string; readonly result?: true }
-  /** Main menu entry 2 "Hotové scénáře" (placeholder until the data exist). */
-  | { readonly name: 'scenarios' }
+  /** Main menu entry 2 "Hotové scénáře": scenario list (`compare` = side-by-side comparison of two scenarios). */
+  | { readonly name: 'scenarios'; readonly compare?: true }
+  /** One pre-built, fully deployed scenario (room read-only + VM / Zdroje / Hosty / O scénáři panel). */
+  | { readonly name: 'scenario'; readonly id: string }
   | { readonly name: 'traffic' };
 
 export const MENU: Route = { name: 'menu' };
@@ -73,6 +75,8 @@ export function parseRoute(hash: string): Route {
       return { name: 'career', level: b };
     }
     case 'scenare':
+      if (b === 'porovnani') return { name: 'scenarios', compare: true };
+      if (b !== undefined && ROOM_ID_RE.test(b)) return { name: 'scenario', id: b };
       return { name: 'scenarios' };
     case 'provoz':
       return { name: 'traffic' };
@@ -100,7 +104,9 @@ export function formatRoute(r: Route): string {
     case 'career':
       return r.level ? `#/kariera/${encodeURIComponent(r.level)}${r.result ? '/vysledek' : ''}` : '#/kariera';
     case 'scenarios':
-      return '#/scenare';
+      return r.compare ? '#/scenare/porovnani' : '#/scenare';
+    case 'scenario':
+      return `#/scenare/${encodeURIComponent(r.id)}`;
     case 'traffic':
       return '#/provoz';
   }

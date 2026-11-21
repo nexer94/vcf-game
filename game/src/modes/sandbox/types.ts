@@ -476,7 +476,9 @@ export type FlowReason =
   | 'no-install-template'
   // career layer (modes/career, game rules)
   | 'over-budget'
-  | 'locked-by-level';
+  | 'locked-by-level'
+  // Hotové scénáře (modes/scenarios, game rule): the prepared environment is read-only
+  | 'read-only-scenario';
 
 export type SandboxRejection =
   /** A model validation / transition rejected the action. Issues are the model's, unchanged. */
