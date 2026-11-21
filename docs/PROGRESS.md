@@ -30,10 +30,15 @@
 
 ## Další kroky
 ### Bez obchodu a peněz, interakce všude (uživatel 2026-11-22)
-- [ ] `engine-dev` – placeNewRack / addServerToRack / removeServer / removeRack, freeUSlots, serverChoices, peníze pryč
-  (Kariéra L1 bez rozpočtu), scénáře read-only data pro rack/PC/tabuli *(běží)*
+- [x] `engine-dev` – placeNewRack / addServerToRack / removeServer / removeRack (undo), freeUSlots, newRackTiles,
+  serverChoices (výrobce → model → sestavy) + serverChoiceDetail, peníze ze snapshotů pryč (economy kód zůstává),
+  Kariéra L1 bez rozpočtu, scénáře: inspect/camera + data pro rack/PC/tabuli (`scenario.board`)
 - [ ] `ui-dev` – zrušit dolní obchod a peníze, „+“ na podlaze pro rack, „+“ v racku pro server (výrobce → model),
   rack/tabule/PC ve scénářích, přirozené vedení kabelů z místnosti, popisky Gb/s bez překryvu *(běží)*
+
+- [ ] `ui-dev` – ilustrace „pro představu“ (uživatel 2026-11-22): vlastní kreslené z dat, žádné fotky/loga –
+  náhled topologie u hotových scénářů, čelo serveru ve výběru (U, disky, NIC, barva výrobce), ikony racků/switchů/NIC,
+  ikony komponent VCF u VM, sjednotit miniatury blueprintů (po dokončení přestavby bez obchodu)
 
 ### Opravy UI po zpětné vazbě (2026-11-22)
 - [x] `ui-dev` – bublina drží u panáčka (každý snímek přes kameru, šipka na okraji mimo obrazovku), v PC/tabuli/konzoli
