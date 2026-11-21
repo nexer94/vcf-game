@@ -29,6 +29,12 @@
   HA admission control, vCPU:pCPU ≤ 2:1, resource check installeru = warning [9.0.x]; 13 otevřených otázek
 
 ## Další kroky
+### Opravy UI po zpětné vazbě (2026-11-22)
+- [x] `ui-dev` – bublina drží u panáčka (každý snímek přes kameru, šipka na okraji mimo obrazovku), v PC/tabuli/konzoli
+  checklist jako čip a bez bubliny, v racku lišta s aktuálním krokem; obchod minimální karty + „Detail ▾“ popover;
+  rack: zařízení 1,5× vyšší (2U vypadá jako 3U), víc zhuštěná prázdná místa
+- [ ] `ux-designer` – Provoz v3: intuitivní a zábavná vizualizace kabelů a provozu (objem, síťový pohled) *(běží)*
+
 ### Hlavní menu: Kariéra · Hotové scénáře · Sandbox (uživatel 2026-11-22)
 - Sandbox bez úkolů a bublin; checklist + bubliny jen v Kariéře
 - [x] `doc-researcher` – `40-workload-domains`: WLD ve 9.1 (VCF Operations, vCenter + NSX WLD běží v mgmt doméně),
