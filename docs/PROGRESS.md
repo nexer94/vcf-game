@@ -31,7 +31,11 @@
 ## Další kroky
 ### Hlavní menu: Kariéra · Hotové scénáře · Sandbox (uživatel 2026-11-22)
 - Sandbox bez úkolů a bublin; checklist + bubliny jen v Kariéře
-- [ ] `doc-researcher` – `40-workload-domains` + inventář VM a spotřeba zdrojů pro hotové scénáře *(běží)*
+- [x] `doc-researcher` – `40-workload-domains`: WLD ve 9.1 (VCF Operations, vCenter + NSX WLD běží v mgmt doméně),
+  inventář VM a součty pro 5 scénářů (Simple 10 VM / 76 vCPU / 251 GB / 7448 GB; HA-Small/Medium/Large; + WLD;
+  více WLD; 2 instance)
+- [ ] `doc-researcher` – doplnit velikosti VM z Planning and Preparation Workbook 9.1.1 (orchestrátor stáhl, TSV
+  v `docs/spec/data/`) *(běží)*
 - [ ] `domain-modeler` / `engine-dev` – hotové scénáře: replay příkazů do plně nasazeného stavu, inventář VM
 - [ ] `scenario-designer` – 5 hotových scénářů (nejmenší Simple, HA, mgmt + WLD, více WLD, více instancí)
 - [ ] `ui-dev` – prohlížeč hotového prostředí (VM, zdroje)
