@@ -8,6 +8,7 @@ import {
   type ServerConfig,
   type ServerModel,
   HCI_PROFILE_MINIMA,
+  SERVER_RACK_UNITS_GAME_DEFAULT,
   configMetrics,
   deriveEsaProfile,
   nicRequirementForVdsModel,
@@ -17,7 +18,8 @@ import {
   validateServerConfig,
   validateVsanNicCount,
 } from '../hardware';
-import { STARTER_CONFIG_DEFS, buildHardwareCatalog } from '../hardwareCatalog';
+import { STARTER_CONFIG_DEFS, buildHardwareCatalog, buildHardwareCatalogFrom } from '../hardwareCatalog';
+import { SERVER_RACK_UNITS, parseServerRackUnits } from '../serverRackUnits';
 
 const cat = buildHardwareCatalog();
 const starter = (id: string) => {
@@ -70,10 +72,23 @@ describe('catalog from the BCG dataset (15 Příloha A/B)', () => {
     for (const it of cat.items.values()) expect(JSON.stringify(it)).not.toMatch(/price/i);
   });
 
-  it('models carry BCG facts and the game-default rack height flag', () => {
+  it('models carry BCG facts; rack height from the vendor spec sheet data or the 2U game default', () => {
     const r670 = cat.models.get('bcg-63567');
-    expect(r670).toMatchObject({ vendor: 'Dell', maxSockets: 2, maxCoresPerSocket: 86, maxDrives: 20, rackUnitsGameDefault: true, kb393469Note: true });
+    expect(r670).toMatchObject({ vendor: 'Dell', maxSockets: 2, maxCoresPerSocket: 86, maxDrives: 20, kb393469Note: true });
     expect(r670?.bcgUrl).toContain('productId=63567');
+    const verified = SERVER_RACK_UNITS?.data.models.find((m) => m.bcgProductIds.includes(63567));
+    if (verified) expect(r670).toMatchObject({ rackUnits: verified.rackUnits, rackUnitsGameDefault: false, rackUnitsUrl: verified.url });
+    else expect(r670).toMatchObject({ rackUnits: SERVER_RACK_UNITS_GAME_DEFAULT, rackUnitsGameDefault: true });
+    // models not in the file keep the game default
+    const ds = buildHardwareCatalogFrom(BCG_DATASET);
+    expect([...ds.models.values()].every((m) => m.rackUnits === SERVER_RACK_UNITS_GAME_DEFAULT && m.rackUnitsGameDefault)).toBe(true);
+  });
+
+  it('server-rack-units.json parses without problems and maps only dataset product ids', () => {
+    if (!SERVER_RACK_UNITS) return;
+    expect(SERVER_RACK_UNITS.problems).toEqual([]);
+    for (const m of SERVER_RACK_UNITS.data.models) for (const id of m.bcgProductIds) expect(cat.models.get(`bcg-${id}`), `${m.model} ${id}`).toBeDefined();
+    expect(parseServerRackUnits({ models: [{ vendor: 'Dell', model: 'x', bcgProductIds: [], rackUnits: 1, url: 'https://x' }] }).problems.length).toBe(1);
   });
 });
 

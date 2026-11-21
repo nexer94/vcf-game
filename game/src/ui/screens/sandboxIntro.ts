@@ -1,5 +1,5 @@
 import { button, docLink, h } from '../dom';
-import { badge } from '../messages';
+import { badge, message } from '../messages';
 import { SANDBOX_FLOW_V2 } from '../sandbox/phases';
 import { VCF_DOCS_URL, VCF_VERSION } from '../version';
 import { disclaimer } from './disclaimer';
@@ -38,6 +38,11 @@ export const sandboxIntroScreen: ScreenDef = {
         h('p', { class: 'lead' },
           'Simulace architektury VMware Cloud Foundation (modelovaná verze ', h('strong', null, VCF_VERSION), ')',
           ' podle oficiální dokumentace. Žádné mise, neomezené zdroje.'),
+        message({
+          type: 'game-tip',
+          title: 'Sandbox tě nevede – pravidla VCF ale platí',
+          body: 'Nejsou tu úkoly, checklist ani bubliny s nápovědou. Všechny limity, prerekvizity a validace VCF podle dokumentace ale platí stejně jako v Kariéře – co nejde ve skutečnosti, nepůjde ani tady. Chceš vedení krok za krokem? Zkus Kariéru.',
+        }),
         h('ul', { class: 'intro-bullets' },
           ...BULLETS.map(([t, d], i) =>
             h('li', null, h('span', { class: 'flow-num', 'aria-hidden': 'true' }, String(i + 1)), h('span', null, h('strong', null, t), ' ', d)),

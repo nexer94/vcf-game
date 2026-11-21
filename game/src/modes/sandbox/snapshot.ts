@@ -27,6 +27,7 @@ import { type PlanningView, planningView, withBinaryProgress } from './planning'
 import { allHostsOf, bringupEnvOf, phaseGate } from './reducer';
 import { type FlowsView, type HwDesignView, type PhysicalView, flowsView, hwDesignView, physicalView } from './roomView';
 import { type SiteView, siteView } from './site';
+import { type ConsolesView, consolesView } from './console';
 import { type SandboxContext, defaultSandboxContext } from './tx';
 import { type UseCaseView, useCaseView } from './useCases';
 import { type SandboxLogEntry, type SandboxPhase, type SandboxState, type SandboxTask, type SandboxTaskKind, SANDBOX_PHASES } from './types';
@@ -118,8 +119,10 @@ export interface SandboxSnapshot {
   readonly flows: FlowsView;
   /** Hardware context of the design (optionAvailabilityWithHardware per option, unlock actions). */
   readonly hw: HwDesignView;
-  /** Objectives tracker (UX §8). */
+  /** Objectives tracker (UX §8; checklist + bubble UX 17–18). Disabled (empty) in the Sandbox – a Career feature. */
   readonly objectives: ObjectivesView;
+  /** Server consoles: ESX installer + DCUI (UX ch. 20) and the "same choices" batch install. */
+  readonly consoles: ConsolesView;
   /** Chosen use case / path (25 §2.1); undefined = not chosen yet. Catalog: USE_CASES. */
   readonly useCase?: UseCaseView;
   /**
@@ -232,6 +235,7 @@ export function buildSnapshotBase(s: SandboxState, revision: number, ctx: Sandbo
     physical: physicalView(s, ctx),
     site: siteView(s, ctx.catalog),
     flows: flowsView(s, ctx.catalog),
+    consoles: consolesView(s, ctx.catalog),
     hw: hwDesignView(s, ctx.catalog, decisions),
     log: s.log,
     illustrative: { taskDurationsMs: s.taskDurationsMs, note: ILLUSTRATIVE_DURATION_NOTE },

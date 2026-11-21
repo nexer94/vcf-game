@@ -41,6 +41,7 @@ import type {
   SiteLayoutId,
 } from '../../model';
 import type { UseCaseChoice, UseCaseId } from './useCases';
+import type { ConsoleKey, ConsoleState, ConsoleValue, InstallTemplate } from './console';
 
 export const SANDBOX_PHASES = ['design', 'planning', 'deploy'] as const;
 export type SandboxPhase = (typeof SANDBOX_PHASES)[number];
@@ -160,6 +161,20 @@ export interface SandboxRoomState {
   readonly economy: SandboxEconomy;
   /** Room id -> pre-installed OOB switch id (oob.ts, GAME scope; only with `SandboxState.autoBmc`). */
   readonly oobSwitches?: Readonly<Record<string, string>>;
+  /**
+   * Rack id -> pre-installed top-of-rack switches (tor.ts, GAME; only with `SandboxState.autoTor`, UX 19.5).
+   * `a` = ToR-A put in the top U when the rack was first placed; `b` = optional ToR-B added by the player (addTor).
+   * A rack listed here is never provisioned again (the player may remove ToR-A in the lab).
+   */
+  readonly preinstalledTors?: Readonly<Record<string, PreinstalledTor>>;
+}
+
+/** Pre-installed ToR switches of one rack (GAME, UX 19.5). */
+export interface PreinstalledTor {
+  readonly a?: string;
+  readonly b?: string;
+  /** Switch model of ToR-A (catalog id). */
+  readonly modelId: string;
 }
 
 /** Undo / redo of room edits (UX §2.4: history of 50 actions while building / cabling). */
@@ -224,6 +239,15 @@ export interface SandboxState {
    * IP on mount. Sandbox default true; Career switches it off (manual OOB cabling as a task).
    */
   readonly autoBmc: boolean;
+  /**
+   * Pre-installed ToR (tor.ts, GAME, UX 19.5): every rack gets a generic ToR-A in its top U (+ uplink to the company
+   * network when none exists yet) when it is first placed in the room. Sandbox v3 / Career: on; default off.
+   */
+  readonly autoTor: boolean;
+  /** ESX console (installer + DCUI) per server (console.ts, UX ch. 20). */
+  readonly consoles?: Readonly<Record<string, ConsoleState>>;
+  /** Choices of the last interactive ESX install – template of "apply same choices to remaining hosts" (UX 20.3). */
+  readonly installTemplate?: InstallTemplate;
   readonly log: readonly SandboxLogEntry[];
   readonly seq: {
     readonly host: number;
@@ -323,7 +347,16 @@ export type SandboxCommand =
    * (omitted: `tile.rotation`, else the current facing of a placed rack, else 'S'). [GAME] room layout rules
    * (model validateRackPlacement) – rejected with their issues unchanged.
    */
-  | { readonly type: 'placeRack'; readonly inventoryId?: string; readonly rackId?: string; readonly itemId?: string; readonly tile: RoomTile; readonly roomId?: string; readonly facing?: Facing }
+  | { readonly type: 'placeRack'; readonly inventoryId?: string; readonly rackId?: string; readonly itemId?: string; readonly tile: RoomTile; readonly roomId?: string; readonly facing?: Facing; readonly torModelId?: string }
+  /** [GAME] add the optional ToR-B into the reserved U under ToR-A (UX 19.3/19.5; default model = ToR-A's). */
+  | { readonly type: 'addTor'; readonly rackId: string; readonly modelId?: string }
+  /**
+   * Add a NIC card into a free NIC slot (UX 19.4). `nicPartId` must be in the model's certified BOM (ServerModel.nics) and
+   * in the game parts catalog. Slot count = NIC_SLOTS_GAME_DEFAULT (game value); cards fill slots in order (slot 1-based).
+   */
+  | { readonly type: 'addNic'; readonly serverId: string; readonly slot: number; readonly nicPartId: string }
+  /** Remove the NIC card of a slot (its cables are disconnected; later cards move up – vmnic numbering follows). */
+  | { readonly type: 'removeNic'; readonly serverId: string; readonly slot: number }
   /** Turn a placed rack in place (front towards `facing`); [GAME] room layout rules apply. */
   | { readonly type: 'rotateRack'; readonly rackId: string; readonly facing: Facing }
   /** Move a rack (with its devices) into another room of the site (model moveRackToRoom); a placed rack keeps its tile. */
@@ -370,6 +403,17 @@ export type SandboxCommand =
   | { readonly type: 'setVmkMtu'; readonly serverId: string; readonly vmk: string; readonly mtu: number }
   /** BMC (out of VCF scope – game, 25 §10): IP (≠ host IP [U74]), VLAN tag, OS↔BMC USB-NIC interface. */
   | { readonly type: 'configureBmc'; readonly serverId: string; readonly ip?: string | null; readonly vlan?: number | null; readonly hostInterfaceEnabled?: boolean }
+  // --- server console: ESX installer + DCUI (console.ts, UX ch. 20 / 26.2) ---
+  /** Open the console of a server: installer when ESX is not installed (`method` = boot media), else DCUI. */
+  | { readonly type: 'openConsole'; readonly serverId: string; readonly method?: EsxInstallMethod }
+  /** A key on the console; `value` = input of the screen (disk id, keyboard, password, form fields). */
+  | { readonly type: 'consoleKey'; readonly serverId: string; readonly key: ConsoleKey; readonly value?: ConsoleValue }
+  | { readonly type: 'closeConsole'; readonly serverId: string }
+  /**
+   * "Instalovat stejně na zbývající hosty" (UX 20.3): starts ESX install tasks with the choices of the last interactive
+   * install (`installTemplate`) on `serverIds` (default: every mounted server without ESX with the same configuration).
+   */
+  | { readonly type: 'installEsxBatch'; readonly serverIds?: readonly string[] }
   // --- objectives tracker (UX §8) ---
   | { readonly type: 'skipObjective'; readonly id: string }
   | { readonly type: 'unskipObjective'; readonly id: string }
@@ -421,7 +465,18 @@ export type FlowReason =
   // sites (game rules, not VCF)
   | 'tile-occupied'
   | 'preinstalled-oob'
-  | 'blueprint-layout-mismatch';
+  | 'blueprint-layout-mismatch'
+  // v3 (UX Part III, game rules)
+  | 'u-reserved'
+  | 'no-free-slot'
+  | 'slot-empty'
+  | 'nic-not-certified'
+  | 'console-not-open'
+  | 'console-key'
+  | 'no-install-template'
+  // career layer (modes/career, game rules)
+  | 'over-budget'
+  | 'locked-by-level';
 
 export type SandboxRejection =
   /** A model validation / transition rejected the action. Issues are the model's, unchanged. */

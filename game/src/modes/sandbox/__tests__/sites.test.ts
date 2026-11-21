@@ -17,7 +17,7 @@ function reject(s: SandboxSession, cmd: SandboxCommand) {
 }
 
 const withBlueprint = (blueprintId: BlueprintId, layoutId: SiteLayoutId, autoBmc = true): SandboxSession => {
-  const s = new SandboxSession({ taskDurationsMs: FAST, autoBmc });
+  const s = new SandboxSession({ taskDurationsMs: FAST, autoBmc, objectives: true });
   must(s, { type: 'chooseBlueprint', blueprintId, layoutId });
   return s;
 };
@@ -36,7 +36,7 @@ const objective = (s: SandboxSession, id: string) =>
 
 describe('Sandbox sites – chooseBlueprint', () => {
   it('validates that the layout belongs to the blueprint (LAYOUT_BLUEPRINTS, 06 §7a)', () => {
-    const s = new SandboxSession();
+    const s = new SandboxSession({ objectives: true });
     expect(reject(s, { type: 'chooseBlueprint', blueprintId: 'vcf-fleet-single-site', layoutId: 'two-buildings' })).toMatchObject({ kind: 'flow', reason: 'blueprint-layout-mismatch' });
     expect(reject(s, { type: 'chooseBlueprint', blueprintId: 'nope' as BlueprintId, layoutId: 'small-room' })).toMatchObject({ reason: 'invalid-input' });
     expect(s.snapshot().site.blueprint).toBeUndefined();
@@ -186,7 +186,7 @@ describe('Sandbox sites – objectives per blueprint', () => {
   });
 
   it('site objectives only for multi-site blueprints; they complete from the site state', () => {
-    expect(new SandboxSession().snapshot().objectives.groups.some((g) => g.id === 'L')).toBe(false);
+    expect(new SandboxSession({ objectives: true }).snapshot().objectives.groups.some((g) => g.id === 'L')).toBe(false);
     expect(withBlueprint('vcf-fleet-single-site', 'large-room').snapshot().objectives.groups.some((g) => g.id === 'L')).toBe(false);
 
     const ha = withBlueprint('vcf-fleet-multiple-sites-single-region', 'two-buildings');
@@ -264,7 +264,7 @@ describe('Sandbox – pre-wired OOB / BMC network (autoBmc, game scope)', () => 
   });
 
   it('switches with the layout; autoBmc off (Career) = no OOB switch, manual BMC objectives', () => {
-    const s = new SandboxSession();
+    const s = new SandboxSession({ objectives: true });
     expect(s.snapshot().physical.switches.map((x) => x.id)).toEqual([oobSwitchId('room-a1')]);
     must(s, { type: 'chooseBlueprint', blueprintId: 'vcf-fleet-across-multiple-regions', layoutId: 'remote-dr' });
     expect(s.snapshot().physical.switches.map((x) => x.id)).toEqual(['room-a1', 'room-b1'].map(oobSwitchId));

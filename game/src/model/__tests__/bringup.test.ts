@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { WORKER_NODE_COUNTS } from '../servicesRuntimeNodes';
 import {
   type BringupEnvironment,
   type BringupSpec,
@@ -617,6 +618,19 @@ describe('new VCF Instance (target new-instance)', () => {
     const ms = ADDITIONAL_INSTANCE_SIZING['ha-small'].managementServices;
     expect(runtime.nodes).toBe(ms.controlPlaneNodes + ms.workerNodes);
     expect(instanceSizingFor(s)).toBe(ADDITIONAL_INSTANCE_SIZING['ha-small']);
+  });
+
+  it('management services node counts follow 40 §6.4 (single source: WORKER_NODE_COUNTS.used)', () => {
+    expect(ADDITIONAL_INSTANCE_SIZING.simple.managementServices).toEqual({ controlPlaneNodes: 1, workerNodes: 1 });
+    expect(FIRST_INSTANCE_SIZING['ha-large'].managementServices).toEqual({ controlPlaneNodes: 3, workerNodes: 4 });
+    for (const p of ['ha-small', 'ha-medium', 'ha-large'] as const)
+      expect(ADDITIONAL_INSTANCE_SIZING[p].managementServices).toEqual({ controlPlaneNodes: 3, workerNodes: 2 });
+    for (const p of ['simple', 'ha-small', 'ha-medium', 'ha-large'] as const) {
+      expect(FIRST_INSTANCE_SIZING[p].managementServices.workerNodes).toBe(WORKER_NODE_COUNTS.first[p].used);
+      expect(ADDITIONAL_INSTANCE_SIZING[p].managementServices.workerNodes).toBe(WORKER_NODE_COUNTS.additional[p].used);
+    }
+    // documented totals unchanged ([W6])
+    expect(ADDITIONAL_INSTANCE_SIZING.simple.totals).toEqual({ vcpu: 34, ramGb: 111, diskGb: 4562 });
   });
 
   it('identity broker is added only when its FQDN is supplied', () => {

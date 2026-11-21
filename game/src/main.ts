@@ -17,6 +17,7 @@ async function bootstrap(): Promise<void> {
   });
   const stage = await SceneStage.create(host, engine);
   startApp(host, stage, engine);
+  if (import.meta.env.DEV) (window as unknown as { __stage: unknown }).__stage = stage; // TMPDEBUG
 }
 
 bootstrap().catch((err: unknown) => {

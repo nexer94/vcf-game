@@ -78,16 +78,25 @@ export interface ServerModel {
   /** BCG note refers to KB 393469 (Granite Rapids vSAN performance; "resolved in VCF 9.1", 15 §3.6 [H23]). */
   readonly kb393469Note: boolean;
   /**
-   * Rack height in U. [SIMPL] The BCG dataset does not contain form factors; the game uses 2U for every
-   * server (`rackUnitsGameDefault`).
+   * Rack height in U. The BCG dataset does not contain form factors: verified heights come from vendor spec sheets
+   * (docs/spec/data/server-rack-units.json, CLAUDE.md – `rackUnitsUrl`); models not listed there use the game
+   * default 2U ([SIMPL], `rackUnitsGameDefault: true`).
    */
   readonly rackUnits: number;
-  readonly rackUnitsGameDefault: true;
+  readonly rackUnitsGameDefault: boolean;
+  /** Vendor spec sheet of a verified height (absent for the game default). */
+  readonly rackUnitsUrl?: string;
 }
 
 export const SERVER_RACK_UNITS_GAME_DEFAULT = 2;
 
-export function serverModelFromRecord(r: BcgReadyNodeRecord): ServerModel | undefined {
+/** Verified rack height of a model (vendor spec sheet), see model/serverRackUnits.ts. */
+export interface VerifiedRackUnits {
+  readonly rackUnits: number;
+  readonly url: string;
+}
+
+export function serverModelFromRecord(r: BcgReadyNodeRecord, verifiedU?: VerifiedRackUnits): ServerModel | undefined {
   if (!isHwVendor(r.vendor)) return undefined;
   return {
     id: `bcg-${r.productId}`,
@@ -109,13 +118,14 @@ export function serverModelFromRecord(r: BcgReadyNodeRecord): ServerModel | unde
     notes: r.notes,
     bcgUrl: r.bcgUrl,
     kb393469Note: r.notes.includes('393469'),
-    rackUnits: SERVER_RACK_UNITS_GAME_DEFAULT,
-    rackUnitsGameDefault: true,
+    ...(verifiedU
+      ? { rackUnits: verifiedU.rackUnits, rackUnitsGameDefault: false, rackUnitsUrl: verifiedU.url }
+      : { rackUnits: SERVER_RACK_UNITS_GAME_DEFAULT, rackUnitsGameDefault: true }),
   };
 }
 
-export function serverModelsFromDataset(ds: BcgDataset): ServerModel[] {
-  return ds.readyNodes.map(serverModelFromRecord).filter((m): m is ServerModel => m !== undefined);
+export function serverModelsFromDataset(ds: BcgDataset, rackUnits?: ReadonlyMap<number, VerifiedRackUnits>): ServerModel[] {
+  return ds.readyNodes.map((r) => serverModelFromRecord(r, rackUnits?.get(r.productId))).filter((m): m is ServerModel => m !== undefined);
 }
 
 export const isCertifiedFor = (m: ServerModel, release: TargetRelease): boolean =>

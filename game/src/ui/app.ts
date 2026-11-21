@@ -10,6 +10,7 @@ import { sandboxShellScreen } from './screens/sandboxShell';
 import { sandboxSiteScreen } from './screens/sandboxSite';
 import type { AppContext, MountedScreen, ScreenDef } from './screens/screen';
 import { trafficDemoScreen } from './screens/trafficDemo';
+import { scenariosScreen } from './screens/scenarios';
 
 const SCREENS: Readonly<Record<Route['name'], ScreenDef>> = {
   menu: mainMenuScreen,
@@ -18,6 +19,7 @@ const SCREENS: Readonly<Record<Route['name'], ScreenDef>> = {
   sandbox: sandboxShellScreen,
   'sandbox-room': sandboxRoomScreen,
   career: careerScreen,
+  scenarios: scenariosScreen,
   traffic: trafficDemoScreen,
 };
 
@@ -27,9 +29,11 @@ export function startApp(host: HTMLElement, stage: SceneStage, engine: GameEngin
   layer.className = 'screen-layer';
   host.appendChild(layer);
 
-  let current: { name: Route['name']; screen: MountedScreen } | null = null;
+  /** Screen identity: the room screen of a Career level is a different screen instance than the Sandbox room. */
+  const keyOf = (r: Route): string => (r.name === 'sandbox-room' && r.career ? `career-room:${r.career}` : r.name);
+  let current: { name: string; screen: MountedScreen } | null = null;
   const router = new HashRouter((route) => {
-    if (current && current.name === route.name && current.screen.update) {
+    if (current && current.name === keyOf(route) && current.screen.update) {
       current.screen.update(route);
       return;
     }
@@ -37,7 +41,7 @@ export function startApp(host: HTMLElement, stage: SceneStage, engine: GameEngin
     const def = SCREENS[route.name];
     stage.setScene(def.stageScene ?? 'datacenter');
     stage.setMode(def.stageMode);
-    current = { name: route.name, screen: def.mount(layer, ctx, route) };
+    current = { name: keyOf(route), screen: def.mount(layer, ctx, route) };
   });
   const ctx: AppContext = { stage, engine, navigate: (r, o) => router.navigate(r, o) };
   router.start();

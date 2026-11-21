@@ -20,8 +20,13 @@ export type Route =
       readonly roomId?: string;
       /** Site overview (building / campus / map) instead of a room. */
       readonly overview?: true;
+      /** Career level id – the same room screen in Career mode (checklist + bubbles, budget, points). */
+      readonly career?: string;
     }
-  | { readonly name: 'career' }
+  /** Career: level list (no `level`), briefing of a level, or its result screen. */
+  | { readonly name: 'career'; readonly level?: string; readonly result?: true }
+  /** Main menu entry 2 "Hotové scénáře" (placeholder until the data exist). */
+  | { readonly name: 'scenarios' }
   | { readonly name: 'traffic' };
 
 export const MENU: Route = { name: 'menu' };
@@ -58,8 +63,17 @@ export function parseRoute(hash: string): Route {
       }
       if (b === SITE_SEGMENT) return { name: 'sandbox-site' };
       return isSandboxPhase(b) ? { name: 'sandbox', phase: b } : { name: 'sandbox-intro' };
-    case 'kariera':
-      return { name: 'career' };
+    case 'kariera': {
+      if (b === undefined || !ROOM_ID_RE.test(b)) return { name: 'career' };
+      if (c === 'vysledek') return { name: 'career', level: b, result: true };
+      if (c === ROOM_SEGMENT) {
+        const view = parseRoomView(parts.slice(3));
+        return { name: 'sandbox-room', demo: false, career: b, ...(view.kind === 'room' ? {} : { view }) };
+      }
+      return { name: 'career', level: b };
+    }
+    case 'scenare':
+      return { name: 'scenarios' };
     case 'provoz':
       return { name: 'traffic' };
     default:
@@ -78,12 +92,15 @@ export function formatRoute(r: Route): string {
     case 'sandbox-site':
       return `#/sandbox/${SITE_SEGMENT}`;
     case 'sandbox-room': {
+      if (r.career) return `#/kariera/${encodeURIComponent(r.career)}/${ROOM_SEGMENT}${r.view ? formatRoomView(r.view) : ''}`;
       const base = `#/sandbox/${ROOM_SEGMENT}${r.demo ? `/${DEMO_SEGMENT}` : ''}`;
       if (r.overview) return `${base}/${OVERVIEW_SEGMENT}`;
       return `${base}${r.roomId ? `/${encodeURIComponent(r.roomId)}` : ''}${r.view ? formatRoomView(r.view) : ''}`;
     }
     case 'career':
-      return '#/kariera';
+      return r.level ? `#/kariera/${encodeURIComponent(r.level)}${r.result ? '/vysledek' : ''}` : '#/kariera';
+    case 'scenarios':
+      return '#/scenare';
     case 'traffic':
       return '#/provoz';
   }

@@ -1,0 +1,3457 @@
+{
+ "version": 1,
+ "files": [
+  "00-architektura",
+  "05-design",
+  "06-blueprints",
+  "10-planning",
+  "15-hardware",
+  "20-deployment",
+  "25-usecases-and-physical",
+  "26-esx-install",
+  "40-workload-domains",
+  "50-vsan"
+ ],
+ "sources": [
+  {
+   "key": "00-architektura:S1",
+   "file": "00-architektura",
+   "id": "S1",
+   "title": "VCF Taxonomy (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/overview-of-vmware-cloud-foundation-9/workload-domains-in-vmware-cloud-foundation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S2",
+   "file": "00-architektura",
+   "id": "S2",
+   "title": "Components in VCF and vSphere Foundation (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/vcf-management-appliances.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S3",
+   "file": "00-architektura",
+   "id": "S3",
+   "title": "What Is VMware Cloud Foundation? (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/overview-of-vmware-cloud-foundation-9/what-is-vmware-cloud-foundation-and-vmware-vsphere-foundation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S4",
+   "file": "00-architektura",
+   "id": "S4",
+   "title": "VCF Installer Overview (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/overview-of-vmware-cloud-foundation-9/what-is-vmware-cloud-foundation-and-vmware-vsphere-foundation/what-is-the-vcf-installer-.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S5",
+   "file": "00-architektura",
+   "id": "S5",
+   "title": "VCF Management Services Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vcf-management-services-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S6",
+   "file": "00-architektura",
+   "id": "S6",
+   "title": "VCF Domain Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/design-guide-vmware-cloud-foundation-architecture-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S7",
+   "file": "00-architektura",
+   "id": "S7",
+   "title": "vSphere Cluster Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vsphere-cluster-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S8",
+   "file": "00-architektura",
+   "id": "S8",
+   "title": "Paths to Building 9.1.x Environments",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/overview-of-deploy--converge--and-upgrade.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S9",
+   "file": "00-architektura",
+   "id": "S9",
+   "title": "Getting Started with VMware Cloud Foundation (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/overview-of-vmware-cloud-foundation-9/getting-started-with-vcf.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S10",
+   "file": "00-architektura",
+   "id": "S10",
+   "title": "VCF Taxonomy (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/overview-of-vmware-cloud-foundation-9/workload-domains-in-vmware-cloud-foundation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S11",
+   "file": "00-architektura",
+   "id": "S11",
+   "title": "Components in VCF and vSphere Foundation (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/deployment/vcf-management-appliances.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S12",
+   "file": "00-architektura",
+   "id": "S12",
+   "title": "VCF Domain Models (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/vmware-cloud-foundation-concepts/design-guide-vmware-cloud-foundation-architecture-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S13",
+   "file": "00-architektura",
+   "id": "S13",
+   "title": "Identity Broker / VCF Single Sign-On Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/auth-design-vcf.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S14",
+   "file": "00-architektura",
+   "id": "S14",
+   "title": "NSX Manager and Control Plane Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vcf-networking-management-and-control-plane.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S15",
+   "file": "00-architektura",
+   "id": "S15",
+   "title": "VCF Automation Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vcf-automation-deployment-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S16",
+   "file": "00-architektura",
+   "id": "S16",
+   "title": "VCF Fleet Deployment Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vcf-operations-deployment-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S17",
+   "file": "00-architektura",
+   "id": "S17",
+   "title": "VCF Management Network Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/fleet-level-component-backing-networking-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S18",
+   "file": "00-architektura",
+   "id": "S18",
+   "title": "VCF 9.1.1.0 Release Notes",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-1-0-release-notes.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S19",
+   "file": "00-architektura",
+   "id": "S19",
+   "title": "VCF Fleet Sizing Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vcf-fleet-sizing-models-9-x.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S20",
+   "file": "00-architektura",
+   "id": "S20",
+   "title": "Distributed Switch Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/cluster-network-deployment-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S21",
+   "file": "00-architektura",
+   "id": "S21",
+   "title": "Architectural Options in VMware Cloud Foundation (9.1, index Design Library modelů)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S22",
+   "file": "00-architektura",
+   "id": "S22",
+   "title": "VMware Ports and Protocols (portál, odkaz z TechDocs [S23]; JS aplikace, obsah nešel stáhnout)",
+   "url": "https://ports.broadcom.com/",
+   "domain": "ports"
+  },
+  {
+   "key": "00-architektura:S23",
+   "file": "00-architektura",
+   "id": "S23",
+   "title": "Planning and Preparation (9.1) – odkazuje na „VMware Ports and Protocols“",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S24",
+   "file": "00-architektura",
+   "id": "S24",
+   "title": "Public URLs Required for Online Functionalities (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/public-urls-required-for-vmware-cloud-foundation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S25",
+   "file": "00-architektura",
+   "id": "S25",
+   "title": "Deploy Cloud Proxy for the VCF 9.1 Upgrade (porty cloud proxy)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/upgrading-cloud-foundation/upgrade-backup-and-restore/configuring-cloud-proxies-in-vrealize-operations-cloud.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S26",
+   "file": "00-architektura",
+   "id": "S26",
+   "title": "Import an Existing vCenter to Create a Workload Domain (9.1) – SDDC Manager → NSX Manager 443",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/working-with-workload-domains/import-an-existing-vcenter-to-create-a-workload-domain.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S27",
+   "file": "00-architektura",
+   "id": "S27",
+   "title": "VCF 9.1 Product Support Notes (vCenter syslog 514 → 1514)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-0-0-release-notes/vcf-91-product-support-notes.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S28",
+   "file": "00-architektura",
+   "id": "S28",
+   "title": "vSAN Network Port Requirements (9.1; odkazuje na portál)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/vsan-deployment-administration-and-monitoring/vsan-network-design/understanding-vsan-networking/network-requirements-for-vsan/vsan-network-port-requirements.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "00-architektura:S29",
+   "file": "00-architektura",
+   "id": "S29",
+   "title": "KB 447321 – NSX VIB installation or upgrade fails due to TCP port timeout (ESX → NSX 443/1234/1235)",
+   "url": "https://knowledge.broadcom.com/external/article/447321/nsx-vib-installation-or-upgrade-fails-du.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "00-architektura:S30",
+   "file": "00-architektura",
+   "id": "S30",
+   "title": "KB 446323 – NSX Manager to vCenter Server Communication Over TCP/80",
+   "url": "https://knowledge.broadcom.com/external/article/446323/nsx-manager-to-vcenter-server-communicat.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "00-architektura:S31",
+   "file": "00-architektura",
+   "id": "S31",
+   "title": "KB 435005 – VCF 9.0.1 Deployment Fails and Rolls Back (vCenter → ESX 443/902)",
+   "url": "https://knowledge.broadcom.com/external/article/435005/vcf-901-deployment-fails-and-rolls-back.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "00-architektura:S32",
+   "file": "00-architektura",
+   "id": "S32",
+   "title": "KB 436501 – VCF 9.x deployment fails with VMWithNameIPAndHostNameNotFoundException (ESX → vCenter UDP 902)",
+   "url": "https://knowledge.broadcom.com/external/article/436501/vcf-9x-deployment-fails-with-vmwithnamei.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "00-architektura:S33",
+   "file": "00-architektura",
+   "id": "S33",
+   "title": "KB 445194 – Configuring a vCenter Account in VCF Operations fails „Connection Timed out“ (VCF Ops → vCenter 443)",
+   "url": "https://knowledge.broadcom.com/external/article/445194/configuring-a-vcenter-account-in-vcf-ope.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "00-architektura:S34",
+   "file": "00-architektura",
+   "id": "S34",
+   "title": "KB 458322 – VCF Automation deployment fails due to blocked ports in micro-segmented environment",
+   "url": "https://knowledge.broadcom.com/external/article/458322/vcf-automation-deployment-fails-due-to-b.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "00-architektura:S35",
+   "file": "00-architektura",
+   "id": "S35",
+   "title": "KB 418755 – VCF 9 Automation install failing (Automation nodes → vCenter 443)",
+   "url": "https://knowledge.broadcom.com/external/article/418755/vcf-9-automation-install-failing-with-lc.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "00-architektura:S36",
+   "file": "00-architektura",
+   "id": "S36",
+   "title": "KB 427641 – VCF deployment failing at VCF Operations fleet management deployment (SDDC Manager → fleet management 22/443)",
+   "url": "https://knowledge.broadcom.com/external/article/427641/vcf-900-deployment-failing-at-vcf-operat.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "00-architektura:S37",
+   "file": "00-architektura",
+   "id": "S37",
+   "title": "KB 411436 – ESXi patching from SDDC Manager fails (SDDC Manager → vCenter 8084/9084/9087; VCF 4.x/5.x)",
+   "url": "https://knowledge.broadcom.com/external/article/411436/esxi-patching-from-sddc-manager-fails-wi.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "00-architektura:S38",
+   "file": "00-architektura",
+   "id": "S38",
+   "title": "KB 432304 – Password remediation for ESXi and vCenter accounts fails with handshake failure (TCP 443; VCF 5.2.2)",
+   "url": "https://knowledge.broadcom.com/external/article/432304/password-remediation-for-esxi-and-vcente.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "00-architektura:S39",
+   "file": "00-architektura",
+   "id": "S39",
+   "title": "KB 439240 – VCF 9.1 installer fails due to unreachable NTP server (UDP 123)",
+   "url": "https://knowledge.broadcom.com/external/article/439240",
+   "domain": "knowledge"
+  },
+  {
+   "key": "00-architektura:S40",
+   "file": "00-architektura",
+   "id": "S40",
+   "title": "KB 404593 – Unable to Register License in VCF Operations in Connected Mode (vcf/eapi.broadcom.com 443)",
+   "url": "https://knowledge.broadcom.com/external/article/404593/unable-to-register-license-in-vcf-operat.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "00-architektura:S41",
+   "file": "00-architektura",
+   "id": "S41",
+   "title": "KB 458004 – VCF 9.1 deployment fails with „Failed to bootstrap VCF services runtime“ (bootstrap VM → vCenter TCP 443)",
+   "url": "https://knowledge.broadcom.com/external/article/458004",
+   "domain": "knowledge"
+  },
+  {
+   "key": "05-design:D1",
+   "file": "05-design",
+   "id": "D1",
+   "title": "Design (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D2",
+   "file": "05-design",
+   "id": "D2",
+   "title": "Architectural Options in VMware Cloud Foundation (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D3",
+   "file": "05-design",
+   "id": "D3",
+   "title": "Design Library for VMware Cloud Foundation (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D4",
+   "file": "05-design",
+   "id": "D4",
+   "title": "VCF Domain Detailed Design (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/workload-domain-deployment-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D5",
+   "file": "05-design",
+   "id": "D5",
+   "title": "Management Domain Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/workload-domain-deployment-models/management-domain-deployment-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D6",
+   "file": "05-design",
+   "id": "D6",
+   "title": "Workload Domain Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/workload-domain-deployment-models/workload-domain-deployment-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D7",
+   "file": "05-design",
+   "id": "D7",
+   "title": "Management Domain Model (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/workload-domain-deployment-models/management-domain-deployment-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D8",
+   "file": "05-design",
+   "id": "D8",
+   "title": "Workload Domain Model (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/workload-domain-deployment-models/workload-domain-deployment-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D9",
+   "file": "05-design",
+   "id": "D9",
+   "title": "VCF Domain Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/design-guide-vmware-cloud-foundation-architecture-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D10",
+   "file": "05-design",
+   "id": "D10",
+   "title": "VCF Domain Models (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/vmware-cloud-foundation-concepts/design-guide-vmware-cloud-foundation-architecture-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D11",
+   "file": "05-design",
+   "id": "D11",
+   "title": "VCF Fleet Deployment Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vcf-operations-deployment-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D12",
+   "file": "05-design",
+   "id": "D12",
+   "title": "VCF Fleet Sizing Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vcf-fleet-sizing-models-9-x.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D13",
+   "file": "05-design",
+   "id": "D13",
+   "title": "Storage Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/storage-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D14",
+   "file": "05-design",
+   "id": "D14",
+   "title": "Network Consumption Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/network-backing-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D15",
+   "file": "05-design",
+   "id": "D15",
+   "title": "Distributed Switch Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/cluster-network-deployment-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D16",
+   "file": "05-design",
+   "id": "D16",
+   "title": "VCF Management Network Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/fleet-level-component-backing-networking-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D17",
+   "file": "05-design",
+   "id": "D17",
+   "title": "VCF Operations Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vcf-operations.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D18",
+   "file": "05-design",
+   "id": "D18",
+   "title": "Single-Rack vSphere Cluster Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/cluster-models/single-instance-single-availability-zone.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D19",
+   "file": "05-design",
+   "id": "D19",
+   "title": "Simple NSX Manager Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/nsx-management-and-control-plane-detailed-design/simple-nsx-manager-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D20",
+   "file": "05-design",
+   "id": "D20",
+   "title": "High Availability NSX Manager Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/nsx-management-and-control-plane-detailed-design/high-availability-nsx-manager-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D21",
+   "file": "05-design",
+   "id": "D21",
+   "title": "NSX Manager and Control Plane Detailed Design (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/nsx-management-and-control-plane-detailed-design.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D22",
+   "file": "05-design",
+   "id": "D22",
+   "title": "Simple VCF Management Services Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/vcf-management-services-availabilty-detailed-design/vcf-management-services-simple-deployment-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D23",
+   "file": "05-design",
+   "id": "D23",
+   "title": "High Availability VCF Management Services Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/vcf-management-services-availabilty-detailed-design/vcf-management-services-high-availability-deployment-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D24",
+   "file": "05-design",
+   "id": "D24",
+   "title": "Simple VCF Operations Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/vcf-operations-design/simple-vcf-operations-model1.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D25",
+   "file": "05-design",
+   "id": "D25",
+   "title": "High Availability VCF Operations Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/vcf-operations-design/vcf-operations-ha-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D26",
+   "file": "05-design",
+   "id": "D26",
+   "title": "VCF Operations Detailed Design (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/vcf-operations-design.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D27",
+   "file": "05-design",
+   "id": "D27",
+   "title": "Simple VCF Automation Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/vcf-automation-deployment-models-9-x/vcf-automation-simple-deployment-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D28",
+   "file": "05-design",
+   "id": "D28",
+   "title": "High Availability VCF Automation Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/vcf-automation-deployment-models-9-x/vcf-automation-high-availability-deployment-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D29",
+   "file": "05-design",
+   "id": "D29",
+   "title": "VCF Automation Detailed Design (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/vcf-automation-deployment-models-9-x.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D30",
+   "file": "05-design",
+   "id": "D30",
+   "title": "VCF Single Sign-On Detailed Design (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/single-sign-on-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D31",
+   "file": "05-design",
+   "id": "D31",
+   "title": "Identity Broker Detailed Design (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/single-sign-on-instance-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D32",
+   "file": "05-design",
+   "id": "D32",
+   "title": "Embedded Identity Broker Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/single-sign-on-instance-models/embedded-vidb.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D33",
+   "file": "05-design",
+   "id": "D33",
+   "title": "Instance Identity Broker Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/single-sign-on-instance-models/external-vidb.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D34",
+   "file": "05-design",
+   "id": "D34",
+   "title": "Design Blueprints – Infrastructure Modernization (9.1, vč. „Expansion after Infrastructure Blueprint Deployment“)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D35",
+   "file": "05-design",
+   "id": "D35",
+   "title": "VCF Fleet in a Single Site with Minimal Footprint (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-in-a-single-site-with-minimal-footprint-blueprint.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D36",
+   "file": "05-design",
+   "id": "D36",
+   "title": "Minimum Requirements for VCF Fleet in a Single Site with Minimal Footprint (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-in-a-single-site-with-minimal-footprint-blueprint/minimaltemo.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D37",
+   "file": "05-design",
+   "id": "D37",
+   "title": "Management Domain Design Selections – Minimal Footprint (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-in-a-single-site-with-minimal-footprint-blueprint/management-domain-design-selections.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D38",
+   "file": "05-design",
+   "id": "D38",
+   "title": "VCF Fleet in a Single Site (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-in-a-single-site-blueprint.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D39",
+   "file": "05-design",
+   "id": "D39",
+   "title": "Deploy a New VCF Fleet or a New VCF Instance – průvodce (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/deploy-a-new-vcf-fleet-or-a-new-vcf-instance.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D40",
+   "file": "05-design",
+   "id": "D40",
+   "title": "KB 459019 – Migrating VCF Automation 9.0.x from Workload Domain to Management Domain after VCF Operations 9.1 Upgrade",
+   "url": "https://knowledge.broadcom.com/external/article/459019",
+   "domain": "knowledge"
+  },
+  {
+   "key": "05-design:D41",
+   "file": "05-design",
+   "id": "D41",
+   "title": "VCF Taxonomy (9.1) – převzato přes 00-architektura [S1]",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/overview-of-vmware-cloud-foundation-9/workload-domains-in-vmware-cloud-foundation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D42",
+   "file": "05-design",
+   "id": "D42",
+   "title": "VCF Taxonomy (9.0) – převzato přes 00-architektura [S10]",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/overview-of-vmware-cloud-foundation-9/workload-domains-in-vmware-cloud-foundation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D43",
+   "file": "05-design",
+   "id": "D43",
+   "title": "vSphere Cluster Detailed Design (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/cluster-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "05-design:D44",
+   "file": "05-design",
+   "id": "D44",
+   "title": "VCF Management Services Detailed Design (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/vcf-management-services-availabilty-detailed-design.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B1",
+   "file": "06-blueprints",
+   "id": "B1",
+   "title": "Design Blueprints for VMware Cloud Foundation (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B2",
+   "file": "06-blueprints",
+   "id": "B2",
+   "title": "Infrastructure Modernization (9.1, vč. „Expansion after Infrastructure Blueprint Deployment“)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B3",
+   "file": "06-blueprints",
+   "id": "B3",
+   "title": "VCF Fleet in a Single Site with Minimal Footprint",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-in-a-single-site-with-minimal-footprint-blueprint.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B4",
+   "file": "06-blueprints",
+   "id": "B4",
+   "title": "Minimum Requirements – Minimal Footprint",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-in-a-single-site-with-minimal-footprint-blueprint/minimaltemo.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B5",
+   "file": "06-blueprints",
+   "id": "B5",
+   "title": "Management Domain Design Selections – Minimal Footprint",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-in-a-single-site-with-minimal-footprint-blueprint/management-domain-design-selections.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B6",
+   "file": "06-blueprints",
+   "id": "B6",
+   "title": "VCF Fleet in a Single Site",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-in-a-single-site-blueprint.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B7",
+   "file": "06-blueprints",
+   "id": "B7",
+   "title": "Minimum Requirements for VCF Fleet in a Single Site",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-in-a-single-site-blueprint/minimal-requirements-for-fleet-single-site.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B8",
+   "file": "06-blueprints",
+   "id": "B8",
+   "title": "VCF Fleet with Multiple Sites in a Single Region",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-with-multiple-sites-in-a-single-region-blueprint.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B9",
+   "file": "06-blueprints",
+   "id": "B9",
+   "title": "Minimum Requirements – Multiple Sites in a Single Region",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-with-multiple-sites-in-a-single-region-blueprint/minimal.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B10",
+   "file": "06-blueprints",
+   "id": "B10",
+   "title": "Stretched vSphere Cluster Model (blueprint Multi-Site Single Region)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-with-multiple-sites-in-a-single-region-blueprint/shared-design-selection-between-management-and-workload-domain/virtual-infrastructure-layer(6",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B11",
+   "file": "06-blueprints",
+   "id": "B11",
+   "title": "Stretched vSAN Storage Model (blueprint Multi-Site Single Region)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-with-multiple-sites-in-a-single-region-blueprint/shared-design-selection-between-management-and-workload-domain/virtual-infrastructure-layer(6",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B12",
+   "file": "06-blueprints",
+   "id": "B12",
+   "title": "Multi Availability Zone Network Fabric Model",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-with-multiple-sites-in-a-single-region-blueprint/shared-design-selection-between-management-and-workload-domain/physical-infrastructure-layer(2",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B13",
+   "file": "06-blueprints",
+   "id": "B13",
+   "title": "Dual Availability Zone Design Based on NSX Edge Node HA Model",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-with-multiple-sites-in-a-single-region-blueprint/workload-domain-design-selections(1",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B14",
+   "file": "06-blueprints",
+   "id": "B14",
+   "title": "Management Domain Model (blueprint Multi-Site Single Region)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-with-multiple-sites-in-a-single-region-blueprint/management-domain-design-selections(2",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B15",
+   "file": "06-blueprints",
+   "id": "B15",
+   "title": "VCF Fleet-Wide Single Sign-On Model (blueprint Multi-Site Single Region)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-with-multiple-sites-in-a-single-region-blueprint/management-domain-design-selections(2",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B16",
+   "file": "06-blueprints",
+   "id": "B16",
+   "title": "VCF Fleet with Multiple Sites Across Multiple Regions",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-with-multiple-sites-across-multiple-regions-blueprint.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B17",
+   "file": "06-blueprints",
+   "id": "B17",
+   "title": "Minimum Requirements – Across Multiple Regions",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-with-multiple-sites-across-multiple-regions-blueprint/minimal-requirements-for-blueprint(3",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B18",
+   "file": "06-blueprints",
+   "id": "B18",
+   "title": "VCF Management Services in an Additional VCF Instance Model (blueprint Multi-Region)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-with-multiple-sites-across-multiple-regions-blueprint/management-domain-design-selections(3",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B19",
+   "file": "06-blueprints",
+   "id": "B19",
+   "title": "VCF Fleet with Multiple Sites in a Single Region plus Additional Region(s)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-with-multiple-sites-in-a-single-region-plus-additional-region-blueprint.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B20",
+   "file": "06-blueprints",
+   "id": "B20",
+   "title": "Minimum Requirements – Single Region plus Additional Region(s)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-with-multiple-sites-in-a-single-region-plus-additional-region-blueprint/minimal-requirements-for-blueprint(4",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B21",
+   "file": "06-blueprints",
+   "id": "B21",
+   "title": "VCF Fleet Deployment Models (9.1, odstavec „Infrastructure Blueprint Selection“; = [D11] v 05)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vcf-operations-deployment-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B22",
+   "file": "06-blueprints",
+   "id": "B22",
+   "title": "VCF Fleet Management Blueprint",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/fleet-management-blueprint.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B23",
+   "file": "06-blueprints",
+   "id": "B23",
+   "title": "VCF Monitoring and Alerting Blueprint",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/monitoring-and-alerting-guide.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B24",
+   "file": "06-blueprints",
+   "id": "B24",
+   "title": "VCF Troubleshooting Blueprint",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/troubleshooting-guide.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B25",
+   "file": "06-blueprints",
+   "id": "B25",
+   "title": "VCF Edge: Single Node with Argo CD Design Blueprint",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/edge.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B26",
+   "file": "06-blueprints",
+   "id": "B26",
+   "title": "VCF Edge Design Blueprint for Government and Defense Use Case",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-edge-design-for-federal-use-case.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B27",
+   "file": "06-blueprints",
+   "id": "B27",
+   "title": "Design Options (Government and Defense)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-edge-design-for-federal-use-case/design-options.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B28",
+   "file": "06-blueprints",
+   "id": "B28",
+   "title": "Central Management with Remote Edge Hosts and Intermittent Connectivity",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-edge-design-for-federal-use-case/design-options/central-management-with-remote-edge-hosts-and-intermittent-connectivity.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B29",
+   "file": "06-blueprints",
+   "id": "B29",
+   "title": "Local Management with Multiple Hosts",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-edge-design-for-federal-use-case/design-options/remote-management-with-multiple-hosts.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B30",
+   "file": "06-blueprints",
+   "id": "B30",
+   "title": "VCF Edge Design Blueprint for Manufacturing Use Case",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-edge-design-for-manufacturing-use-case.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B31",
+   "file": "06-blueprints",
+   "id": "B31",
+   "title": "Design Options (Manufacturing)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-edge-design-for-manufacturing-use-case/design-options.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B32",
+   "file": "06-blueprints",
+   "id": "B32",
+   "title": "Application Modernization",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/application-modernization.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B33",
+   "file": "06-blueprints",
+   "id": "B33",
+   "title": "Security Modernization",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/security-modernization.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B34",
+   "file": "06-blueprints",
+   "id": "B34",
+   "title": "Lateral Security with vDefend",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/security-modernization/vdefend-lateral-security.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B35",
+   "file": "06-blueprints",
+   "id": "B35",
+   "title": "Design Elements for VCF Component Backup and Restore",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/security-modernization/vcf-backup-and-restore/design-elements-for-vcf-backup-and-restore.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B36",
+   "file": "06-blueprints",
+   "id": "B36",
+   "title": "VCF Instance Backup and Restore",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/security-modernization/vcf-instance-recovery.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B37",
+   "file": "06-blueprints",
+   "id": "B37",
+   "title": "VCF Fleet Disaster Recovery (blueprint)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/security-modernization/vcf-disaster-recovery.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B38",
+   "file": "06-blueprints",
+   "id": "B38",
+   "title": "Design Elements for VCF Fleet Disaster Recovery",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/security-modernization/vcf-disaster-recovery/design-elements-for-vcf-disaster-recovery.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B39",
+   "file": "06-blueprints",
+   "id": "B39",
+   "title": "VCF Fleet Disaster Recovery (Fleet Management, implementace)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/fleet-management/vcf-fleet-disaster-recovery.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B40",
+   "file": "06-blueprints",
+   "id": "B40",
+   "title": "Cyber Recovery for VMware Cloud Foundation",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/security-modernization/vcf-ransomware-recovery.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B41",
+   "file": "06-blueprints",
+   "id": "B41",
+   "title": "Design (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B42",
+   "file": "06-blueprints",
+   "id": "B42",
+   "title": "Design Blueprints for VMware Cloud Foundation (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/blueprints.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B43",
+   "file": "06-blueprints",
+   "id": "B43",
+   "title": "VCF Fleet in a Single Site with Minimal Footprint (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/blueprints/vcf-fleet-basic-management-design.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B44",
+   "file": "06-blueprints",
+   "id": "B44",
+   "title": "VCF Fleet with Multiple Sites in a Single Region (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/blueprints/vsphere-only-to-vcf-fleet-upgrade-blueprint.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "06-blueprints:B45",
+   "file": "06-blueprints",
+   "id": "B45",
+   "title": "VCF Fleet with Multiple Sites Across Multiple Regions (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/blueprints/blueprint-4.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P1",
+   "file": "10-planning",
+   "id": "P1",
+   "title": "Planning and Preparation (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P2",
+   "file": "10-planning",
+   "id": "P2",
+   "title": "VCF Components FQDNs and IP addresses (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/vcf-components-fqdns-and-ip-addresses.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P3",
+   "file": "10-planning",
+   "id": "P3",
+   "title": "First VCF Instance FQDNs and IP addresses (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/vcf-components-fqdns-and-ip-addresses/first-vcf-instance-fqdns-and-ip-addresses.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P4",
+   "file": "10-planning",
+   "id": "P4",
+   "title": "Additional VCF Instance FQDNs and IP addresses (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/vcf-components-fqdns-and-ip-addresses/additional-vcf-instance-fqdns-and-ip-addresses.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P5",
+   "file": "10-planning",
+   "id": "P5",
+   "title": "Network Deployment Options for VCF Components (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/network-deployment-options-for-vcf-components.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P6",
+   "file": "10-planning",
+   "id": "P6",
+   "title": "Public URLs Required for Online Functionalities (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/public-urls-required-for-vmware-cloud-foundation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P7",
+   "file": "10-planning",
+   "id": "P7",
+   "title": "Management Domain Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/workload-domain-deployment-models/management-domain-deployment-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P8",
+   "file": "10-planning",
+   "id": "P8",
+   "title": "Workload Domain Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/workload-domain-deployment-models/workload-domain-deployment-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P9",
+   "file": "10-planning",
+   "id": "P9",
+   "title": "Single-Rack vSphere Cluster Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/cluster-models/single-instance-single-availability-zone.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P10",
+   "file": "10-planning",
+   "id": "P10",
+   "title": "Single-Rack vSphere Cluster Model (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/cluster-models/single-instance-single-availability-zone.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P11",
+   "file": "10-planning",
+   "id": "P11",
+   "title": "Multi-Rack Layer 2 vSphere Cluster Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/cluster-models/multi-rack-cluster-detailed-design/layer-2-multi-rack-cluster.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P12",
+   "file": "10-planning",
+   "id": "P12",
+   "title": "Multi-Rack Layer 3 vSphere Cluster Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/cluster-models/layer-3-multi-rack-cluster.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P13",
+   "file": "10-planning",
+   "id": "P13",
+   "title": "Stretched vSphere Cluster Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/cluster-models/single-instance-multiple-availability-zones.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P14",
+   "file": "10-planning",
+   "id": "P14",
+   "title": "ESX Model / ESX design (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/vsphere-detailed-design/esx-design.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P15",
+   "file": "10-planning",
+   "id": "P15",
+   "title": "Single-Rack vSAN ESA Storage Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/storage-models-9-x/standard-vsan-storage-model/single-rack-storage-models/vcf-hardware-configuration-for-vsan.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P16",
+   "file": "10-planning",
+   "id": "P16",
+   "title": "Single-Rack vSAN OSA Storage Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/storage-models-9-x/standard-vsan-storage-model/single-rack-storage-models/vsan-osa-storage-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P17",
+   "file": "10-planning",
+   "id": "P17",
+   "title": "Single Distributed Switch Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/network-designs/vsphere-cluster-network-models/simple-network-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P18",
+   "file": "10-planning",
+   "id": "P18",
+   "title": "VMkernel Detailed Design (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/network-designs/vmkernel-design.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P19",
+   "file": "10-planning",
+   "id": "P19",
+   "title": "Physical Data Center Network Design (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/physical-datacenter-design-9-x.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P20",
+   "file": "10-planning",
+   "id": "P20",
+   "title": "Data Center Network Requirements (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P21",
+   "file": "10-planning",
+   "id": "P21",
+   "title": "IPv4 Addressing Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/infrastucture-ip-addressing-models/ipv4-addressing-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P22",
+   "file": "10-planning",
+   "id": "P22",
+   "title": "Infrastructure IP Addressing Detailed Design (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/infrastucture-ip-addressing-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P23",
+   "file": "10-planning",
+   "id": "P23",
+   "title": "High Availability NSX Manager Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/nsx-management-and-control-plane-detailed-design/high-availability-nsx-manager-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P24",
+   "file": "10-planning",
+   "id": "P24",
+   "title": "Simple NSX Manager Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/nsx-management-and-control-plane-detailed-design/simple-nsx-manager-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P25",
+   "file": "10-planning",
+   "id": "P25",
+   "title": "High Availability VCF Management Services Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/vcf-management-services-availabilty-detailed-design/vcf-management-services-high-availability-deployment-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P26",
+   "file": "10-planning",
+   "id": "P26",
+   "title": "VCF Fleet Sizing Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vcf-fleet-sizing-models-9-x.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P27",
+   "file": "10-planning",
+   "id": "P27",
+   "title": "What's New in VCF Installer 9.1",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-0-0-release-notes/what-s-new/whats-new-installer.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P28",
+   "file": "10-planning",
+   "id": "P28",
+   "title": "Preparing ESX Hosts (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P29",
+   "file": "10-planning",
+   "id": "P29",
+   "title": "Configure NTP on ESX Hosts (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/configure-ntp-on-vmware-cloud-foundation-hosts.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P30",
+   "file": "10-planning",
+   "id": "P30",
+   "title": "Configure the Network on ESX Hosts (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/configure-the-network-on-vmware-cloud-foundation-hosts.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P31",
+   "file": "10-planning",
+   "id": "P31",
+   "title": "Convergence – Supported and Not Supported Configurations (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/converging-your-existing-vsphere-infrastructure-to-a-vcf-or-vvf-platform-/supported-and-not-supported-configurations.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P32",
+   "file": "10-planning",
+   "id": "P32",
+   "title": "KB 392993 – Minimum number of ESXi hosts required on vSAN clusters for deployment of VCF Management Domain (odkazuje na [P7])",
+   "url": "https://knowledge.broadcom.com/external/article/392993/minimum-number-of-esxi-hosts-required-on.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "10-planning:P33",
+   "file": "10-planning",
+   "id": "P33",
+   "title": "KB 452580 – How to Verify ESXi Host Compatibility for VCF 9.1",
+   "url": "https://knowledge.broadcom.com/external/article/452580",
+   "domain": "knowledge"
+  },
+  {
+   "key": "10-planning:P34",
+   "file": "10-planning",
+   "id": "P34",
+   "title": "KB 442952 – Resolving VCF 9 Deployment Failures: Disk Eligibility and False-Positive HCL Warnings (VCF 9.0.x)",
+   "url": "https://knowledge.broadcom.com/external/article/442952",
+   "domain": "knowledge"
+  },
+  {
+   "key": "10-planning:P35",
+   "file": "10-planning",
+   "id": "P35",
+   "title": "KB 417356 – Considerations for Implementing vMSC on VCF 9.x",
+   "url": "https://knowledge.broadcom.com/external/article/417356",
+   "domain": "knowledge"
+  },
+  {
+   "key": "10-planning:P36",
+   "file": "10-planning",
+   "id": "P36",
+   "title": "KB 444651 – vCenter import fails in SDDC Manager (VCF 5.x; 2 hosty vs NSX)",
+   "url": "https://knowledge.broadcom.com/external/article/444651/vcenter-import-fails-in-sddc-manager-wit.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "10-planning:P37",
+   "file": "10-planning",
+   "id": "P37",
+   "title": "Planning and Preparation (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/planning-and-preparation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P38",
+   "file": "10-planning",
+   "id": "P38",
+   "title": "VCF 9.1.1 Release Notes (bez změn minim hostů/HW)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-1-0-release-notes.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P39",
+   "file": "10-planning",
+   "id": "P39",
+   "title": "VMware Ports and Protocols (odkaz z [P1])",
+   "url": "https://ports.broadcom.com/",
+   "domain": "ports"
+  },
+  {
+   "key": "10-planning:P40",
+   "file": "10-planning",
+   "id": "P40",
+   "title": "VMware Configuration Maximums (odkaz z [P1])",
+   "url": "https://configmax.broadcom.com/",
+   "domain": "other"
+  },
+  {
+   "key": "10-planning:P41",
+   "file": "10-planning",
+   "id": "P41",
+   "title": "Planning and Preparation Workbook 9.1.1",
+   "url": "https://techdocs.broadcom.com/content/dam/broadcom/techdocs/us/en/assets/vmware-cis/vcf/vcf-9.1.1-planning-and-preparation-workbook.xlsx",
+   "domain": "techdocs"
+  },
+  {
+   "key": "10-planning:P42",
+   "file": "10-planning",
+   "id": "P42",
+   "title": "Planning and Preparation Workbook 9.1.0",
+   "url": "https://techdocs.broadcom.com/content/dam/broadcom/techdocs/us/en/assets/vmware-cis/vcf/vcf-9.1-planning-and-preparation-workbook.xlsx",
+   "domain": "techdocs"
+  },
+  {
+   "key": "15-hardware:H1",
+   "file": "15-hardware",
+   "id": "H1",
+   "title": "KB 452580 – How to Verify ESXi Host Compatibility for VCF 9.1",
+   "url": "https://knowledge.broadcom.com/external/article/452580",
+   "domain": "knowledge"
+  },
+  {
+   "key": "15-hardware:H4",
+   "file": "15-hardware",
+   "id": "H4",
+   "title": "Single-Rack vSAN ESA Storage Model (Design Library 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/storage-models-9-x/standard-vsan-storage-model/single-rack-storage-models/vcf-hardware-configuration-for-vsan.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "15-hardware:H5",
+   "file": "15-hardware",
+   "id": "H5",
+   "title": "Single-Rack vSAN ESA Storage Model (blueprint Minimal Footprint, 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-in-a-single-site-with-minimal-footprint-blueprint/management-domain-design-selections/virtual-infrastructure-layer/vsan-single-rack-hci-esa-storage-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "15-hardware:H6",
+   "file": "15-hardware",
+   "id": "H6",
+   "title": "KB 326717 – Supported Hardware Changes: vSAN ESA and vSAN Storage Clusters ReadyNodes",
+   "url": "https://knowledge.broadcom.com/external/article/326717",
+   "domain": "knowledge"
+  },
+  {
+   "key": "15-hardware:H7",
+   "file": "15-hardware",
+   "id": "H7",
+   "title": "KB 381824 – Checking VMware ESXi Host Compatibility Before Upgrade Using the Broadcom Compatibility Guide",
+   "url": "https://knowledge.broadcom.com/external/article/381824/checking-vmware-esxi-host-compatibility.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "15-hardware:H8",
+   "file": "15-hardware",
+   "id": "H8",
+   "title": "KB 315329 – Supported drivers and firmware versions for I/O devices (odkaz z vyhledávání, nečteno celé)",
+   "url": "https://knowledge.broadcom.com/external/article/315329/supported-drivers-and-firmware-versions.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "15-hardware:H10",
+   "file": "15-hardware",
+   "id": "H10",
+   "title": "KB 427591 – The VCF 9.0 deployment validation fails during ESX Host vSAN HCL Compatibility",
+   "url": "https://knowledge.broadcom.com/external/article/427591/the-vcf-90-deployment-validation-fails-d.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "15-hardware:H11",
+   "file": "15-hardware",
+   "id": "H11",
+   "title": "10-planning [P34] KB 442952",
+   "url": "https://knowledge.broadcom.com/external/article/442952",
+   "domain": "knowledge"
+  },
+  {
+   "key": "15-hardware:H12",
+   "file": "15-hardware",
+   "id": "H12",
+   "title": "ESX Hardware Requirements (vSphere 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/installing-and-setting-up-esxi/esxi-requirements/esxi-hardware-requirements.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "15-hardware:H13",
+   "file": "15-hardware",
+   "id": "H13",
+   "title": "Hardware Requirements for vSAN (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/vsan-deployment-administration-and-monitoring/vsan-planning-and-deployment/requirements-for-creating-a-virtual-san-cluster/hardware-requirements-for-virtual-san.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "15-hardware:H14",
+   "file": "15-hardware",
+   "id": "H14",
+   "title": "KB 326476 – What You Can (and Cannot) Change in a vSAN ReadyNode",
+   "url": "https://knowledge.broadcom.com/external/article/326476",
+   "domain": "knowledge"
+  },
+  {
+   "key": "15-hardware:H15",
+   "file": "15-hardware",
+   "id": "H15",
+   "title": "KB 450117 – Hardware compatibility validation for vSAN 9.1 upgrade",
+   "url": "https://knowledge.broadcom.com/external/article/450117",
+   "domain": "knowledge"
+  },
+  {
+   "key": "15-hardware:H16",
+   "file": "15-hardware",
+   "id": "H16",
+   "title": "KB 372309 – Workaround to reduce impact of resync traffic in vSAN ESA clusters utilizing a 10/25G network",
+   "url": "https://knowledge.broadcom.com/external/article/372309",
+   "domain": "knowledge"
+  },
+  {
+   "key": "15-hardware:H17",
+   "file": "15-hardware",
+   "id": "H17",
+   "title": "KB 372311 – System performance may degrade when cluster capacity utilization exceeds 75% and vSAN ESA is configured with 10Gb networking",
+   "url": "https://knowledge.broadcom.com/external/article/372311",
+   "domain": "knowledge"
+  },
+  {
+   "key": "15-hardware:H23",
+   "file": "15-hardware",
+   "id": "H23",
+   "title": "KB 393469 – Guidance for vSAN on Intel® Xeon® 6700/6500-Series Processors with P-Cores (codenamed „Granite Rapids“) (přečteno 2026-11-21; odkaz z poznámky ReadyNode v BCG)",
+   "url": "https://knowledge.broadcom.com/external/article/393469",
+   "domain": "knowledge"
+  },
+  {
+   "key": "15-hardware:H2",
+   "file": "15-hardware",
+   "id": "H2",
+   "title": "vSAN ESA ReadyNode Hardware Guidance",
+   "url": "https://compatibilityguide.broadcom.com/pages/vsan-esa-readynode-hardware-guidance",
+   "domain": "compatibilityguide"
+  },
+  {
+   "key": "15-hardware:H3",
+   "file": "15-hardware",
+   "id": "H3",
+   "title": "BCG – vSAN ESA ReadyNodes search",
+   "url": "https://compatibilityguide.broadcom.com/search?program=vsanesa&persona=live&column=vendor&order=asc",
+   "domain": "compatibilityguide"
+  },
+  {
+   "key": "15-hardware:H9",
+   "file": "15-hardware",
+   "id": "H9",
+   "title": "BCG ReadyNode data (API POST",
+   "url": "https://compatibilityguide.broadcom.com/compguide/programs/viewResults`",
+   "domain": "compatibilityguide"
+  },
+  {
+   "key": "15-hardware:H20",
+   "file": "15-hardware",
+   "id": "H20",
+   "title": "BCG – Dell PowerEdge XR4510C (vSAN ESA)",
+   "url": "https://compatibilityguide.broadcom.com/detail?program=vsanesa&productId=62959&persona=live",
+   "domain": "compatibilityguide"
+  },
+  {
+   "key": "20-deployment:S1",
+   "file": "20-deployment",
+   "id": "S1",
+   "title": "Deployment, Convergence, and Upgrade",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S2",
+   "file": "20-deployment",
+   "id": "S2",
+   "title": "Paths to Building 9.1.x Environments",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/overview-of-deploy--converge--and-upgrade.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S3",
+   "file": "20-deployment",
+   "id": "S3",
+   "title": "Components in VCF and vSphere Foundation",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/vcf-management-appliances.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S4",
+   "file": "20-deployment",
+   "id": "S4",
+   "title": "Deploying a New VCF or vSphere Foundation Platform",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S5",
+   "file": "20-deployment",
+   "id": "S5",
+   "title": "Preparing to Deploy",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S6",
+   "file": "20-deployment",
+   "id": "S6",
+   "title": "Deploy VCF Installer (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/deploy-the-vmware-cloud-foundation-installer-appliance.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S7",
+   "file": "20-deployment",
+   "id": "S7",
+   "title": "Preparing ESX Hosts",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S8",
+   "file": "20-deployment",
+   "id": "S8",
+   "title": "Install ESX Using ISO",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/install-esx-on-hosts-using-the-iso.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S9",
+   "file": "20-deployment",
+   "id": "S9",
+   "title": "Configure the Network on ESX Hosts",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/configure-the-network-on-vmware-cloud-foundation-hosts.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S10",
+   "file": "20-deployment",
+   "id": "S10",
+   "title": "Configure NTP",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/configure-ntp-on-vmware-cloud-foundation-hosts.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S11",
+   "file": "20-deployment",
+   "id": "S11",
+   "title": "Regenerate Self-Signed Certificate",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/regenerate-the-self-signed-certificate-on-esx-hosts.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S12",
+   "file": "20-deployment",
+   "id": "S12",
+   "title": "Downloading Binaries",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/downloading-binaries-to-the-vcf-installer-appliance.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S13",
+   "file": "20-deployment",
+   "id": "S13",
+   "title": "Connect to Online/Offline Depot",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/downloading-binaries-to-the-vcf-installer-appliance/connect-to-an-online-depot-to-download-binaries.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S14",
+   "file": "20-deployment",
+   "id": "S14",
+   "title": "Deployment Wizard: New VCF Fleet / Instance (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/deploy-a-new-vcf-fleet-or-a-new-vcf-instance.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S15",
+   "file": "20-deployment",
+   "id": "S15",
+   "title": "JSON Specification",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/use-a-json-specification-to-deploy-vmware-cloud-foundation-or-vmware-vsphere-foundation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S16",
+   "file": "20-deployment",
+   "id": "S16",
+   "title": "Troubleshooting Deployments",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/troubleshooting-vmware-cloud-foundation-or-vmware-vsphere-foundation-deployments.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S17",
+   "file": "20-deployment",
+   "id": "S17",
+   "title": "Deferred Components on Custom Networking",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/deploying-vcf-operations-and-vcf-automation-on-custom-networking.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S18",
+   "file": "20-deployment",
+   "id": "S18",
+   "title": "Completing the Deployment",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/manual-deployment-of-components-to-complete-your-vcf-platform.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S19",
+   "file": "20-deployment",
+   "id": "S19",
+   "title": "First VCF Instance FQDNs and IPs",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/vcf-components-fqdns-and-ip-addresses/first-vcf-instance-fqdns-and-ip-addresses.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S20",
+   "file": "20-deployment",
+   "id": "S20",
+   "title": "VCF Components FQDNs and IP addresses",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/vcf-components-fqdns-and-ip-addresses.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S21",
+   "file": "20-deployment",
+   "id": "S21",
+   "title": "Network Deployment Options",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/network-deployment-options-for-vcf-components.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S22",
+   "file": "20-deployment",
+   "id": "S22",
+   "title": "Public URLs",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/public-urls-required-for-vmware-cloud-foundation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S23",
+   "file": "20-deployment",
+   "id": "S23",
+   "title": "VCF Fleet Sizing Models",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vcf-fleet-sizing-models-9-x.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S24",
+   "file": "20-deployment",
+   "id": "S24",
+   "title": "Converging Existing Infrastructure",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/converging-your-existing-vsphere-infrastructure-to-a-vcf-or-vvf-platform-.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S25",
+   "file": "20-deployment",
+   "id": "S25",
+   "title": "Supported and Not Supported Configurations",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/converging-your-existing-vsphere-infrastructure-to-a-vcf-or-vvf-platform-/supported-and-not-supported-configurations.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S26",
+   "file": "20-deployment",
+   "id": "S26",
+   "title": "Supported Scenarios",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/converging-your-existing-vsphere-infrastructure-to-a-vcf-or-vvf-platform-/supported-scenarios-to-converge-to-vcf.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S27",
+   "file": "20-deployment",
+   "id": "S27",
+   "title": "Converge vCenter and ESX",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/converging-your-existing-vsphere-infrastructure-to-a-vcf-or-vvf-platform-/supported-scenarios-to-converge-to-vcf/converge-your-existing-vcenter-instance-and-esx-hosts.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S28",
+   "file": "20-deployment",
+   "id": "S28",
+   "title": "Convergence Wizard",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/converging-your-existing-vsphere-infrastructure-to-a-vcf-or-vvf-platform-/use-existing-vsphere-infrastructure-to-create-a-new-vcf-fleet-or-a-new-vcf-instance-using-the-deployment-wizard.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S29",
+   "file": "20-deployment",
+   "id": "S29",
+   "title": "Upgrading to VCF 9.1.x",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/upgrading-cloud-foundation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S30",
+   "file": "20-deployment",
+   "id": "S30",
+   "title": "VCF 9.1.1 Release Notes",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-1-0-release-notes.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S31",
+   "file": "20-deployment",
+   "id": "S31",
+   "title": "VCF Installer 9.1 Known Issues",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-0-0-release-notes/known-issues/vcf-installer-91-known-issues.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S32",
+   "file": "20-deployment",
+   "id": "S32",
+   "title": "What's New: VCF Installer 9.1",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-0-0-release-notes/what-s-new/whats-new-installer.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S33",
+   "file": "20-deployment",
+   "id": "S33",
+   "title": "Upgrade Sequence to 9.1",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-0-0-release-notes/upgrade-sequence-to-91.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S34",
+   "file": "20-deployment",
+   "id": "S34",
+   "title": "Deployment Wizard (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/deploy-a-new-vcf-fleet-or-a-new-vcf-instance.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S35",
+   "file": "20-deployment",
+   "id": "S35",
+   "title": "Deploy VCF Installer (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/deploy-the-vmware-cloud-foundation-installer-appliance.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S36",
+   "file": "20-deployment",
+   "id": "S36",
+   "title": "Planning and Preparation",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S37",
+   "file": "20-deployment",
+   "id": "S37",
+   "title": "VMware Ports and Protocols (portál, odkaz z [S36]; JS aplikace, obsah nešel stáhnout)",
+   "url": "https://ports.broadcom.com/",
+   "domain": "ports"
+  },
+  {
+   "key": "20-deployment:S38",
+   "file": "20-deployment",
+   "id": "S38",
+   "title": "KB 441245: VCF 9.x Host Validation Fails with SSL Thumbprint Mismatch due to Blocked DNS Traffic (Port 53)",
+   "url": "https://knowledge.broadcom.com/external/article/441245/vcf-9x-host-validation-fails-with-ssl-th.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "20-deployment:S39",
+   "file": "20-deployment",
+   "id": "S39",
+   "title": "KB 443202: VCF Installer fails on ESX network validation stage (porty 7/80/8443)",
+   "url": "https://knowledge.broadcom.com/external/article/443202/vcf-installer-fails-on-esx-network-vali.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "20-deployment:S40",
+   "file": "20-deployment",
+   "id": "S40",
+   "title": "KB 443149: VCF 9.x new instance deployment fails at initial vCenter deployment phase (22/443/5480/ICMP)",
+   "url": "https://knowledge.broadcom.com/external/article/443149",
+   "domain": "knowledge"
+  },
+  {
+   "key": "20-deployment:S41",
+   "file": "20-deployment",
+   "id": "S41",
+   "title": "KB 435005: VCF 9.0.1 Deployment Fails and Rolls Back (vCenter → ESX 443/902)",
+   "url": "https://knowledge.broadcom.com/external/article/435005/vcf-901-deployment-fails-and-rolls-back.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "20-deployment:S42",
+   "file": "20-deployment",
+   "id": "S42",
+   "title": "KB 436501: ESX → vCenter UDP 902",
+   "url": "https://knowledge.broadcom.com/external/article/436501/vcf-9x-deployment-fails-with-vmwithnamei.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "20-deployment:S43",
+   "file": "20-deployment",
+   "id": "S43",
+   "title": "KB 458004: VCF 9.1 deployment fails with „Failed to bootstrap VCF services runtime“ (TCP 443)",
+   "url": "https://knowledge.broadcom.com/external/article/458004",
+   "domain": "knowledge"
+  },
+  {
+   "key": "20-deployment:S44",
+   "file": "20-deployment",
+   "id": "S44",
+   "title": "KB 439240: VCF 9.1 installer fails due to unreachable NTP server (UDP 123)",
+   "url": "https://knowledge.broadcom.com/external/article/439240",
+   "domain": "knowledge"
+  },
+  {
+   "key": "20-deployment:S45",
+   "file": "20-deployment",
+   "id": "S45",
+   "title": "KB 427641: deployment failing at VCF Operations fleet management (22/443)",
+   "url": "https://knowledge.broadcom.com/external/article/427641/vcf-900-deployment-failing-at-vcf-operat.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "20-deployment:S46",
+   "file": "20-deployment",
+   "id": "S46",
+   "title": "KB 420256: VCF Installer Validation Failure: Unable to Connect to NSX Manager on Port 443",
+   "url": "https://knowledge.broadcom.com/external/article/420256/vcf-installer-validation-failure-unable.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "20-deployment:S47",
+   "file": "20-deployment",
+   "id": "S47",
+   "title": "Import an Existing vCenter to Create a Workload Domain (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/working-with-workload-domains/import-an-existing-vcenter-to-create-a-workload-domain.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S48",
+   "file": "20-deployment",
+   "id": "S48",
+   "title": "KB 447321: NSX VIB installation or upgrade fails due to TCP port timeout (443/1234/1235)",
+   "url": "https://knowledge.broadcom.com/external/article/447321/nsx-vib-installation-or-upgrade-fails-du.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "20-deployment:S49",
+   "file": "20-deployment",
+   "id": "S49",
+   "title": "KB 418755: VCF 9 Automation install failing (Automation → vCenter 443)",
+   "url": "https://knowledge.broadcom.com/external/article/418755/vcf-9-automation-install-failing-with-lc.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "20-deployment:S50",
+   "file": "20-deployment",
+   "id": "S50",
+   "title": "KB 458322: VCF Automation deployment fails due to blocked ports in micro-segmented environment",
+   "url": "https://knowledge.broadcom.com/external/article/458322/vcf-automation-deployment-fails-due-to-b.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "20-deployment:S51",
+   "file": "20-deployment",
+   "id": "S51",
+   "title": "KB 446323: NSX Manager to vCenter Server Communication Over TCP/80",
+   "url": "https://knowledge.broadcom.com/external/article/446323/nsx-manager-to-vcenter-server-communicat.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "20-deployment:S52",
+   "file": "20-deployment",
+   "id": "S52",
+   "title": "KB 432304: Password remediation fails with handshake failure (TCP 443; VCF 5.2.2)",
+   "url": "https://knowledge.broadcom.com/external/article/432304/password-remediation-for-esxi-and-vcente.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "20-deployment:S53",
+   "file": "20-deployment",
+   "id": "S53",
+   "title": "VCF 9.1 Product Support Notes (vCenter syslog 514 → 1514)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-0-0-release-notes/vcf-91-product-support-notes.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "20-deployment:S54",
+   "file": "20-deployment",
+   "id": "S54",
+   "title": "KB 404593: Unable to Register License in VCF Operations in Connected Mode",
+   "url": "https://knowledge.broadcom.com/external/article/404593/unable-to-register-license-in-vcf-operat.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "20-deployment:S55",
+   "file": "20-deployment",
+   "id": "S55",
+   "title": "KB 460245: Guidelines for Using .Local DNS Domains in VCF and VVF Deployments",
+   "url": "https://knowledge.broadcom.com/external/article/460245",
+   "domain": "knowledge"
+  },
+  {
+   "key": "25-usecases-and-physical:U1",
+   "file": "25-usecases-and-physical",
+   "id": "U1",
+   "title": "Paths to Building 9.1.x Environments",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/overview-of-deploy--converge--and-upgrade.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U2",
+   "file": "25-usecases-and-physical",
+   "id": "U2",
+   "title": "What Is the VCF Installer (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/overview-of-vmware-cloud-foundation-9/what-is-vmware-cloud-foundation-and-vmware-vsphere-foundation/what-is-the-vcf-installer-.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U3",
+   "file": "25-usecases-and-physical",
+   "id": "U3",
+   "title": "Deploying a New VCF or vSphere Foundation Platform",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U4",
+   "file": "25-usecases-and-physical",
+   "id": "U4",
+   "title": "Start a New VCF Fleet or a New VCF Instance Deployment (wizard)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/deploy-a-new-vcf-fleet-or-a-new-vcf-instance.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U5",
+   "file": "25-usecases-and-physical",
+   "id": "U5",
+   "title": "Start a New vSphere Foundation Deployment (wizard)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/deploy-vmware-vsphere-foundation-using-the-deployment-wizard.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U6",
+   "file": "25-usecases-and-physical",
+   "id": "U6",
+   "title": "Deploying vSphere Foundation 9.1 Without VCF Management Services",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/deploy-vmware-vsphere-foundation-using-the-deployment-wizard/deploying-vmware-vsphere-foundation-9-1-without-vcf-management-services.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U7",
+   "file": "25-usecases-and-physical",
+   "id": "U7",
+   "title": "Converge Your Existing vCenter Instance and ESX Hosts (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/converging-your-existing-vsphere-infrastructure-to-a-vcf-or-vvf-platform-/supported-scenarios-to-converge-to-vcf/converge-your-existing-vcenter-instance-and-esx-hosts.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U8",
+   "file": "25-usecases-and-physical",
+   "id": "U8",
+   "title": "Use Existing vSphere Infrastructure to Create a vSphere Foundation Environment (wizard)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/converging-your-existing-vsphere-infrastructure-to-a-vcf-or-vvf-platform-/use-existing-vsphere-infrastructure-to-create-a-vmware-vsphere-foundation-environment-using-the-deployment-wizard.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U9",
+   "file": "25-usecases-and-physical",
+   "id": "U9",
+   "title": "Supported and Not Supported Configurations to Converge to VCF (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/converging-your-existing-vsphere-infrastructure-to-a-vcf-or-vvf-platform-/supported-and-not-supported-configurations.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U10",
+   "file": "25-usecases-and-physical",
+   "id": "U10",
+   "title": "Paths to Building 9.0.x Environments",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/deployment/overview-of-deploy--converge--and-upgrade.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U11",
+   "file": "25-usecases-and-physical",
+   "id": "U11",
+   "title": "Converge Your Existing vCenter Instance and ESX Hosts (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/deployment/converging-your-existing-vsphere-infrastructure-to-a-vcf-or-vvf-platform-/supported-scenarios-to-converge-to-vcf/converge-your-existing-vcenter-instance-and-esx-hosts.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U12",
+   "file": "25-usecases-and-physical",
+   "id": "U12",
+   "title": "Upgrading vSphere 8 and Optionally vSAN and Aria Operations 8 to 9.1.x",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/upgrading-your-vsphere-foundation-to-9-1/upgrade-to-91-from-vsphere-8-and-aria-8-environments(1",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U13",
+   "file": "25-usecases-and-physical",
+   "id": "U13",
+   "title": "Upgrading to vSphere Foundation 9.1.x",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/upgrading-your-vsphere-foundation-to-9-1.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U14",
+   "file": "25-usecases-and-physical",
+   "id": "U14",
+   "title": "Deploy VCF Management Services and License Server for the vSphere Foundation Upgrade",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/upgrading-your-vsphere-foundation-to-9-1/install-vcf-management-services-to-vsphere-foundation-environment.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U15",
+   "file": "25-usecases-and-physical",
+   "id": "U15",
+   "title": "VCF Installer / SDDC Manager 9.1.1.0 Release Notes",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-1-0-release-notes/sddc-manager-9-1-1-0-release-notes.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U16",
+   "file": "25-usecases-and-physical",
+   "id": "U16",
+   "title": "What's New: VCF Installer 9.1",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-0-0-release-notes/what-s-new/whats-new-installer.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U17",
+   "file": "25-usecases-and-physical",
+   "id": "U17",
+   "title": "Preparing ESX Hosts for VCF or vSphere Foundation (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U18",
+   "file": "25-usecases-and-physical",
+   "id": "U18",
+   "title": "Configure the Network on the ESX Hosts (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/configure-the-network-on-vmware-cloud-foundation-hosts.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U19",
+   "file": "25-usecases-and-physical",
+   "id": "U19",
+   "title": "VCF Fleet Sizing Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vcf-fleet-sizing-models-9-x.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U20",
+   "file": "25-usecases-and-physical",
+   "id": "U20",
+   "title": "Hardware Requirements for the vCenter Appliance (vSphere 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/vcenter-installation-and-setup/deploying-the-vcenter-server-appliance/vcenter-server-appliance-requirements/vcenter-server-appliance-hardware-requirements.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U21",
+   "file": "25-usecases-and-physical",
+   "id": "U21",
+   "title": "Hardware Requirements for the vCenter Appliance (vSphere 9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-0/vcenter-installation-and-setup/deploying-the-vcenter-server-appliance/vcenter-server-appliance-requirements/vcenter-server-appliance-hardware-requirements.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U22",
+   "file": "25-usecases-and-physical",
+   "id": "U22",
+   "title": "Storage Requirements for the vCenter Appliance (vSphere 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/vcenter-installation-and-setup/deploying-the-vcenter-server-appliance/vcenter-server-appliance-requirements/vcsa-storage-requirements.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U23",
+   "file": "25-usecases-and-physical",
+   "id": "U23",
+   "title": "Deploying the vCenter Appliance (vSphere 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/vcenter-installation-and-setup/deploying-the-vcenter-server-appliance.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U24",
+   "file": "25-usecases-and-physical",
+   "id": "U24",
+   "title": "System Requirements for the vCenter Appliance (vSphere 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/vcenter-installation-and-setup/deploying-the-vcenter-server-appliance/vcenter-server-appliance-requirements.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U25",
+   "file": "25-usecases-and-physical",
+   "id": "U25",
+   "title": "Prerequisites for Deploying the vCenter Appliance (vSphere 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/vcenter-installation-and-setup/deploying-the-vcenter-server-appliance/prerequisites-for-deploying-the-vcsa.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U26",
+   "file": "25-usecases-and-physical",
+   "id": "U26",
+   "title": "Requirements for Supervisor Deployment with VPC Networking (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/vsphere-supervisor-installation-and-configuration/supervisor-networking-with-virtual-private-clouds/nsx-vpc-workflow-for-supervisor/requirements-for-supervisor-deployment-with-nsx-vpc.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U27",
+   "file": "25-usecases-and-physical",
+   "id": "U27",
+   "title": "Deploy VCF Installer (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/deploy-the-vmware-cloud-foundation-installer-appliance.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U30",
+   "file": "25-usecases-and-physical",
+   "id": "U30",
+   "title": "Configuring Network Settings (ESX 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/configuring-network-settings.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U31",
+   "file": "25-usecases-and-physical",
+   "id": "U31",
+   "title": "Network Access to Your ESX Host (ESX 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/configuring-network-settings/network-access-to-your-esxi-host.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U32",
+   "file": "25-usecases-and-physical",
+   "id": "U32",
+   "title": "Choose Network Adapters for the Management Network (ESX 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/configuring-network-settings/choose-network-adapters-for-the-management-network.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U33",
+   "file": "25-usecases-and-physical",
+   "id": "U33",
+   "title": "Set the VLAN ID (ESX 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/configuring-network-settings/set-the-vlan-id.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U34",
+   "file": "25-usecases-and-physical",
+   "id": "U34",
+   "title": "Test the Management Network (ESX 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/test-the-management-network.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U35",
+   "file": "25-usecases-and-physical",
+   "id": "U35",
+   "title": "KB 410316 – Networking Operations Fail After Reinstalling an ESXi Host Enrolled in a VDS",
+   "url": "https://knowledge.broadcom.com/external/article/410316/after-reinstalling-an-esxi-host-that-is.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "25-usecases-and-physical:U36",
+   "file": "25-usecases-and-physical",
+   "id": "U36",
+   "title": "KB 453316 – Host Commissioning Fails „Host does not contain vSphere Standard Switch - vSwitch0“",
+   "url": "https://knowledge.broadcom.com/external/article/453316/sddc-manager-host-commissioning-fails-wi.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "25-usecases-and-physical:U37",
+   "file": "25-usecases-and-physical",
+   "id": "U37",
+   "title": "KB 415469 – VCF 9.0 Installer validation fails at ESX Host Configuration (2 pNIC na vSwitch0)",
+   "url": "https://knowledge.broadcom.com/external/article/415469/vcf-90-installer-validation-fails-at-esx.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "25-usecases-and-physical:U38",
+   "file": "25-usecases-and-physical",
+   "id": "U38",
+   "title": "KB 412127 – vSphere standard switch vSwitch0 must have only one NIC as Uplink",
+   "url": "https://knowledge.broadcom.com/external/article/412127/vsphere-standard-switch-vswitch0-must-ha.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "25-usecases-and-physical:U39",
+   "file": "25-usecases-and-physical",
+   "id": "U39",
+   "title": "Enable Jumbo Frames on a vSphere Standard Switch (vSphere 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/vsphere-networking/managing-network-resources/enabling-jumbo-frames/enable-jumbo-frames-on-a-vsphere-standard-switch.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U40",
+   "file": "25-usecases-and-physical",
+   "id": "U40",
+   "title": "Enable Jumbo Frames on a vSphere Distributed Switch (vSphere 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/vsphere-networking/managing-network-resources/enabling-jumbo-frames/enable-jumbo-frames-on-a-vsphere-distributed-switch-with-the-vsphere-web-client.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U41",
+   "file": "25-usecases-and-physical",
+   "id": "U41",
+   "title": "Enable Jumbo Frames for a VMkernel Adapter (vSphere 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/vsphere-networking/managing-network-resources/enabling-jumbo-frames/enable-jumbo-frames-for-a-vmkernel-adapter.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U42",
+   "file": "25-usecases-and-physical",
+   "id": "U42",
+   "title": "What are Jumbo Frames (vSphere 9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-0/vsphere-networking/managing-network-resources/enabling-jumbo-frames.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U43",
+   "file": "25-usecases-and-physical",
+   "id": "U43",
+   "title": "VMkernel Detailed Design (VCF 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/network-designs/vmkernel-design.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U44",
+   "file": "25-usecases-and-physical",
+   "id": "U44",
+   "title": "Guidance to Set Maximum Transmission Unit (NSX, VCF 9.0 stránka; selektor nabízí 9.1, URL 9.1 vrátila 404)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/transport-zones-and-transport-nodes/mtu-guidance.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U45",
+   "file": "25-usecases-and-physical",
+   "id": "U45",
+   "title": "KB 437248 – 9.1 VCF Installer fails on „vMotion Network Connectivity“ and/or „vSAN Network Connectivity“",
+   "url": "https://knowledge.broadcom.com/external/article/437248/91-vcf-installer-fails-on-vmotion-networ.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "25-usecases-and-physical:U46",
+   "file": "25-usecases-and-physical",
+   "id": "U46",
+   "title": "KB 434502 – VCF Installer Fails to Validate vmkping Using Jumbo Frames for vMotion and NSX Overlay",
+   "url": "https://knowledge.broadcom.com/external/article/434502/vcf-installer-fails-to-validate-vmkping.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "25-usecases-and-physical:U47",
+   "file": "25-usecases-and-physical",
+   "id": "U47",
+   "title": "KB 453284 – VCF 9.x Deployment Fails at vMotion Network Connectivity Validation",
+   "url": "https://knowledge.broadcom.com/external/article/453284/vcf-9x-deployment-fails-at-vmotion-netw.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "25-usecases-and-physical:U48",
+   "file": "25-usecases-and-physical",
+   "id": "U48",
+   "title": "KB 431776 – VCF installation reports a warning during network validation",
+   "url": "https://knowledge.broadcom.com/external/article/431776",
+   "domain": "knowledge"
+  },
+  {
+   "key": "25-usecases-and-physical:U49",
+   "file": "25-usecases-and-physical",
+   "id": "U49",
+   "title": "KB 442925 – The provided MTU for Distributed vSphere Switch … Host Overlay is 1500. Must be at least 1600",
+   "url": "https://knowledge.broadcom.com/external/article/442925/the-provided-mtu-for-distributed-vsphere.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "25-usecases-and-physical:U50",
+   "file": "25-usecases-and-physical",
+   "id": "U50",
+   "title": "KB 448859 – VSAN Cluster validation failed due to network pool IP or MTU conflicts",
+   "url": "https://knowledge.broadcom.com/external/article/448859/error-vsan-cluster-validation-failed-in.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "25-usecases-and-physical:U51",
+   "file": "25-usecases-and-physical",
+   "id": "U51",
+   "title": "KB 442952 – Resolving VCF 9 Deployment Failures: Disk Eligibility and False-Positive HCL Warnings",
+   "url": "https://knowledge.broadcom.com/external/article/442952/resolving-vcf-9-deployment-failures-disk.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "25-usecases-and-physical:U52",
+   "file": "25-usecases-and-physical",
+   "id": "U52",
+   "title": "KB 442607 – NSX Deployment Resource Validation Error „Not enough resources found in management domain.“",
+   "url": "https://knowledge.broadcom.com/external/article/442607/vcf-brownfield-import-fails-due-to-nsx-d.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "25-usecases-and-physical:U53",
+   "file": "25-usecases-and-physical",
+   "id": "U53",
+   "title": "KB 446453 – „One or more VMs found on host during VCF 9.1 Greenfield deployment“",
+   "url": "https://knowledge.broadcom.com/external/article/446453/error-one-or-more-vms-found-on-host-duri.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "25-usecases-and-physical:U54",
+   "file": "25-usecases-and-physical",
+   "id": "U54",
+   "title": "KB 442109 – VMKernel adapter „is not assigned to a dedicated port group“",
+   "url": "https://knowledge.broadcom.com/external/article/442109/vmkernel-adapter-validation-failure-is-n.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "25-usecases-and-physical:U55",
+   "file": "25-usecases-and-physical",
+   "id": "U55",
+   "title": "Physical Data Center Network Design (VCF 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/physical-datacenter-design-9-x.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U56",
+   "file": "25-usecases-and-physical",
+   "id": "U56",
+   "title": "VMware Ports and Protocols (odkaz z Planning and Preparation 9.1)",
+   "url": "https://ports.broadcom.com/",
+   "domain": "ports"
+  },
+  {
+   "key": "25-usecases-and-physical:U57",
+   "file": "25-usecases-and-physical",
+   "id": "U57",
+   "title": "Physical Data Center Network Design (VCF 9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/external-services-design/datacenter-network-requirements/physical-datacenter-design-9-x.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U58",
+   "file": "25-usecases-and-physical",
+   "id": "U58",
+   "title": "ESX Model – Design Library (VCF 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/vsphere-detailed-design/esx-design.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U59",
+   "file": "25-usecases-and-physical",
+   "id": "U59",
+   "title": "Design Library for VCF (9.1, rozcestník)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U60",
+   "file": "25-usecases-and-physical",
+   "id": "U60",
+   "title": "Network Fabric Detailed Design (VCF 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/network-fabric-design.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U61",
+   "file": "25-usecases-and-physical",
+   "id": "U61",
+   "title": "Minimal Footprint blueprint – Minimum Requirements (VCF 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-in-a-single-site-with-minimal-footprint-blueprint/minimaltemo.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U62",
+   "file": "25-usecases-and-physical",
+   "id": "U62",
+   "title": "Minimal Footprint blueprint – Single-Rack Network Fabric Model (VCF 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-in-a-single-site-with-minimal-footprint-blueprint/management-domain-design-selections/physical-infrastructure-layer/single-rack-network-fabric-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U63",
+   "file": "25-usecases-and-physical",
+   "id": "U63",
+   "title": "Planning and Preparation for VCF Fleet in a Single Site with Minimal Footprint (VCF 9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/blueprints/vcf-fleet-basic-management-design/preparing-for.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U64",
+   "file": "25-usecases-and-physical",
+   "id": "U64",
+   "title": "Network Deployment Options for VCF Components (VCF 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/network-deployment-options-for-vcf-components.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U65",
+   "file": "25-usecases-and-physical",
+   "id": "U65",
+   "title": "Planning and Preparation (VCF 9.1) + Workbook 9.1.1",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U66",
+   "file": "25-usecases-and-physical",
+   "id": "U66",
+   "title": "Install ESX on Hosts Using an ISO Image (VCF 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/install-esx-on-hosts-using-the-iso.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U67",
+   "file": "25-usecases-and-physical",
+   "id": "U67",
+   "title": "Using Remote Management Applications (vSphere 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/installing-and-setting-up-esxi/esxi-requirements/using-remote-management-applications.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U68",
+   "file": "25-usecases-and-physical",
+   "id": "U68",
+   "title": "Supported Remote Management Server Models and Minimum Firmware Versions (vSphere 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/installing-and-setting-up-esxi/esxi-requirements/using-remote-management-applications/supported-remote-management-server-models-and-minimum-firmware-versions.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U69",
+   "file": "25-usecases-and-physical",
+   "id": "U69",
+   "title": "Totéž pro vSphere 9.0",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-0/esx-installation-and-setup/installing-and-setting-up-esxi/esxi-requirements/using-remote-management-applications/supported-remote-management-server-models-and-minimum-firmware-versions.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U70",
+   "file": "25-usecases-and-physical",
+   "id": "U70",
+   "title": "Firmware Updates with vSphere Lifecycle Manager (vSphere 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/managing-host-and-cluster-lifecycle/using-images-to-install-and-update-esxi-hosts-and-clusters/firmware-updates.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U71",
+   "file": "25-usecases-and-physical",
+   "id": "U71",
+   "title": "Deploying Hardware Support Managers (vSphere 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/managing-host-and-cluster-lifecycle/using-images-to-install-and-update-esxi-hosts-and-clusters/firmware-updates/hardware-support-managers.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U72",
+   "file": "25-usecases-and-physical",
+   "id": "U72",
+   "title": "Use an Image for Firmware Updates (vSphere 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/managing-host-and-cluster-lifecycle/using-images-to-install-and-update-esxi-hosts-and-clusters/firmware-updates/use-an-image-for-firmware-updates.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U73",
+   "file": "25-usecases-and-physical",
+   "id": "U73",
+   "title": "Managing Power Resources (vSphere DPM, vSphere 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/vsphere-resource-management/using-drs-clusters-to-manage-resources/managing-power-resources.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U74",
+   "file": "25-usecases-and-physical",
+   "id": "U74",
+   "title": "Configure IPMI or iLO Settings for vSphere DPM (vSphere 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/vsphere-resource-management/using-drs-clusters-to-manage-resources/managing-power-resources/configure-ipmi-or-ilo-settings-for-vsphere-dpm.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U75",
+   "file": "25-usecases-and-physical",
+   "id": "U75",
+   "title": "Start vSAN and the ESX Hosts in the Management Domain (VCF 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/fleet-management/vcf-shutdown-and-startup/sddc-startup/start-the-management-domain/start-the-esx-hosts-and-vcenter-server-in-management-domain/start-vsan-and-the-esxi-hosts-in-the-management-domain.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U76",
+   "file": "25-usecases-and-physical",
+   "id": "U76",
+   "title": "Start ESX Hosts with NFS or Fibre Channel Storage in the Management Domain (VCF 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/fleet-management/vcf-shutdown-and-startup/sddc-startup/start-the-management-domain/start-the-esx-hosts-and-vcenter-server-in-management-domain/start-esx-hosts-without-vsan-storage-in-the-management-domain.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U77",
+   "file": "25-usecases-and-physical",
+   "id": "U77",
+   "title": "Control Access for CIM-Based Hardware Monitoring Tools (vSphere 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/vsphere-security/securing-esxi-hosts/general-security-recommendations/control-cim-based-hardware-monitoring-tool-access.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U78",
+   "file": "25-usecases-and-physical",
+   "id": "U78",
+   "title": "KB 376173 – ESXi creates standard switch vSwitchBMC with uplink vusb0",
+   "url": "https://knowledge.broadcom.com/external/article/376173/esxi-creates-standard-switch-vswitchbmc.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "25-usecases-and-physical:U79",
+   "file": "25-usecases-and-physical",
+   "id": "U79",
+   "title": "KB 451680 – Automated iDRAC vSwitch Recreation Post-Reboot",
+   "url": "https://knowledge.broadcom.com/external/article/451680/automated-idrac-vswitch-recreation-postr.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "25-usecases-and-physical:U80",
+   "file": "25-usecases-and-physical",
+   "id": "U80",
+   "title": "KB 317245 – Investigating Unexpected ESXi Reboot or Shutdown",
+   "url": "https://knowledge.broadcom.com/external/article/317245/unexpected-esxi-reboot-or-shutdown.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "25-usecases-and-physical:U81",
+   "file": "25-usecases-and-physical",
+   "id": "U81",
+   "title": "KB 434645 – ESXi Host Enters Not Responding State with Management Agent Hang",
+   "url": "https://knowledge.broadcom.com/external/article/434645/esxi-host-enters-not-responding-state-in.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "25-usecases-and-physical:U82",
+   "file": "25-usecases-and-physical",
+   "id": "U82",
+   "title": "Configuration Drift and Out-of-Band Operations in VCF (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/working-with-workload-domains/configuration-drift-and-out-of-band-operations-in-vmware-cloud-foundation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "25-usecases-and-physical:U83",
+   "file": "25-usecases-and-physical",
+   "id": "U83",
+   "title": "vSphere Cluster Detailed Design (VCF 9.1; DPM / BMC nezmíněno)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/cluster-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E1",
+   "file": "26-esx-install",
+   "id": "E1",
+   "title": "Installing ESX (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/installing-esxi.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E2",
+   "file": "26-esx-install",
+   "id": "E2",
+   "title": "Installing ESX Interactively (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/installing-esxi/installing-esxi-interactively.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E3",
+   "file": "26-esx-install",
+   "id": "E3",
+   "title": "Interactive ESX Installation (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/installing-esxi/installing-esxi-interactively/interactive-esxi-installation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E4",
+   "file": "26-esx-install",
+   "id": "E4",
+   "title": "Install ESX Interactively (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/installing-esxi/installing-esxi-interactively/install-esxi-interactivelly.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E5",
+   "file": "26-esx-install",
+   "id": "E5",
+   "title": "Install ESX Interactively (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-0/esx-installation-and-setup/installing-esxi/installing-esxi-interactively/install-esxi-interactivelly.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E6",
+   "file": "26-esx-install",
+   "id": "E6",
+   "title": "ESX Hardware Requirements (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/installing-and-setting-up-esxi/esxi-requirements/esxi-hardware-requirements.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E7",
+   "file": "26-esx-install",
+   "id": "E7",
+   "title": "ESX Hardware Requirements (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-0/esx-installation-and-setup/installing-and-setting-up-esxi/esxi-requirements/esxi-hardware-requirements.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E8",
+   "file": "26-esx-install",
+   "id": "E8",
+   "title": "ESX System Storage Overview (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/installing-and-setting-up-esxi/esxi-requirements/esxi-system-storage-overview.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E9",
+   "file": "26-esx-install",
+   "id": "E9",
+   "title": "Storage Behavior (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/installing-and-setting-up-esxi/esxi-requirements/esxi-system-storage-overview/storage-behavior.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E10",
+   "file": "26-esx-install",
+   "id": "E10",
+   "title": "Required Information for ESX Installation (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/installing-and-setting-up-esxi/before-you-install-esxi/required-information-for-esx-installation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E11",
+   "file": "26-esx-install",
+   "id": "E11",
+   "title": "Media Options for Booting the ESX Installer (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/installing-and-setting-up-esxi/before-you-install-esxi/media-options-for-booting-the-esx-installer(1",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E12",
+   "file": "26-esx-install",
+   "id": "E12",
+   "title": "ESX Passwords and Account Lockout (vSphere Security 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/vsphere-security/securing-esxi-hosts/general-security-recommendations/esxi-passwords-and-lockout.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E13",
+   "file": "26-esx-install",
+   "id": "E13",
+   "title": "ESX Passwords and Account Lockout (vSphere Security 9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-0/vsphere-security/securing-esxi-hosts/general-security-recommendations/esxi-passwords-and-lockout.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E14",
+   "file": "26-esx-install",
+   "id": "E14",
+   "title": "Upgrade Hosts Interactively (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-upgrade/upgrade-or-migrate-hosts-interactively.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E15",
+   "file": "26-esx-install",
+   "id": "E15",
+   "title": "Host Fails to Boot After You Install ESX in UEFI Mode (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/troubleshooting-esxi-booting/host-fails-to-boot-after-esxi-is-installed-in-uefi-mode.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E16",
+   "file": "26-esx-install",
+   "id": "E16",
+   "title": "Host Stops Unexpectedly at Bootup When Sharing a Boot Disk (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/troubleshooting-esxi-booting/host-stops-unexpectedly-at-bootup-when-sharing-a-boot-disk-with-another-host.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E17",
+   "file": "26-esx-install",
+   "id": "E17",
+   "title": "ESX Autoconfiguration (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/initial-esxi-configuration/esxi-autoconfiguration.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E18",
+   "file": "26-esx-install",
+   "id": "E18",
+   "title": "About the Direct Console ESX Interface (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/initial-esxi-configuration/about-the-direct-console-esxi-interface.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E19",
+   "file": "26-esx-install",
+   "id": "E19",
+   "title": "Configure the Keyboard Layout for the Direct Console (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/initial-esxi-configuration/configure-the-keyboard-layout.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E20",
+   "file": "26-esx-install",
+   "id": "E20",
+   "title": "Set the Password for the Administrator Account (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/set-the-password-for-the-administrator-account.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E21",
+   "file": "26-esx-install",
+   "id": "E21",
+   "title": "Choose Network Adapters for the Management Network (9.1; = 25 [U32])",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/configuring-network-settings/choose-network-adapters-for-the-management-network.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E22",
+   "file": "26-esx-install",
+   "id": "E22",
+   "title": "Set the VLAN ID (9.1; = 25 [U33])",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/configuring-network-settings/set-the-vlan-id.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E23",
+   "file": "26-esx-install",
+   "id": "E23",
+   "title": "Configure IP Settings from the Direct Console (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/configuring-network-settings/configure-ip-settings-from-the-direct-console.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E24",
+   "file": "26-esx-install",
+   "id": "E24",
+   "title": "Configure DNS Settings from the Direct Console (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/configuring-network-settings/configure-dns-settings-from-the-direct-console.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E25",
+   "file": "26-esx-install",
+   "id": "E25",
+   "title": "Configure DNS Suffixes (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/configuring-network-settings/configure-dns-suffixes.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E26",
+   "file": "26-esx-install",
+   "id": "E26",
+   "title": "Restart the Management Network (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/restart-the-management-network.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E27",
+   "file": "26-esx-install",
+   "id": "E27",
+   "title": "Test the Management Network (9.1; = 25 [U34])",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/test-the-management-network.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E28",
+   "file": "26-esx-install",
+   "id": "E28",
+   "title": "Network Access to Your ESX Host (9.1; = 25 [U31])",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/configuring-network-settings/network-access-to-your-esxi-host.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E29",
+   "file": "26-esx-install",
+   "id": "E29",
+   "title": "Enable ESX Shell and SSH Access with the Direct Console User Interface (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/setting-up-esxi/enable-esxi-shell-and-ssh-access-with-the-direct-console-user-interface.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E30",
+   "file": "26-esx-install",
+   "id": "E30",
+   "title": "Install ESX on Hosts Using an ISO Image (VCF 9.1; = 20 [S8], 25 [U66])",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/install-esx-on-hosts-using-the-iso.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E31",
+   "file": "26-esx-install",
+   "id": "E31",
+   "title": "Configure the Network on the ESX Hosts (VCF 9.1; = 20 [S9], 25 [U18])",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/configure-the-network-on-vmware-cloud-foundation-hosts.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E32",
+   "file": "26-esx-install",
+   "id": "E32",
+   "title": "Configure NTP on ESX Hosts (VCF 9.1; = 20 [S10])",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/configure-ntp-on-vmware-cloud-foundation-hosts.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E33",
+   "file": "26-esx-install",
+   "id": "E33",
+   "title": "Regenerate the Self-Signed Certificate on ESX Hosts (VCF 9.1; = 20 [S11])",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/regenerate-the-self-signed-certificate-on-esx-hosts.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E34",
+   "file": "26-esx-install",
+   "id": "E34",
+   "title": "Preparing ESX Hosts for VCF or vSphere Foundation (VCF 9.1; = 20 [S7], 25 [U17])",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E35",
+   "file": "26-esx-install",
+   "id": "E35",
+   "title": "KB 318697 – CPU Support Deprecation and Discontinuation In VCF Releases",
+   "url": "https://knowledge.broadcom.com/external/article/318697/cpu-support-deprecation-and-discontinuat.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "26-esx-install:E36",
+   "file": "26-esx-install",
+   "id": "E36",
+   "title": "KB 413002 – CPU_SUPPORT_WARNING is shown when upgrading to ESXi Server Version 8.0 or later",
+   "url": "https://knowledge.broadcom.com/external/article/413002/cpusupportwarning-is-shown-when-upgradin.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "26-esx-install:E37",
+   "file": "26-esx-install",
+   "id": "E37",
+   "title": "KB 428874 – Deprecated CPU Systems / Servers in ESX 9.0 and implications for support",
+   "url": "https://knowledge.broadcom.com/external/article/428874/deprecated-cpu-systems-servers-in-esx-9.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "26-esx-install:E38",
+   "file": "26-esx-install",
+   "id": "E38",
+   "title": "KB 417726 – Micron 6550 drives are not listing when installing ESXi 9.0/8.0U3e",
+   "url": "https://knowledge.broadcom.com/external/article/417726/micron-6550-drives-are-not-listing-when.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "26-esx-install:E39",
+   "file": "26-esx-install",
+   "id": "E39",
+   "title": "KB 415108 – ESXi installer cannot detect RAID logical devices",
+   "url": "https://knowledge.broadcom.com/external/article/415108/esxi-installer-cannot-detect-raid-logica.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "26-esx-install:E40",
+   "file": "26-esx-install",
+   "id": "E40",
+   "title": "Using Remote Management Applications (vSphere 9.1; = 25 [U67])",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/esx-installation-and-setup/installing-and-setting-up-esxi/esxi-requirements/using-remote-management-applications.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "26-esx-install:E41",
+   "file": "26-esx-install",
+   "id": "E41",
+   "title": "Incoming and Outgoing Firewall Ports for ESX Hosts (vSphere 9.1; odkazuje na Ports and Protocols Tool",
+   "url": "https://ports.broadcom.com/",
+   "domain": "ports"
+  },
+  {
+   "key": "40-workload-domains:W1",
+   "file": "40-workload-domains",
+   "id": "W1",
+   "title": "Create a New Workload Domain (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/working-with-workload-domains/deploy-a-vi-workload-domain-using-the-sddc-manager-ui.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W2",
+   "file": "40-workload-domains",
+   "id": "W2",
+   "title": "Managing VCF Domains / Working with Workload Domains (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/working-with-workload-domains.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W3",
+   "file": "40-workload-domains",
+   "id": "W3",
+   "title": "VCF Taxonomy (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/overview-of-vmware-cloud-foundation-9/workload-domains-in-vmware-cloud-foundation.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W4",
+   "file": "40-workload-domains",
+   "id": "W4",
+   "title": "Create a New Workload Domain without a vSphere Cluster (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/working-with-workload-domains/create-a-workload-domain-without-an-esx-cluster.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W5",
+   "file": "40-workload-domains",
+   "id": "W5",
+   "title": "Additional VCF Instance FQDNs and IP addresses (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/planning-and-preparation/vcf-components-fqdns-and-ip-addresses/additional-vcf-instance-fqdns-and-ip-addresses.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W6",
+   "file": "40-workload-domains",
+   "id": "W6",
+   "title": "VCF Fleet Sizing Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vcf-fleet-sizing-models-9-x.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W8",
+   "file": "40-workload-domains",
+   "id": "W8",
+   "title": "Commission ESX Hosts (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/host-management/commission-hosts.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W9",
+   "file": "40-workload-domains",
+   "id": "W9",
+   "title": "Create a New Workload Domain (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/building-your-private-cloud-infrastructure/working-with-workload-domains/deploy-a-vi-workload-domain-using-the-sddc-manager-ui.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W10",
+   "file": "40-workload-domains",
+   "id": "W10",
+   "title": "Import an Existing vCenter to Create a Workload Domain (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/working-with-workload-domains/import-an-existing-vcenter-to-create-a-workload-domain.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W11",
+   "file": "40-workload-domains",
+   "id": "W11",
+   "title": "VCF Installer / SDDC Manager 9.1.1.0 Release Notes",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-1-0-release-notes/sddc-manager-9-1-1-0-release-notes.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W12",
+   "file": "40-workload-domains",
+   "id": "W12",
+   "title": "Configure Centralized Network Connectivity with Edge Clusters (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/managing-network-connectivity-in-vcenter/managing-centralized-network-connectivity-with-edge-clusters.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W13",
+   "file": "40-workload-domains",
+   "id": "W13",
+   "title": "Create a Virtual Networking Appliance Cluster (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/managing-network-connectivity-in-vcenter/add-virtual-network-appliance-clusters.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W14",
+   "file": "40-workload-domains",
+   "id": "W14",
+   "title": "Network Pool Management (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/host-management/about-network-pools.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W15",
+   "file": "40-workload-domains",
+   "id": "W15",
+   "title": "Assign a Primary License to a vCenter Instance (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/licensing/assign-a-licenses-to-a-vcenter-instance.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W17",
+   "file": "40-workload-domains",
+   "id": "W17",
+   "title": "VCF Management Services Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vcf-management-services-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W18",
+   "file": "40-workload-domains",
+   "id": "W18",
+   "title": "Hardware Requirements for the vCenter Appliance (vSphere 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/vcenter-installation-and-setup/deploying-the-vcenter-server-appliance/vcenter-server-appliance-requirements/vcenter-server-appliance-hardware-requirements.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W19",
+   "file": "40-workload-domains",
+   "id": "W19",
+   "title": "Storage Requirements for the vCenter Appliance (vSphere 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/9-1/vcenter-installation-and-setup/deploying-the-vcenter-server-appliance/vcenter-server-appliance-requirements/vcsa-storage-requirements.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W20",
+   "file": "40-workload-domains",
+   "id": "W20",
+   "title": "Deploy NSX Manager Nodes to Form a Cluster from the UI (VCF **9.0**; Node Size)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/advanced-network-management/administration-guide/scale-up-nsx-manager/installing-nsx-manager-cluster-on-vsphere/install-nsx-manager-and-available-appliances/deploy-nsx-manager-nodes-to-form-a-cluster-using-ui.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W21",
+   "file": "40-workload-domains",
+   "id": "W21",
+   "title": "Requirements for Supervisor Deployment with VPC Networking (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/vsphere-supervisor-installation-and-configuration/supervisor-networking-with-virtual-private-clouds/nsx-vpc-workflow-for-supervisor/requirements-for-supervisor-deployment-with-nsx-vpc.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W22",
+   "file": "40-workload-domains",
+   "id": "W22",
+   "title": "KB 397782 – VCF Operations 9.0 Sizing Guidelines",
+   "url": "https://knowledge.broadcom.com/external/article/397782/vcf-operations-90-sizing-guidelines.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "40-workload-domains:W23",
+   "file": "40-workload-domains",
+   "id": "W23",
+   "title": "Deploy Cloud Proxy for the VCF 9.1 Upgrade (velikosti cloud proxy)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/upgrading-cloud-foundation/upgrade-backup-and-restore/configuring-cloud-proxies-in-vrealize-operations-cloud.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W24",
+   "file": "40-workload-domains",
+   "id": "W24",
+   "title": "Deploy VCF Installer (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/deploy-the-vmware-cloud-foundation-installer-appliance.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W25",
+   "file": "40-workload-domains",
+   "id": "W25",
+   "title": "KB 455842 – optimalizace footprintu VCF management services po patchi na 9.1.1",
+   "url": "https://knowledge.broadcom.com/external/article/455842",
+   "domain": "knowledge"
+  },
+  {
+   "key": "40-workload-domains:W26",
+   "file": "40-workload-domains",
+   "id": "W26",
+   "title": "VCF Automation Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vcf-automation-deployment-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "40-workload-domains:W27",
+   "file": "40-workload-domains",
+   "id": "W27",
+   "title": "VCF API – VcenterSpec (developer.broadcom.com, verze API 5.2.5)",
+   "url": "https://developer.broadcom.com/xapis/vmware-cloud-foundation-api/latest/data-structures/VcenterSpec/",
+   "domain": "developer"
+  },
+  {
+   "key": "50-vsan:V1",
+   "file": "50-vsan",
+   "id": "V1",
+   "title": "Multi-Rack vSAN Storage Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/storage-models-9-x/standard-vsan-storage-model/vsan-compute-cluster-storage-models/vsan-multirack-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V2",
+   "file": "50-vsan",
+   "id": "V2",
+   "title": "Multi-Rack vSAN Storage Model (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/storage-models-9-x/standard-vsan-storage-model/vsan-compute-cluster-storage-models/vsan-multirack-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V3",
+   "file": "50-vsan",
+   "id": "V3",
+   "title": "Multi-Rack vSAN Compute Cluster Storage Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/storage-models-9-x/standard-vsan-storage-model/vsan-compute-cluster-storage-models/vsan-multirack-compute-cluster-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V4",
+   "file": "50-vsan",
+   "id": "V4",
+   "title": "vSAN Storage Models (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/storage-models-9-x/standard-vsan-storage-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V5",
+   "file": "50-vsan",
+   "id": "V5",
+   "title": "Storage Models – concepts (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/storage-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V6",
+   "file": "50-vsan",
+   "id": "V6",
+   "title": "vSphere Cluster Models – concepts (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts/vsphere-cluster-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V7",
+   "file": "50-vsan",
+   "id": "V7",
+   "title": "vSphere Cluster Models – concepts (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/vmware-cloud-foundation-concepts/vsphere-cluster-models.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V8",
+   "file": "50-vsan",
+   "id": "V8",
+   "title": "Multi-Rack Layer 2 vSphere Cluster Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/cluster-models/multi-rack-cluster-detailed-design/layer-2-multi-rack-cluster.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V9",
+   "file": "50-vsan",
+   "id": "V9",
+   "title": "Multi-Rack Layer 3 vSphere Cluster Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/cluster-models/layer-3-multi-rack-cluster.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V10",
+   "file": "50-vsan",
+   "id": "V10",
+   "title": "Layer 3 Multi-Rack Cluster Model (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/design/design-library/cluster-models/multi-rack-cluster-detailed-design/layer-3-multi-rack-cluster.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V11",
+   "file": "50-vsan",
+   "id": "V11",
+   "title": "Multi-Rack vSphere Cluster Detailed Design (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/cluster-models/multi-rack-cluster-detailed-design.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V12",
+   "file": "50-vsan",
+   "id": "V12",
+   "title": "Designing and Sizing vSAN Fault Domains (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/vsan-deployment-administration-and-monitoring/vsan-planning-and-deployment/designing-and-sizing-a-virtual-san-cluster/designing-and-sizing-virtual-san-fault-domains.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V13",
+   "file": "50-vsan",
+   "id": "V13",
+   "title": "Managing Fault Domains in vSAN Clusters (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/vsan-deployment-administration-and-monitoring/administering-vmware-vsan/expanding-and-managing-a-vsan-cluster/managing-fault-domains-in-vsan-clusters.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V14",
+   "file": "50-vsan",
+   "id": "V14",
+   "title": "Create a New Fault Domain in vSAN Cluster (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/vsan-deployment-administration-and-monitoring/administering-vmware-vsan/expanding-and-managing-a-vsan-cluster/managing-fault-domains-in-vsan-clusters/create-a-new-fault-domain-in-vsan-cluster.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V15",
+   "file": "50-vsan",
+   "id": "V15",
+   "title": "Tolerate Additional Failures with Fault Domains (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/vsan-deployment-administration-and-monitoring/administering-vmware-vsan/expanding-and-managing-a-vsan-cluster/managing-fault-domains-in-vsan-clusters/tolerate-additional-failures-with-fault-domains-in-vsan-cluster.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V16",
+   "file": "50-vsan",
+   "id": "V16",
+   "title": "What are vSAN Policies (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/vsan-deployment-administration-and-monitoring/administering-vmware-vsan/using-vsan-policies/about-vsan-policies.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V17",
+   "file": "50-vsan",
+   "id": "V17",
+   "title": "What are vSAN Default Storage Policies (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/vsan-deployment-administration-and-monitoring/administering-vmware-vsan/using-vsan-policies/about-the-vsan-default-storage-policy.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V18",
+   "file": "50-vsan",
+   "id": "V18",
+   "title": "Selecting the Best RAID Configuration for a vSAN Storage Cluster (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/vsan-deployment-administration-and-monitoring/administering-vmware-vsan/increasing-space-efficiency-in-a-vsan-cluster/using-raid-5-6-erasure-coding-in-vsan-cluster.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V19",
+   "file": "50-vsan",
+   "id": "V19",
+   "title": "What's New – vSAN (VCF 9.1 Release Notes)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/release-notes/vmware-cloud-foundation-9-1-0-0-release-notes/what-s-new/whats-new-vsan.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V20",
+   "file": "50-vsan",
+   "id": "V20",
+   "title": "Network Fabric Detailed Design (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/network-fabric-design.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V21",
+   "file": "50-vsan",
+   "id": "V21",
+   "title": "Single-Rack Network Fabric Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/network-fabric-design/single-rack-availability.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V22",
+   "file": "50-vsan",
+   "id": "V22",
+   "title": "Multi-Rack Network Fabric Model (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/network-fabric-design/multi-rack-availability.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V23",
+   "file": "50-vsan",
+   "id": "V23",
+   "title": "Physical Data Center Network Design (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/physical-datacenter-design-9-x.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V24",
+   "file": "50-vsan",
+   "id": "V24",
+   "title": "Rack Fault Tolerant NSX Edge Cluster – Layer 2 vSphere Clusters across Racks (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/design-library-nsx-edge-cluster/nsx-edge-cluster-models-for-single-availability-zone/rack-fault-tolerant-design-single-layer-2-vsphere-clusters-deployed-across-multiple-racks.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V25",
+   "file": "50-vsan",
+   "id": "V25",
+   "title": "Rack Fault Tolerant NSX Edge Cluster – Layer 3 vSphere Clusters across Racks (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/design-library-nsx-edge-cluster/nsx-edge-cluster-models-for-single-availability-zone/rack-fault-tolerant-design-single-layer-3-vsphere-clusters-deployed-across-multiple-racks.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V26",
+   "file": "50-vsan",
+   "id": "V26",
+   "title": "Create and Configure a Workload Domain with a Layer 3 Multi-Rack vSAN HCI Cluster (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/working-with-workload-domains/deploy-a-l3-multi-rack-vsan-vi-workload-domain.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V27",
+   "file": "50-vsan",
+   "id": "V27",
+   "title": "Deactivate Auto Policy Management for vSAN ESA Cluster (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/working-with-workload-domains/deploy-a-l3-multi-rack-vsan-vi-workload-domain/disable-vsan-auto-policy-management.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V28",
+   "file": "50-vsan",
+   "id": "V28",
+   "title": "Create and Assign a New Default Storage Policy for vSAN ESA Cluster (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/working-with-workload-domains/deploy-a-l3-multi-rack-vsan-vi-workload-domain/create-and-assign-a-new-default-vsan-storage-policy.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V29",
+   "file": "50-vsan",
+   "id": "V29",
+   "title": "Create vSAN Fault Domains (WLD, 9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/working-with-workload-domains/deploy-a-l3-multi-rack-vsan-vi-workload-domain/create-vsan-fault-domain.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V30",
+   "file": "50-vsan",
+   "id": "V30",
+   "title": "Create a Workload Domain with a Layer 3 Multi-Rack vSAN HCI Cluster – API (9.0)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-0/building-your-private-cloud-infrastructure/working-with-workload-domains/create-a-workload-domain-by-using-the-vcf-operations-api/deploy-a-l3-multi-rack-vsan-vi-workload-domain/deploy-a-workload-domain-with-a-3-three-multi-rack-vsan-hci-cluster.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V31b",
+   "file": "50-vsan",
+   "id": "V31b",
+   "title": "Move ESX Host into Selected Fault Domain (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/vsan-deployment-administration-and-monitoring/administering-vmware-vsan/expanding-and-managing-a-vsan-cluster/managing-fault-domains-in-vsan-clusters/move-hosts-into-selected-fault-domain-in-vsan-cluster.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V32",
+   "file": "50-vsan",
+   "id": "V32",
+   "title": "Add an ESX Host to an SDDC Cluster in a VCF Domain (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/working-with-workload-domains/expand-a-workload-domain/add-a-host-to-a-vsphere-cluster-using-the-sddc-manager-ui.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V33",
+   "file": "50-vsan",
+   "id": "V33",
+   "title": "KB 326856 – „There are currently [X] usable fault domains…“",
+   "url": "https://knowledge.broadcom.com/external/article/326856/vsan-creatingreverting-snapshots-fails.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "50-vsan:V34",
+   "file": "50-vsan",
+   "id": "V34",
+   "title": "KB 388397 – „There are currently 2 usable fault domains…“",
+   "url": "https://knowledge.broadcom.com/external/article/388397/error-there-are-currently-2-usable-fault.html",
+   "domain": "knowledge"
+  },
+  {
+   "key": "50-vsan:V35",
+   "file": "50-vsan",
+   "id": "V35",
+   "title": "Management Domain Model (9.1) (= 05-design [D5])",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/workload-domain-deployment-models/management-domain-deployment-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V36",
+   "file": "50-vsan",
+   "id": "V36",
+   "title": "Workload Domain Model (9.1) (= 05-design [D6])",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/workload-domain-deployment-models/workload-domain-deployment-model.html",
+   "domain": "techdocs"
+  },
+  {
+   "key": "50-vsan:V37",
+   "file": "50-vsan",
+   "id": "V37",
+   "title": "Create a New Workload Domain (9.1)",
+   "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/building-your-private-cloud-infrastructure/working-with-workload-domains/deploy-a-vi-workload-domain-using-the-sddc-manager-ui.html",
+   "domain": "techdocs"
+  }
+ ]
+}

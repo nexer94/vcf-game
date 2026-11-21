@@ -29,7 +29,7 @@ describe('local room port (fallback over model transitions)', () => {
 
     // Overlap is a model (room) rule.
     const srv2 = port.buyItem('dell-r670-med') as { ok: true; id: string };
-    const bad = port.mountDevice(srv2.id, rackId, 2);
+    const bad = port.mountDevice(srv2.id, rackId, 1);
     expect(bad.ok).toBe(false);
 
     const c = port.connectCable({ deviceId: srv.id, port: 0 }, { deviceId: sw.id, port: 0 });

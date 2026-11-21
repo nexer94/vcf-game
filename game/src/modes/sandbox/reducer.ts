@@ -8,6 +8,8 @@
  *    deployment task runs;
  *  - planning actions are available in the planning and deploy phases; DNS records (company DNS server, an
  *    environment action) in every phase – the room flow v2 prepares hosts (incl. A + PTR, 10 §3.1) before the design;
+ *    likewise the VCF Installer appliance, its depot and binary downloads (environment preparation – a Career level
+ *    starts with them done before the player's design, UX 25.2);
  *  - the use case choice (25 §2.1) is only recorded; it cannot change while a bring-up validation / deployment runs;
  *  - wizard and deployment actions only in the deploy phase;
  *  - the wizard cannot change design-derived fields (DESIGN_LOCKED_FIELDS) – change the design;
@@ -76,6 +78,8 @@ import { applyRoom, commitRoomChange, deployedHostFqdns, describeRoom, emptyRoom
 import { netContextOf, plannedHostNetworks, specServerIds } from './roomNet';
 import { applySite, describeSite, isSiteCommand } from './site';
 import { syncOob } from './oob';
+import { applyConsole, describeConsole, isConsoleCommand, onEsxInstallFinished } from './console';
+import type { ObjectiveSet } from './objectives';
 import { type SandboxContext, Tx, defaultCatalog, defaultSandboxContext, flow, invalid, no, ok } from './tx';
 import {
   type CommandResult,
@@ -103,9 +107,20 @@ export interface SandboxOptions {
   readonly taskDurationsMs?: Partial<Record<SandboxTaskKind, number>>;
   /** Pre-wired OOB / BMC network (oob.ts, GAME scope). Default true (Sandbox); Career sets false. */
   readonly autoBmc?: boolean;
+  /** Pre-installed ToR-A in every placed rack (tor.ts, GAME, UX 19.5). Default false; Sandbox v3 / Career: true. */
+  readonly preinstalledTor?: boolean;
+  /**
+   * Objectives tracker (checklist + bubbles) – a Career feature (user decision: Sandbox has no tracker). false (default)
+   * = empty objective set (snapshot.objectives.enabled false); true = the bundled Sandbox set (labs / tests); an
+   * ObjectiveSet = that set (Career levels). `context.objectives` overrides this option.
+   */
+  readonly objectives?: boolean | ObjectiveSet;
   /** Session context overrides (hardware catalog, game price table, objectives). Not part of the state. */
   readonly context?: Partial<SandboxContext>;
 }
+
+/** Sandbox v3 (UX Part III): pre-installed ToR + pre-wired BMC, no objectives tracker (user decision 2026-11-22). */
+export const SANDBOX_V3_OPTIONS: SandboxOptions = { autoBmc: true, preinstalledTor: true, objectives: false };
 
 export function initialSandboxState(opts: SandboxOptions = {}): SandboxState {
   const base: SandboxState = {
@@ -133,6 +148,7 @@ export function initialSandboxState(opts: SandboxOptions = {}): SandboxState {
     seq: { host: 0, task: 0, log: 0, switch: 0, rack: 0, cable: 0, part: 0, ledger: 0 },
     taskDurationsMs: { ...ILLUSTRATIVE_TASK_DURATIONS_MS, ...opts.taskDurationsMs },
     autoBmc: opts.autoBmc ?? true,
+    autoTor: opts.preinstalledTor ?? false,
   };
   const wired = syncOob(base, opts.context?.catalog ?? defaultCatalog());
   return opts.initialChoices ? withDesign(wired, opts.initialChoices) : wired;
@@ -241,6 +257,7 @@ function apply(tx: Tx, cmd: SandboxCommand, ctx: SandboxContext): CommandResult 
     phases.includes(s.phase) ? undefined : no(flow('wrong-phase', `Akce není dostupná ve fázi ${PHASE_LABEL[s.phase]}.`));
 
   if (isRoomCommand(cmd)) return applyRoom(tx, cmd, ctx);
+  if (isConsoleCommand(cmd)) return applyConsole(tx, cmd, ctx);
   if (isSiteCommand(cmd))
     return applySite(tx, cmd, {
       applyDesign: applyDesignChoices,
@@ -405,8 +422,6 @@ function apply(tx: Tx, cmd: SandboxCommand, ctx: SandboxContext): CommandResult 
 
     // ----------------------------------------------------- installer / depot
     case 'deployInstaller': {
-      const bad = inPhase('planning', 'deploy');
-      if (bad) return bad;
       const issues = validateDeployInstallerOva(s.env.installer, cmd.ovf, s.env.dns, s.rules.dictionaryWords ?? []);
       if (errorsOf(issues).length) return no(invalid(errorsOf(issues)));
       const r = deployInstallerOva(s.env.installer, cmd.ovf, s.env.dns, s.rules.dictionaryWords ?? []);
@@ -423,8 +438,6 @@ function apply(tx: Tx, cmd: SandboxCommand, ctx: SandboxContext): CommandResult 
       return ok(warningsOf(issues));
     }
     case 'configureDepot': {
-      const bad = inPhase('planning', 'deploy');
-      if (bad) return bad;
       const issues = cmd.connection.kind === 'online' ? validateConfigureOnlineDepot(cmd.connection.input) : validateConfigureOfflineDepot(cmd.connection.input);
       if (errorsOf(issues).length) return no(invalid(errorsOf(issues)));
       const r = configureDepot(s.env.depot, cmd.connection);
@@ -433,8 +446,6 @@ function apply(tx: Tx, cmd: SandboxCommand, ctx: SandboxContext): CommandResult 
       return ok(warningsOf(issues));
     }
     case 'downloadBinaries': {
-      const bad = inPhase('planning', 'deploy');
-      if (bad) return bad;
       const wanted = (cmd.binaries ?? VCF_BINARIES).filter((b) => {
         const st = s.env.depot.binaries[b] ?? 'not-downloaded';
         return st === 'not-downloaded' || st === 'failed';
@@ -551,6 +562,7 @@ function hostTransition(h: EsxHost, cmd: HostCommand): TransitionResult<EsxHost>
 function describe(cmd: SandboxCommand): string {
   if (isRoomCommand(cmd)) return describeRoom(cmd);
   if (isSiteCommand(cmd)) return describeSite(cmd);
+  if (isConsoleCommand(cmd)) return describeConsole(cmd);
   switch (cmd.type) {
     case 'skipObjective':
       return `Úkol přeskočen: ${cmd.id}`;
@@ -688,8 +700,10 @@ function completeTask(tx: Tx, t: SandboxTask, ctx: SandboxContext): void {
       const r = installEsxOnServer(tx.s.room.physical, p.serverId, p.version);
       if (!r.ok) {
         tx.log({ kind: 'task', ok: false, message: `${p.serverId}: instalaci ESX nelze dokončit.`, issues: [r.error] });
+        tx.s = onEsxInstallFinished(tx.s, p.serverId, false);
         return;
       }
+      tx.s = onEsxInstallFinished(tx.s, p.serverId, true);
       const mgmtTests = { ...tx.s.room.mgmtTests };
       delete mgmtTests[p.serverId];
       commitRoomChange(tx, { ...tx.s.room, physical: r.state, mgmtTests });

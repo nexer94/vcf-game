@@ -108,8 +108,10 @@ const plan9000: PlannedHostNetworks = { esxManagement: { vlanId: MGMT }, vmotion
 describe('racks (game room rules)', () => {
   it('fits devices by U, rejects overlap and overflow as game-scope', () => {
     let s = u(addRack(emptyPhysicalState(), catalog, 'r1'));
-    s = u(addServer(s, catalog, 'a', cfg('dell-r670-sm')));
-    s = u(addServer(s, catalog, 'b', cfg('dell-r670-sm')));
+    // Dell R770 = 2U (vendor spec sheet, docs/spec/data/server-rack-units.json; 2U game default without the file)
+    s = u(addServer(s, catalog, 'a', cfg('dell-r770-lrg')));
+    s = u(addServer(s, catalog, 'b', cfg('dell-r770-lrg')));
+    expect(catalog.models.get('bcg-63566')?.rackUnits).toBe(2);
     s = u(mountDevice(s, catalog, 'a', 'r1', 1));
     expect(validateMount(s, catalog, 'b', 'r1', 2)[0]).toMatchObject({ code: 'PHYS_RACK_SLOT_OCCUPIED', scope: 'game-scope' });
     expect(validateMount(s, catalog, 'b', 'r1', 42)[0]?.code).toBe('PHYS_RACK_POSITION_INVALID');

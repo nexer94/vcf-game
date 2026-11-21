@@ -58,6 +58,13 @@ export interface ShopServerItem {
   readonly certified91: boolean;
   readonly bcgUrl: string;
   readonly price: number;
+  /** Starter configuration status (15 B.3): ok ✓, dev = deviation, req / ext = trap (hidden in v3). */
+  readonly starterStatus?: 'ok' | 'dev' | 'req' | 'ext';
+  /** One-sentence note of the configuration (DEV tooltip). */
+  readonly note?: string;
+  /** Height in U is the game default 2U [SIMPL] (true) or verified from the vendor spec sheet (false). */
+  readonly rackUnitsGameDefault?: boolean;
+  readonly rackUnitsUrl?: string;
 }
 
 export interface ShopSwitchItem {
@@ -98,6 +105,15 @@ export interface ShopCatalog {
   readonly nics: readonly ShopPartItem[];
   readonly datasetFetchedAt: string;
   readonly datasetRelease: string;
+  /** v3 vendor shelves (engine); undefined = group in the UI by vendor. */
+  readonly shelves?: readonly VendorShelf[];
+}
+
+/** Shop v3 shelf: vendor -> offered configurations (✓ / DEV) and hidden traps (UX 19.1). */
+export interface VendorShelf {
+  readonly vendor: HwVendor;
+  readonly items: readonly string[];
+  readonly traps: readonly string[];
 }
 
 export interface RoomRack {
@@ -159,6 +175,31 @@ export interface RoomDevice {
   readonly switchPorts: number;
   readonly switchSpeedsGbE?: readonly number[];
   readonly esxInstalled: boolean;
+  /** v3: role of a switch – rack ToR (pre-installed at the top of each rack) or the room's OOB switch (game). */
+  readonly role?: 'tor' | 'oob';
+  /** v3: pre-installed by the game (ToR-A, OOB switch) – UI badge "předinstalováno · herní". */
+  readonly preinstalled?: boolean;
+  /** v3 (UX 19.4): NIC slots of a server; slot count is a game value [SIMPL]. Undefined = engine has no slots yet. */
+  readonly nicSlots?: readonly NicSlotView[];
+  /** Server status (LED in the rack view): powered ESX, installing, no OS. */
+  readonly status?: string;
+}
+
+export interface NicSlotView {
+  readonly slot: number;
+  /** Installed NIC (undefined = free slot "[+]"). */
+  readonly nic?: { readonly partId: string; readonly label: string; readonly ports: number; readonly speedsGbE: readonly number[] };
+}
+
+/** One certified NIC choice for a free slot (model's ServerModel.nics ∩ part catalog – UX 19.4). */
+export interface NicChoice {
+  readonly partId: string;
+  readonly label: string;
+  readonly ports: number;
+  readonly speedsGbE: readonly number[];
+  readonly price: number;
+  /** ToRs of the rack without a common speed ("⚠ Nespojíš s ToR-A (25G)" – game / physical, still allowed). */
+  readonly incompatibleTors?: readonly { readonly label: string; readonly speedsGbE: readonly number[] }[];
 }
 
 export interface RoomCable {
@@ -196,6 +237,19 @@ export interface ObjectiveView {
   readonly group?: string;
   /** "Ukaž mi" hint of the objective (opaque data from scenarios/objectives, interpreted by ui/sandbox/showMe.ts). */
   readonly showMe?: Readonly<Record<string, string>>;
+  /** Speech bubble of the step (UX 26.1 ObjectiveBubble) – Career levels. */
+  readonly bubble?: ObjectiveBubbleView;
+  /** Career points of the step (game mechanic). */
+  readonly points?: number;
+  /** Career bonus step (★, only adds points). */
+  readonly bonus?: boolean;
+}
+
+/** UX 26.1: 1–2 sentences, anchor 'avatar' | 'object:<kind>:<id|first>' | 'ui:<id>', registry keys for "Zdroj". */
+export interface ObjectiveBubbleView {
+  readonly text: string;
+  readonly anchor: string;
+  readonly sourceKeys?: readonly string[];
 }
 
 export interface InventoryEntry {
@@ -228,6 +282,12 @@ export interface RoomState {
   readonly undo?: { readonly canUndo: boolean; readonly canRedo: boolean };
   /** Switch port connected to the company network (GAME abstraction "Síť firmy"). */
   readonly companyNetwork?: { readonly switchId: string; readonly port: number };
+  /** v3 (UX 19.5): reserved U for the recommended second ToR per rack (rackId -> U). */
+  readonly torReservations?: Readonly<Record<string, number>>;
+  /** Career: budget (game currency, finite); undefined = Sandbox (∞). */
+  readonly budget?: number;
+  /** Career: points so far (game). */
+  readonly points?: number;
 }
 
 export type PortResult =
@@ -262,6 +322,14 @@ export interface RoomPort {
   /** Cosmetic only. */
   setCableMeta(cableId: string, meta: { readonly color?: CableColorId; readonly label?: string }): PortResult;
   skipObjective(id: string): PortResult;
+  /** v3 (UX 19.4): certified NICs for a free slot of a server (engine E3); undefined = not supported yet. */
+  nicChoices?(serverId: string): readonly NicChoice[] | undefined;
+  addNic?(serverId: string, slot: number, partId: string): PortResult;
+  removeNic?(serverId: string, slot: number): PortResult;
+  /** v3 (UX 19.5): add the recommended second ToR into the reserved U (engine E1). */
+  addSecondTor?(rackId: string): PortResult;
+  /** Career: "Ukaž" hint used on an objective (game penalty). */
+  useHint?(objectiveId: string, kind: 'show' | 'solution'): void;
   setObjectivesHidden(hidden: boolean): PortResult;
   /**
    * Full session access for the object panels (server / switch / DNS / host detail). Only the session backend has
@@ -318,43 +386,101 @@ export function sessionHasPhysical(session: unknown): session is SessionLike {
   }
 }
 
-let shared: Promise<RoomPort> | null = null;
-let sessionPromise: Promise<SessionLike> | null = null;
-let sessionLoaded: SessionLike | null = null;
-let engineAttached = false;
-
 /**
- * The ONE SandboxSession of the Sandbox run (lazy: the hardware catalog / BCG dataset is loaded with it). Shared by the
- * room port and the site port (siteLayout.ts). `engine` attaches the session to the shared clock once.
+ * Play mode of the room screen (user decision 2026-11-22): 'sandbox' = free simulation without objectives / bubbles,
+ * 'career' = story level with checklist + bubbles. Each mode has its OWN session (never mixes states).
  */
-export function sharedSandboxSession(engine?: { attach(system: never): () => void }): Promise<SessionLike> {
-  sessionPromise ??= import('../../modes/sandbox').then((m) => {
-    const session = new m.SandboxSession();
-    if (!sessionHasPhysical(session)) throw new Error('session without physical layer');
-    sessionLoaded = session;
-    return session;
-  });
-  if (engine && !engineAttached) {
-    engineAttached = true;
-    sessionPromise.then((s) => (s as unknown as { attachTo(e: unknown): void }).attachTo(engine), () => undefined);
-  }
-  return sessionPromise;
+export type PlayMode = 'sandbox' | 'career';
+let playMode: PlayMode = 'sandbox';
+export const currentPlayMode = (): PlayMode => playMode;
+export function setPlayMode(m: PlayMode): void {
+  playMode = m;
 }
 
-/** The shared session once loaded (null before / when it failed). */
-export const loadedSandboxSession = (): SessionLike | null => sessionLoaded;
+interface Slot {
+  port: Promise<RoomPort> | null;
+  session: Promise<SessionLike> | null;
+  loaded: SessionLike | null;
+  attached: boolean;
+}
+const slots: Record<PlayMode, Slot> = {
+  sandbox: { port: null, session: null, loaded: null, attached: false },
+  career: { port: null, session: null, loaded: null, attached: false },
+};
+
+/** Career level id of the career session (one level at a time). */
+let careerLevelId = 'c1-l1-single-site';
+export function setCareerLevel(id: string): void {
+  if (id !== careerLevelId) resetSharedRoomPort('career');
+  careerLevelId = id;
+}
+export const currentCareerLevel = (): string => careerLevelId;
+
+/** Career snapshot fields the UI reads (modes/career CareerView). */
+export interface CareerInfo {
+  readonly budget: { readonly total: number; readonly spent: number; readonly remaining: number };
+  readonly score: { readonly points: number; readonly maxPoints: number; readonly bonusPoints: number; readonly stars: number; readonly penalties: { readonly hints: number; readonly validation: number } };
+  readonly completed: boolean;
+}
 
 /**
- * One room port for the whole Sandbox run. Uses the shared SandboxSession (attached to the shared engine clock) when it
- * exposes the physical layer; otherwise the local fallback. Both load the hardware catalog lazily
- * (BCG dataset ~360 kB, only needed in the room).
+ * Career level session (modes/career CareerSession) adapted to the Sandbox session shape the room adapter uses:
+ * snapshot() = the Sandbox snapshot + `career` (budget, score, evaluation); dispatch goes through the career layer
+ * (budget, locked decisions). `useHint` books the "Ukaž" penalty (game).
  */
-export function sharedRoomPort(engine?: { attach(system: never): () => void }): Promise<RoomPort> {
-  shared ??= sharedSandboxSession(engine)
+async function createCareerSession(): Promise<unknown> {
+  const c = await import('../../modes/career');
+  const level = c.careerLevel(careerLevelId);
+  if (!level) throw new Error(`unknown career level ${careerLevelId}`);
+  const cs = new c.CareerSession(level);
+  let memo: { src: unknown; out: unknown } | null = null;
+  return {
+    snapshot() {
+      const snap = cs.snapshot();
+      if (memo?.src !== snap) memo = { src: snap, out: { ...snap.sandbox, career: snap.career } };
+      return memo.out;
+    },
+    dispatch: (cmd: Parameters<typeof cs.dispatch>[0]) => cs.dispatch(cmd),
+    subscribe: (fn: (e: unknown) => void) => cs.subscribe(fn),
+    attachTo: (engine: Parameters<typeof cs.attachTo>[0]) => cs.attachTo(engine),
+    useHint: (id: string, kind: 'show' | 'solution') => cs.useHint(id, kind),
+    rackPlacementHints: (roomId: string, o: { rackId: string }) => (cs.sandbox as unknown as { rackPlacementHints(r: string, o: { rackId: string }): unknown }).rackPlacementHints(roomId, o),
+  };
+}
+
+/**
+ * The ONE session of the current play mode (lazy: the hardware catalog / BCG dataset is loaded with it). Shared by the
+ * room port and the site port (siteLayout.ts). `engine` attaches the session to the shared clock once.
+ */
+export function sharedSandboxSession(engine?: { attach(system: never): () => void }, mode: PlayMode = playMode): Promise<SessionLike> {
+  const slot = slots[mode];
+  slot.session ??= import('../../modes/sandbox').then(async (m) => {
+    const session = mode === 'career' ? await createCareerSession() : new m.SandboxSession(m.SANDBOX_V3_OPTIONS);
+    if (!sessionHasPhysical(session)) throw new Error('session without physical layer');
+    slot.loaded = session;
+    return session;
+  });
+  if (engine && !slot.attached) {
+    slot.attached = true;
+    slot.session.then((s) => (s as unknown as { attachTo(e: unknown): void }).attachTo(engine), () => undefined);
+  }
+  return slot.session;
+}
+
+/** The shared session of the current play mode once loaded (null before / when it failed). */
+export const loadedSandboxSession = (mode: PlayMode = playMode): SessionLike | null => slots[mode].loaded;
+
+/**
+ * One room port per play mode. Uses the mode's session (attached to the shared engine clock) when it exposes the
+ * physical layer; otherwise the local fallback. Both load the hardware catalog lazily (BCG dataset ~360 kB).
+ */
+export function sharedRoomPort(engine?: { attach(system: never): () => void }, mode: PlayMode = playMode): Promise<RoomPort> {
+  const slot = slots[mode];
+  slot.port ??= sharedSandboxSession(engine, mode)
     .then((session) => sessionBackend(session))
     .catch(() => import('./sessionFallback').then((m) => m.createLocalRoomPort()));
-  if (engine) sharedSandboxSession(engine);
-  return shared;
+  if (engine) sharedSandboxSession(engine, mode);
+  return slot.port;
 }
 
 /** Fresh isolated port for the illustrative demo room (never mixes with the player's state). */
@@ -362,12 +488,9 @@ export function createDemoRoomPort(): Promise<RoomPort> {
   return import('./sessionFallback').then((m) => m.createLocalRoomPort());
 }
 
-/** Tests / "new sandbox": drop the shared port and session. */
-export function resetSharedRoomPort(): void {
-  shared = null;
-  sessionPromise = null;
-  sessionLoaded = null;
-  engineAttached = false;
+/** Tests / "new sandbox" / "Znovu" in Career: drop the shared port and session of a mode (default: all). */
+export function resetSharedRoomPort(mode?: PlayMode): void {
+  for (const k of mode ? [mode] : (Object.keys(slots) as PlayMode[])) slots[k] = { port: null, session: null, loaded: null, attached: false };
 }
 
 /**
@@ -444,6 +567,33 @@ function sessionBackend(session: SessionLike): RoomPort {
     disconnectCable: (cableId) => run({ type: 'disconnectCable', cableId }),
     setCableMeta: (cableId, meta) => run({ type: 'setCableMeta', cableId, ...(meta.color ? { color: meta.color } : {}), ...(meta.label !== undefined ? { label: meta.label } : {}) }),
     skipObjective: (id) => run({ type: 'skipObjective', id }),
+    nicChoices: (serverId) => nicChoicesOf(snap(), serverId),
+    addNic: (serverId, slot, partId) => run({ type: 'addNic', serverId, slot, nicPartId: partId }),
+    removeNic: (serverId, slot) => run({ type: 'removeNic', serverId, slot }),
+    addSecondTor: (rackId) => run({ type: 'addTor', rackId }),
+    ...(typeof (session as { useHint?: unknown }).useHint === 'function'
+      ? { useHint: (id: string, kind: 'show' | 'solution') => (session as unknown as { useHint(i: string, k: string): void }).useHint(id, kind) }
+      : {}),
     setObjectivesHidden: (hidden) => run({ type: 'setObjectivesHidden', hidden }),
   };
+}
+
+/**
+ * Certified NIC choices for a server (UX 19.4): the engine's own list when the server view has one (`nicChoices`),
+ * else the model's BOM NIC names (ServerModel.nics) matched with the part catalog. Nothing else.
+ */
+export function nicChoicesOf(snap: SandboxSnapshot, serverId: string): readonly NicChoice[] | undefined {
+  const p = snap.physical;
+  const srv = p?.servers.find((x) => x.id === serverId);
+  if (!p || !srv) return undefined;
+  if (Array.isArray(srv.nicOptions))
+    return srv.nicOptions.map((o) => ({ partId: o.partId, label: o.label, ports: o.ports, speedsGbE: o.speedsGbE, price: o.price, incompatibleTors: o.incompatibleTors.map((t: { readonly label: string; readonly speedsGbE: readonly number[] }) => ({ label: t.label, speedsGbE: t.speedsGbE })) }));
+  const nicItems = p.catalog.items.filter((x): x is Extract<typeof x, { kind: 'nic' }> => x.kind === 'nic');
+  const byId = new Map(nicItems.map((x) => [x.id, x]));
+  const choice = (it: (typeof nicItems)[number]): NicChoice => ({ partId: it.id, label: it.part.bomName, ports: it.part.ports, speedsGbE: it.part.speedsGbE, price: it.price });
+  void byId;
+  const model = p.catalog.serverModels.find((m) => m.id === srv.modelId) as ({ nics?: readonly string[] } & object) | undefined;
+  if (!model?.nics) return undefined;
+  const names = new Set(model.nics);
+  return nicItems.filter((x) => names.has(x.part.bomName)).map(choice);
 }

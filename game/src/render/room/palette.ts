@@ -43,8 +43,9 @@ export const DECOR = {
   acShade: 0xd5dde8,
   acVent: 0x8592a3,
   acLed: 0x3ccf7a,
-  tray: 0xf2b84b,
-  trayDark: 0xd39a2c,
+  /** v3: thin grey wire tray above rack rows (alpha 0.35), GRAPHICS T6. */
+  tray: 0x8592a3,
+  trayDark: 0x6c7c93,
   poster: 0xffffff,
   posterA: 0xc41f33,
   posterB: 0x2b4a78,

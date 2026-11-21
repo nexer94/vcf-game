@@ -11,7 +11,7 @@ const created = (r: CommandResult): string[] => (r.ok ? [...(r.created ?? [])] :
 
 const FAST = { 'esx-install': 1000, 'mgmt-network-test': 1000 } as const;
 // Manual OOB / BMC cabling (Career-like): the pre-wired OOB network (autoBmc) is tested separately in sites.test.ts.
-const session = (prices?: PriceTable) => new SandboxSession({ taskDurationsMs: FAST, autoBmc: false, ...(prices ? { context: { prices } } : {}) });
+const session = (prices?: PriceTable) => new SandboxSession({ taskDurationsMs: FAST, autoBmc: false, objectives: true, ...(prices ? { context: { prices } } : {}) });
 
 function reject(s: SandboxSession, cmd: SandboxCommand) {
   const r = s.dispatch(cmd);
@@ -99,10 +99,10 @@ describe('Sandbox room – placement', () => {
     expect(v.tile).toEqual({ gx: 2, gy: 3, rotation: 0 });
     expect(v.facing).toBe('S');
     expect(v.uMap[0]).toBe(hosts[0]);
-    expect(v.uMap[2]).toBe(hosts[1]);
+    expect(v.uMap[s.snapshot().physical.servers[0]!.rackUnits]).toBe(hosts[1]);
     expect(v.uMap[41]).toBe('sw01');
     const extra = created(must(s, { type: 'buyItem', itemId: 'dell-r670-med' }))[0]!;
-    const r = reject(s, { type: 'mountDevice', inventoryId: extra, rackId: rack, u: 2 });
+    const r = reject(s, { type: 'mountDevice', inventoryId: extra, rackId: rack, u: 1 });
     expect(r.kind === 'validation' && codes(r.issues)).toEqual(['PHYS_RACK_SLOT_OCCUPIED']);
     expect(r.kind === 'validation' && r.issues[0]!.scope).toBe('game-scope');
   });
@@ -408,7 +408,7 @@ function groupOf(s: SandboxSession, id: string) {
 
 describe('Sandbox – objectives tracker', () => {
   it('loads the bundled objectives file without errors', () => {
-    const v = new SandboxSession().snapshot().objectives;
+    const v = new SandboxSession({ objectives: true }).snapshot().objectives;
     expect(v.available).toBe(true);
     expect(v.loadErrors).toEqual([]);
     // Sandbox default: pre-wired OOB (group B hidden); no multi-site blueprint (group L hidden).

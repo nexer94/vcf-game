@@ -16,3 +16,6 @@ export * from './objectives';
 export * from './useCases';
 export * from './site';
 export * from './rackLayout';
+export * from './tor';
+export * from './nicSlots';
+export * from './console';

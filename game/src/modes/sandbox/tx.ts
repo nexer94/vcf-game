@@ -5,7 +5,7 @@
 import { createTimedTask } from '../../engine';
 import { type DeploymentEvent, type HardwareCatalog, type TransitionResult, type ValidationIssue, buildHardwareCatalog, transitionDeployment } from '../../model';
 import { DEFAULT_PRICE_TABLE, type PriceTable } from '../economy';
-import { type ObjectiveSet, defaultObjectiveSet } from './objectives';
+import { type ObjectiveSet, EMPTY_OBJECTIVE_SET, defaultObjectiveSet } from './objectives';
 import type {
   CommandResult,
   FlowReason,
@@ -39,17 +39,23 @@ export function defaultCatalog(): HardwareCatalog {
   return catalogMemo;
 }
 
-export function sandboxContext(parts: Partial<SandboxContext> = {}): SandboxContext {
+/**
+ * Builds the session context. `objectives` (session option): false / undefined = no tracker (Sandbox default, user
+ * decision: objectives are a Career feature), true = bundled Sandbox set, ObjectiveSet = that set. An explicit
+ * `parts.objectives` wins.
+ */
+export function sandboxContext(parts: Partial<SandboxContext> = {}, objectives: boolean | ObjectiveSet = false): SandboxContext {
   return {
     catalog: parts.catalog ?? defaultCatalog(),
     prices: parts.prices ?? DEFAULT_PRICE_TABLE,
-    objectives: parts.objectives ?? defaultObjectiveSet(),
+    objectives: parts.objectives ?? (objectives === true ? defaultObjectiveSet() : objectives === false ? EMPTY_OBJECTIVE_SET : objectives),
   };
 }
 
 let ctxMemo: SandboxContext | undefined;
+/** Context of the pure reducer / snapshot helpers when none is passed (bundled objective set – tests, tools). */
 export function defaultSandboxContext(): SandboxContext {
-  ctxMemo ??= sandboxContext();
+  ctxMemo ??= sandboxContext({}, true);
   return ctxMemo;
 }
 

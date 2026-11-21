@@ -15,7 +15,7 @@ import { AZ_ROLES, DEFAULT_SITE_LAYOUT, isSiteLayoutId as isModelLayoutId, LAYOU
 import type { SiteView } from '../../modes/sandbox/site';
 import { roomFloorSize } from '../../modes/sandbox/rackLayout';
 import type { SandboxCommand } from '../../modes/sandbox/types';
-import { loadedSandboxSession, sharedSandboxSession } from './sessionPort';
+import { currentPlayMode, loadedSandboxSession, sharedSandboxSession, type PlayMode } from './sessionPort';
 import type { RoomSize } from '../../render/room/roomGrid';
 import type { SiteSceneInput } from '../../render/site/siteGeom';
 
@@ -361,17 +361,16 @@ export function createSessionSitePort(load: () => Promise<SiteSessionLike>, curr
   };
 }
 
-let shared: SitePort | null = null;
+const shared: Partial<Record<PlayMode, SitePort>> = {};
 
-/** App-wide site adapter of the player's Sandbox: backed by the shared SandboxSession. */
-export function sharedSitePort(): SitePort {
-  shared ??= createSessionSitePort(() => sharedSandboxSession(), loadedSandboxSession);
-  return shared;
+/** App-wide site adapter of the current play mode (Sandbox / Career level): backed by that mode's session. */
+export function sharedSitePort(mode: PlayMode = currentPlayMode()): SitePort {
+  return (shared[mode] ??= createSessionSitePort(() => sharedSandboxSession(undefined, mode), () => loadedSandboxSession(mode)));
 }
 
 /** Tests / "new sandbox": drop the shared site port (pair with resetSharedRoomPort). */
-export function resetSharedSitePort(): void {
-  shared = null;
+export function resetSharedSitePort(mode?: PlayMode): void {
+  for (const k of mode ? [mode] : (['sandbox', 'career'] as const)) delete shared[k];
 }
 
 /**

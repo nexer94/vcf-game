@@ -5,9 +5,8 @@ import { icon } from '../icons';
 import type { ScreenDef } from './screen';
 
 /**
- * Main menu over the cosy room backdrop (UX.md §6): Sandbox is the primary entry,
- * Kariéra shows a clear "Připravujeme" state (no dead end), the traffic demo is a
- * small secondary link.
+ * Main menu over the cosy room backdrop: Kariéra (primary) → Hotové scénáře (placeholder) → Sandbox
+ * (user decision 2026-11-22); the traffic demo and the demo room are small secondary links.
  */
 export const mainMenuScreen: ScreenDef = {
   stageMode: 'backdrop',
@@ -16,28 +15,36 @@ export const mainMenuScreen: ScreenDef = {
     // Backdrop: the cosy server room with illustrative demo furniture.
     ctx.stage.showRoomBackdrop();
 
+    // Order decided by the user (2026-11-22): 1. Kariéra · 2. Hotové scénáře · 3. Sandbox.
+    const career = button(
+      h('span', { class: 'menu-item-body' },
+        h('span', { class: 'menu-item-title' }, 'Kariéra'),
+        h('span', { class: 'menu-item-desc' }, 'Příběhové levely s vedením krok za krokem. Level 1: Single Site fleet s vSAN na 4 hostech.'),
+      ),
+      () => ctx.navigate({ name: 'career' }),
+      { class: 'menu-item menu-primary' },
+    );
+    const scenarios = button(
+      h('span', { class: 'menu-item-body' },
+        h('span', { class: 'menu-item-title' }, 'Hotové scénáře', h('span', { class: 'ui-chip chip-soon' }, 'Připravujeme')),
+        h('span', { class: 'menu-item-desc' }, 'Plně nasazená prostředí k prozkoumání.'),
+      ),
+      () => ctx.navigate({ name: 'scenarios' }),
+      { class: 'menu-item menu-soon' },
+    );
     const sandbox = button(
       h('span', { class: 'menu-item-body' },
         h('span', { class: 'menu-item-title' }, 'Sandbox'),
-        h('span', { class: 'menu-item-desc' }, 'Postav serverovnu a nasaď VCF podle dokumentace'),
+        h('span', { class: 'menu-item-desc' }, 'Volná simulace bez úkolů – pravidla a validace VCF platí.'),
       ),
       () => ctx.navigate({ name: 'sandbox-intro' }),
-      { class: 'menu-item menu-primary' },
-    );
-    // Not a button: nothing to activate yet, but the state is readable.
-    const career = h('div', { class: 'menu-item menu-soon', 'aria-disabled': 'true', role: 'group', 'aria-label': 'Kariéra – připravujeme' },
-      h('span', { class: 'menu-item-body' },
-        h('span', { class: 'menu-item-title' }, 'Kariéra', h('span', { class: 'ui-chip chip-soon' }, 'Připravujeme')),
-        h('span', { class: 'menu-item-desc' }, 'Kampaně, mise a úkoly admina. Zatím ve hře není – vyzkoušej Sandbox.'),
-      ),
+      { class: 'menu-item' },
     );
     const more = h('nav', { class: 'menu-more', 'aria-label': 'Další' },
       h('span', { class: 'menu-more-label' }, 'Další:'),
       button('Ukázka provozu', () => ctx.navigate({ name: 'traffic' }), { class: 'link-btn', title: 'Prototyp izometrické scény s ilustrativním provozem' }),
       h('span', { 'aria-hidden': 'true' }, '·'),
       button('Ukázková serverovna', () => ctx.navigate({ name: 'sandbox-room', demo: true }), { class: 'link-btn', title: 'Místnost s rozmístěným ukázkovým vybavením' }),
-      h('span', { 'aria-hidden': 'true' }, '·'),
-      button('Plán kampaní', () => ctx.navigate({ name: 'career' }), { class: 'link-btn' }),
     );
     const view = h(
       'div',
@@ -48,13 +55,13 @@ export const mainMenuScreen: ScreenDef = {
         h('div', { class: 'brand-mark', 'aria-hidden': 'true' }, icon('game-mark')),
         h('h1', { id: 'menu-title' }, 'VCF Game'),
         h('p', { class: 'menu-sub' }, 'Simulátor privátního cloudu · modelovaná verze ', h('strong', null, VCF_VERSION)),
-        h('nav', { class: 'menu-list', 'aria-label': 'Hlavní menu' }, sandbox, career),
+        h('nav', { class: 'menu-list', 'aria-label': 'Hlavní menu' }, career, scenarios, sandbox),
         more,
         disclaimer(),
       ),
     );
     root.appendChild(view);
-    sandbox.focus();
+    career.focus();
     return { dispose: () => view.remove() };
   },
 };

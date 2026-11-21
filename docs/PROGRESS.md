@@ -37,7 +37,10 @@
 - [x] `doc-researcher` – velikosti VM z Workbooku 9.1.1 (SDDC Manager, vCenter, NSX, VCF Ops, cloud proxy, Automation,
   control plane/worker, Edge/VNA, Supervisor); tabulky scénářů s dokumentovanými součty + per-VM součty
   - otevřené: License server (≈2 vCPU / 4 GB rozdíl, nedoloženo), počty workerů (stránka vs workbook), disk součty
-- [ ] `domain-modeler` / `engine-dev` – hotové scénáře: replay příkazů do plně nasazeného stavu, inventář VM
+- [x] `domain-modeler` – `model/deployedInventory.ts`: VM_SIZES (workbook 9.1.1), inventoryForFleet, totalsForFleet
+  (documented vs per-VM vs planning), kapacita a vytížení clusteru (2:1 vCPU:pCPU), placeVms (game-scope),
+  10 presetů scénářů s1–s5; 45 testů
+- [ ] `engine-dev` – hotové scénáře v session (preset → nasazený stav) až po UI v3
 - [ ] `scenario-designer` – 5 hotových scénářů (nejmenší Simple, HA, mgmt + WLD, více WLD, více instancí)
 - [ ] `ui-dev` – prohlížeč hotového prostředí (VM, zdroje)
 
@@ -48,8 +51,12 @@
   Select a Disk F1/Enter, Keyboard, Root password, Confirm Install F11, Installation Complete), DCUI klávesy a kroky
   (Configure Management Network, Restart/Test), HW minima, CPU deprecated/discontinued, hesla 9.0 vs 9.1
 - [x] `doc-researcher` – výška serverů v U (30 modelů, vše 10 z B.3) → `docs/spec/data/server-rack-units.json`, 15 Příloha C
-- [ ] `engine-dev` – Sandbox v3 E1–E8 (ToR v racku, addNic, U výšky, ESX konzole, aktivní krok, registr zdrojů,
-  Kariéra level 1) *(běží)*
+- [x] `engine-dev` – Sandbox v3 E1–E8: ToR-A automaticky nahoře v racku (+ volitelný ToR-B), addNic/removeNic do slotů,
+  výšky serverů z dat, ESX konzole (openConsole/consoleKey/batch, data `scenarios/console/esx-console.json`),
+  checklist s jedním aktivním krokem + bubliny, registr zdrojů s čitelnými názvy (`npm run gen:sources`),
+  `SANDBOX_V3_OPTIONS` (bez úkolů), Kariéra `modes/career` (CareerSession, replay, body, rozpočet 80 000, hodnocení)
+  - otevřené: uplink do sítě firmy jen pro první ToR; počet NIC pro storage-separation (model); pravidla hesla ESX
+    přesunout do modelu; obsah obrazovek konzole + úkoly levelu 1 dokončí scenario-designer
 - [ ] `ui-dev` – Sandbox v3 U1–U10 (rozložení, checklist, bubliny, obchod podle vendora, svislý rack, konzole ESX,
   Zdroj popover, úklid místnosti, vstup do Kariéry) *(běží)*
 - [ ] `scenario-designer` – obsah úkolů v3 + Kariéra level 1 (po engine)

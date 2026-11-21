@@ -18,6 +18,10 @@ export interface ObjectPanelsOptions {
   readonly port: () => RoomPort | null;
   readonly announce: (text: string, bad?: boolean) => void;
   readonly onOpenHost: (serverId: string) => void;
+  /** Server console (ESX installer / DCUI – UX ch. 20). */
+  readonly onOpenConsole?: (serverId: string) => void;
+  /** Panel opened / closed (layout zones: right panel). */
+  readonly onLayout?: () => void;
 }
 
 export interface ObjectPanels {
@@ -49,6 +53,7 @@ export function createObjectPanels(o: ObjectPanelsOptions): ObjectPanels {
     host.replaceChildren();
     if (opener && document.contains(opener)) opener.focus({ preventScroll: true });
     opener = null;
+    o.onLayout?.();
   };
 
   function show(id: string, make: (ops: NonNullable<RoomPort['ops']>) => ObjectPanel & { setTab?: (t: ServerTab) => void }, tab?: ServerTab): void {
@@ -64,6 +69,7 @@ export function createObjectPanels(o: ObjectPanelsOptions): ObjectPanels {
     host.hidden = false;
     host.replaceChildren();
     openId = id;
+    o.onLayout?.();
     if (!ops) {
       host.append(h('section', { class: 'op-panel', role: 'dialog', 'aria-label': 'Panel' },
         message({ type: 'game-limit', title: 'V ukázce není k dispozici', body: 'Panely serveru, switche a DNS fungují nad tvou serverovnou (Sandbox), ne v ilustrativní ukázce.' }),
@@ -78,7 +84,7 @@ export function createObjectPanels(o: ObjectPanelsOptions): ObjectPanels {
 
   return {
     openServer(id, tab) {
-      show(`server:${id}`, (ops) => createServerPanel({ ops, serverId: id, ...(tab ? { tab } : {}), announce: o.announce, onOpenHost: (sid) => o.onOpenHost(sid), onOpenDns: () => this.openDns(), onClose: close }), tab);
+      show(`server:${id}`, (ops) => createServerPanel({ ops, serverId: id, ...(tab ? { tab } : {}), announce: o.announce, onOpenHost: (sid) => o.onOpenHost(sid), onOpenDns: () => this.openDns(), ...(o.onOpenConsole ? { onOpenConsole: o.onOpenConsole } : {}), onClose: close }), tab);
     },
     openSwitch(id) {
       show(`switch:${id}`, (ops) => createSwitchPanel({ ops, switchId: id, announce: o.announce, onClose: close }));

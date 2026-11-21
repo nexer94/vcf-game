@@ -7,6 +7,8 @@
  * model / spec via the caller.
  */
 import { h } from './dom';
+import { stripSourceIds } from '../scenarios/sources';
+import { sourceButton, type SourceSpec } from './sandbox/sourcePopover';
 import { icon, MESSAGE_ICON, type IconName } from './icons';
 
 // ---------------------------------------------------------------------------
@@ -53,7 +55,12 @@ export interface MessageOptions {
   readonly className?: string;
   /** Language of the body when it is an English model message. */
   readonly bodyLang?: string;
+  /** Readable documentation sources ("Zdroj ▾" popover, UX ch. 21) – preferred over a raw `reference`. */
+  readonly source?: SourceSpec;
 }
+
+/** Spec reference inside a reference line ("10 §3.3 [P19] · CODE") -> Zdroj popover + text without bracket ids. */
+const looksLikeSpecRef = (r: string): boolean => /§|\[[A-Z]{1,4}\d+[a-z]?\]/.test(r);
 
 /** One message box (role=note; live announcements are the caller's job). */
 export function message(o: MessageOptions): HTMLElement {
@@ -69,9 +76,18 @@ export function message(o: MessageOptions): HTMLElement {
       h('strong', { class: 'msg-title' }, o.title ?? info.title),
     ),
     body.some(Boolean) ? h('div', { class: 'msg-body', ...(o.bodyLang ? { lang: o.bodyLang } : {}) }, ...body) : null,
-    o.reference ? h('div', { class: 'msg-ref' }, o.reference) : null,
+    refLine(o),
     o.actions?.some(Boolean) ? h('div', { class: 'msg-actions' }, ...o.actions) : null,
   );
+}
+
+/** Reference line: never bare bracket ids (UX P5); a "Zdroj ▾" button when the reference points into the spec. */
+function refLine(o: MessageOptions): HTMLElement | null {
+  const src = o.source ?? (o.reference && looksLikeSpecRef(o.reference) ? { specRef: o.reference } : undefined);
+  const btn = src ? sourceButton(src) : null;
+  const text = o.source ? (o.source.rule ?? '') : o.reference ? stripSourceIds(o.reference) : '';
+  if (!text && !btn) return null;
+  return h('div', { class: 'msg-ref' }, text, btn ? ' ' : null, btn);
 }
 
 // ---------------------------------------------------------------------------
@@ -176,7 +192,7 @@ export function badge(kind: BadgeKind, detail?: string): HTMLElement {
   const info = BADGES[kind];
   return h('span', {
     class: `ui-badge badge-${kind}`,
-    title: detail ? `${info.description} (${detail})` : info.description,
+    title: detail ? `${info.description} (${stripSourceIds(detail)})` : info.description,
     'aria-describedby': descId(kind),
   }, info.label);
 }

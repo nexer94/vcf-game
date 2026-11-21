@@ -24,7 +24,7 @@ describe('room sync', () => {
     const { port, ids } = built();
     const c = roomContentsOf(port.state());
     expect(c.cabinets.map((x) => x.spec.id)).toEqual([ids.r1, ids.r2]);
-    expect(c.cabinets[0]!.devices[0]).toMatchObject({ id: ids.s1, kind: 'server', u: 1, heightU: 2 });
+    expect(c.cabinets[0]!.devices[0]).toMatchObject({ id: ids.s1, kind: 'server', u: 1, heightU: 1 }); // Dell R670 = 1U (vendor spec sheet, docs/spec/data/server-rack-units.json)
     expect(c.cabinets[0]!.devices[0]!.tagColor).toBeDefined();
     expect(c.cables.map((x) => x.from.port)).toEqual([0, -1]);
   });

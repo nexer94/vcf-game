@@ -93,10 +93,7 @@ function drawWalls(g: Graphics, room: RoomSize): void {
   poly(g, wallRect(rw, 0, cols, 0, H), WALL.right);
   g.poly(wallRect(rw, 0, cols, 0, 46).flatMap((p) => [p.x, p.y])).fill({ color: WALL.rightDark });
   poly(g, wallRect(rw, 0, cols, 0, 8), WALL.base);
-  // Brand stripe (T6 WALL.stripe): 6 px at 1/3 of the wall height - the only large red element in the scene.
-  const sh = Math.round(H / 3);
-  poly(g, wallRect(lw, 0, rows, sh, sh + 6), WALL.stripe, false);
-  poly(g, wallRect(rw, 0, cols, sh, sh + 6), WALL.stripe, false);
+  // v3 (UX 23, GRAPHICS T6): no brand stripe on the walls – the room should look like a real server room.
   // Wall caps (thickness) + exposed wall ends.
   const T = WALL_T;
   poly(g, [up(isoToScreen(-T, -T), H), up(isoToScreen(cols, -T), H), up(isoToScreen(cols, 0), H), up(isoToScreen(0, 0), H), up(isoToScreen(0, rows), H), up(isoToScreen(-T, rows), H)], WALL.cap);
@@ -195,22 +192,23 @@ function drawWallJack(g: Graphics, room: RoomSize): void {
   poly(g, wallRect(rw, (j.u0 + j.u1) / 2 - 0.05, (j.u0 + j.u1) / 2 + 0.05, 0, j.h0 - 3), DECOR.trayDark, true, 0.8);
 }
 
-function drawTrays(g: Graphics, room: RoomSize): void {
-  const colors = { top: DECOR.tray, front: DECOR.trayDark, side: DECOR.trayDark };
-  // Along the right wall, then the left wall (ladder trays hanging under the ceiling).
-  prism(g, 0.55, 0.05, room.cols - 0.6, 0.5, 5, colors, TRAY_Z);
-  prism(g, 0.05, 0.05, 0.5, room.rows - 0.6, 5, colors, TRAY_Z);
-  for (let u = 1; u < room.cols; u += 0.5) {
-    const a = up(isoToScreen(u, 0.05), TRAY_Z + 5);
-    const b = up(isoToScreen(u, 0.55), TRAY_Z + 5);
+/**
+ * v3 (UX 23): no amber ladder trays along the walls. The wire tray is drawn by the room scene only above rows that
+ * hold at least one rack (`drawRowTrays`).
+ */
+export function drawRowTrays(g: Graphics, rows: readonly { readonly a: { gx: number; gy: number }; readonly b: { gx: number; gy: number } }[]): void {
+  for (const r of rows) {
+    const a = up(isoToScreen(r.a.gx, r.a.gy), TRAY_Z);
+    const b = up(isoToScreen(r.b.gx, r.b.gy), TRAY_Z);
     g.moveTo(a.x, a.y).lineTo(b.x, b.y);
   }
-  for (let v = 1; v < room.rows - 0.5; v += 0.5) {
-    const a = up(isoToScreen(0.05, v), TRAY_Z + 5);
-    const b = up(isoToScreen(0.55, v), TRAY_Z + 5);
+  g.stroke({ color: DECOR.trayDark, width: 6, alpha: 0.35, cap: 'round' });
+  for (const r of rows) {
+    const a = up(isoToScreen(r.a.gx, r.a.gy), TRAY_Z);
+    const b = up(isoToScreen(r.b.gx, r.b.gy), TRAY_Z);
     g.moveTo(a.x, a.y).lineTo(b.x, b.y);
   }
-  g.stroke({ color: DECOR.trayDark, width: 1.5 });
+  g.stroke({ color: DECOR.tray, width: 2, alpha: 0.45, cap: 'round' });
 }
 
 /** Build the whole static room as one Graphics (to be baked into a texture). */
@@ -223,6 +221,5 @@ export function drawStaticRoom(room: RoomSize): Graphics {
   drawClock(g);
   drawAc(g, room);
   drawWallJack(g, room);
-  drawTrays(g, room);
   return g;
 }

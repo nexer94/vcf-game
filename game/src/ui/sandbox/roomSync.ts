@@ -80,8 +80,8 @@ export class StaticTrafficSource implements TrafficSource {
 }
 
 /**
- * Elevation columns: the selected rack first, then the other placed racks that share a cable with it, then the rest
- * (max `maxColumns`).
+ * Elevation columns (v3, UX 19.3): the selected rack first, then only the other placed racks that share a cable with
+ * it (max `maxColumns`). Cables to anything else leave the view upwards (to the ceiling tray).
  */
 export function elevationRacks(s: RoomState, rackId: string, maxColumns = 3): ElevRack[] {
   const placed = s.racks.filter((r) => r.tile);
@@ -95,11 +95,12 @@ export function elevationRacks(s: RoomState, rackId: string, maxColumns = 3): El
     if (ra === rackId && rb && rb !== rackId) linked.add(rb);
     if (rb === rackId && ra && ra !== rackId) linked.add(ra);
   }
-  const order = [sel, ...placed.filter((r) => linked.has(r.id)), ...placed.filter((r) => r.id !== rackId && !linked.has(r.id))].slice(0, maxColumns);
+  const order = [sel, ...placed.filter((r) => linked.has(r.id))].slice(0, maxColumns);
   return order.map((r) => ({
     id: r.id,
     label: r.label,
     heightU: r.heightU,
+    ...(s.torReservations?.[r.id] !== undefined ? { reservedU: s.torReservations[r.id]! } : {}),
     devices: s.devices
       .filter((d) => d.mount?.rackId === r.id)
       .map((d) => {
@@ -115,6 +116,8 @@ export function elevationRacks(s: RoomState, rackId: string, maxColumns = 3): El
           nicPorts: d.nicPorts.length,
           bmc: !!d.bmc,
           switchPorts: d.switchPorts,
+          ...(d.nicSlots ? { nicSlots: d.nicSlots.map((x) => ({ slot: x.slot, free: !x.nic })) } : {}),
+          ...(d.preinstalled ? { preinstalled: true } : {}),
         };
       }),
   }));

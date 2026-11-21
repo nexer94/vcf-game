@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { layoutElevation, rackRows, rowAt, type ElevRack } from './rackLayout';
+import { layoutElevation, rackRows, rowAt, rowRange, uRangeLabel, type ElevRack } from './rackLayout';
 import { isOrthogonal, laneX, routeAll, simplify } from './rackRoute';
 
 const rackA: ElevRack = {
@@ -20,23 +20,38 @@ const rackB: ElevRack = {
 };
 
 describe('rack elevation layout', () => {
-  it('compresses empty runs of >= 4 U into one band', () => {
-    const rows = rackRows(rackA, 0);
+  it('compresses empty runs of >= 6 U into one band 3 U high (UX 19.3)', () => {
+    const rows = rackRows(rackA, 0, true, 18);
     expect(rows.map((r) => r.kind)).toEqual(['device', 'empty', 'device', 'device']);
     const band = rows[1]!;
-    expect(band).toMatchObject({ kind: 'empty', compressed: true, topU: 41, bottomU: 5 });
+    expect(band).toMatchObject({ kind: 'empty', compressed: true, topU: 41, bottomU: 5, h: 54 });
     // Without compression every empty U has its own row.
     expect(rackRows(rackA, 0, false).filter((r) => r.kind === 'empty')).toHaveLength(37);
   });
 
+  it('draws devices in U scale (2U server = 2x a 1U ToR) and shows ranges on the ruler', () => {
+    const rows = rackRows(rackA, 0, true, 22);
+    const dev = (id: string) => rows.find((r) => r.kind === 'device' && r.deviceId === id)!;
+    expect(dev('srv-01').h).toBe(2 * dev('sw-a').h);
+    expect(rowRange(dev('srv-02'))).toBe('3–4');
+    expect(rowRange(dev('sw-a'))).toBe('42');
+    expect(uRangeLabel(1, 2)).toBe('U1–2');
+  });
+
+  it('keeps the reserved ToR-B U as its own row', () => {
+    const rows = rackRows({ ...rackA, reservedU: 41 }, 0);
+    expect(rows[1]).toMatchObject({ kind: 'reserved', topU: 41 });
+  });
+
   it('does not compress short gaps', () => {
-    const r: ElevRack = { ...rackA, heightU: 6, devices: [{ ...rackA.devices[0]!, u: 4 }] };
+    const r: ElevRack = { ...rackA, heightU: 8, devices: [{ ...rackA.devices[0]!, u: 4 }] };
     const rows = rackRows(r, 0);
     expect(rows.filter((x) => x.kind === 'empty').every((x) => x.kind === 'empty' && !x.compressed)).toBe(true);
   });
 
-  it('places every port (NICs + BMC, switch ports) without overlapping cells', () => {
-    const L = layoutElevation([rackA]);
+  it('places every port (NICs + BMC, switch ports) and free NIC slots without overlapping cells', () => {
+    const L = layoutElevation([{ ...rackA, devices: rackA.devices.map((d) => (d.id === 'srv-01' ? { ...d, nicSlots: [{ slot: 1, free: false }, { slot: 2, free: true }] } : d)) }]);
+    expect(L.slots.has('srv-01#2')).toBe(true);
     expect(L.ports.has('srv-01:bmc')).toBe(true);
     expect(L.ports.has('srv-02:3')).toBe(true);
     expect(L.ports.has('sw-a:47')).toBe(true);
@@ -87,9 +102,12 @@ describe('rack cable auto-route', () => {
     expect(r[r.length - 1]!.x).toBeCloseTo(L.ports.get('sw-b:3')!.x);
   });
 
-  it('skips cables with unknown ports and simplifies collinear points', () => {
+  it('routes cables with one end outside the view up to the ceiling bar; skips unknown ones', () => {
     const L = layoutElevation([rackA]);
-    expect(routeAll(L, [{ id: 'x', a: 'nope:0', b: 'sw-a:0' }]).size).toBe(0);
+    const r = routeAll(L, [{ id: 'x', a: 'srv-01:bmc', b: 'oob:3' }]).get('x')!;
+    expect(isOrthogonal(r)).toBe(true);
+    expect(r[r.length - 1]!.y).toBeLessThan(L.columns[0]!.y);
+    expect(routeAll(L, [{ id: 'y', a: 'nope:0', b: 'nope2:0' }]).size).toBe(0);
     expect(simplify([{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 5 }])).toEqual([
       { x: 0, y: 0 },
       { x: 10, y: 0 },

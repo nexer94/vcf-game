@@ -12,11 +12,11 @@ import type { GameSnapshot } from '../../engine';
 import type { Camera } from '../camera';
 import { distanceToPolyline } from '../geom/bezier';
 import { createDotAtlas } from '../room/dotAtlas';
-import { CABINET, DECOR, DEVICE, OUTLINE } from '../room/palette';
+import { CABINET, DEVICE, OUTLINE } from '../room/palette';
 import { DEFAULT_PACKET_SIM, PacketSim } from '../traffic/packetSim';
 import type { LinkTraffic } from '../traffic/trafficModel';
-import { ELEV, layoutElevation, type ElevationLayout, type ElevDevice, type ElevRack, type PortGeom } from './rackLayout';
-import { pathLength, routeAll, toFloat32, type Pt } from './rackRoute';
+import { ELEV, layoutElevation, rowRange, type ElevationLayout, type ElevDevice, type ElevRack, type PortGeom } from './rackLayout';
+import { pathLength, pointAt, routeAll, toFloat32, type Pt } from './rackRoute';
 
 export interface RackCableData {
   readonly id: string;
@@ -32,6 +32,8 @@ export interface RackCableData {
 export interface RackDeviceState {
   /** ESX installed -> status LED ● green; otherwise ■ grey "bez OS". */
   readonly esxInstalled: boolean;
+  /** ESX install running -> LED ◐ amber. */
+  readonly installing?: boolean;
   /** Switch port connected to the company network (GAME abstraction) – framed + "⇧ síť firmy" mark. */
   readonly companyUplinkPort?: number;
 }
@@ -58,6 +60,10 @@ export class RackElevationView {
   private readonly staticLayer = new Container();
   private readonly cableLayer = new Container();
   private readonly fx = new Graphics();
+  /** Grey BMC squares (game scope, own shape outside the VCF dot atlas – UX 19.6). */
+  private readonly bmcFx = new Graphics();
+  private bmcCables: string[] = [];
+  private bmcPhase = 0;
   private readonly dots: ReturnType<typeof createDotAtlas>;
   private packetView: ParticleContainer<Particle> | null = null;
   private pool: Particle[] = [];
@@ -81,7 +87,7 @@ export class RackElevationView {
   constructor(renderer: Renderer) {
     this.dots = createDotAtlas(renderer);
     this.root.visible = false;
-    this.root.addChild(this.staticLayer, this.cableLayer, this.fx);
+    this.root.addChild(this.staticLayer, this.cableLayer, this.bmcFx, this.fx);
   }
 
   get layout(): ElevationLayout {
@@ -93,11 +99,11 @@ export class RackElevationView {
   }
 
   /** Rebuild everything that depends on the data (static texture, routes, cables). Cheap no-op when unchanged. */
-  setData(racks: readonly ElevRack[], cables: readonly RackCableData[], devices: ReadonlyMap<string, RackDeviceState>): void {
-    const key = JSON.stringify([racks, cables, [...devices]]);
+  setData(racks: readonly ElevRack[], cables: readonly RackCableData[], devices: ReadonlyMap<string, RackDeviceState>, uPx: number = ELEV.uPx): void {
+    const key = JSON.stringify([racks, cables, [...devices], uPx]);
     if (key === this.dataKey) return;
     this.dataKey = key;
-    this.layoutCache = layoutElevation(racks);
+    this.layoutCache = layoutElevation(racks, { uPx });
     this.cables = cables;
     this.routes = routeAll(this.layoutCache, cables);
     const linked = new Map<string, boolean>();
@@ -155,6 +161,12 @@ export class RackElevationView {
     this.drawFx();
   }
 
+  /** BMC cables with game-scope traffic (grey squares, 1 per 3 s – UX 19.6). */
+  setBmcTraffic(ids: readonly string[]): void {
+    this.bmcCables = ids.filter((id) => this.routes.has(id));
+    if (!this.bmcCables.length) this.bmcFx.clear();
+  }
+
   setTraffic(map: ReadonlyMap<string, LinkTraffic>, show: boolean): void {
     this.traffic = map;
     if (show !== this.showTraffic) {
@@ -182,6 +194,7 @@ export class RackElevationView {
     const now = snapshot.clock.gameTimeMs;
     const dt = this.lastGameMs === null ? 0 : Math.max(0, now - this.lastGameMs);
     this.lastGameMs = now;
+    this.drawBmc(Math.min(realMs, 100));
     if (!this.sim || !this.packetView || !this.showTraffic) return;
     this.sim.step(Math.min(dt, 100 * Math.max(1, snapshot.clock.speed)), Math.min(realMs, 100), this.traffic, snapshot.clock.speed);
     const n = this.sim.count;
@@ -211,6 +224,28 @@ export class RackElevationView {
 
   // ------------------------------------------------------------------ drawing
 
+  private drawBmc(realMs: number): void {
+    const g = this.bmcFx;
+    if (!this.bmcCables.length || !this.showTraffic) {
+      if (g.visible) g.clear();
+      g.visible = this.showTraffic;
+      return;
+    }
+    g.visible = true;
+    // Real-time animation (game scope, not tied to game speed): one square per cable every 3 s, 2 s travel.
+    this.bmcPhase = (this.bmcPhase + realMs) % 3000;
+    g.clear();
+    const t = this.bmcPhase / 2000;
+    if (t > 1) return;
+    this.bmcCables.forEach((id, i) => {
+      const pts = this.routes.get(id);
+      if (!pts) return;
+      const p = pointAt(pts, (t + i * 0.13) % 1);
+      g.rect(p.x - 2.5, p.y - 2.5, 5, 5);
+    });
+    g.fill(0xc3cddb).stroke({ color: OUTLINE, width: 1 });
+  }
+
   private drawStatic(racks: readonly ElevRack[], linked: ReadonlyMap<string, boolean>, devState: ReadonlyMap<string, RackDeviceState>): void {
     const layer = this.staticLayer;
     if (layer.isCachedAsTexture) layer.cacheAsTexture(false);
@@ -219,45 +254,59 @@ export class RackElevationView {
     const g = new Graphics();
     layer.addChild(g);
     if (L.columns.length === 0) return;
-    // Overhead tray (ladder) across all columns.
-    const tx0 = L.columns[0]!.x - 8;
-    const tx1 = L.columns[L.columns.length - 1]!.x + L.columns[L.columns.length - 1]!.w + 8;
-    g.roundRect(tx0, L.trayY - 12, tx1 - tx0, 24, 6).fill(DECOR.tray).stroke({ color: OUTLINE, width: 2 });
-    for (let x = tx0 + 14; x < tx1 - 6; x += 22) g.moveTo(x, L.trayY - 12).lineTo(x, L.trayY + 12);
-    g.stroke({ color: DECOR.trayDark, width: 2 });
-    const tl = txt('kabelový žlab', 11, OUTLINE, '700');
-    tl.position.set(tx0 + 8, L.trayY - 27);
+    const U = L.uPx;
+    // Thin grey bar to the ceiling tray (v3: no amber tray; 8 px, alpha 0.5).
+    const tx0 = L.columns[0]!.x - 6;
+    const tx1 = L.columns[L.columns.length - 1]!.x + L.columns[L.columns.length - 1]!.w + 6;
+    g.roundRect(tx0, L.trayY - 4, tx1 - tx0, 8, 3).fill({ color: 0x8592a3, alpha: 0.5 }).stroke({ color: 0x6c7c93, width: 1, alpha: 0.5 });
+    const tl = txt('↑ ke stropnímu žlabu', 10, 0x4a5566, '700');
+    tl.position.set(tx0 + 4, L.trayY - 17);
     layer.addChild(tl);
 
     for (const col of L.columns) {
       const rack = racks[col.index]!;
-      // Frame.
-      g.roundRect(col.x, col.y, col.w, col.h, 8).fill(CABINET.front).stroke({ color: OUTLINE, width: 2.5 });
-      g.rect(col.innerX, col.y + 6, col.innerW, col.h - 12).fill(CABINET.inner);
-      g.rect(col.channelX, col.y + 6, col.channelW, col.h - 12).fill({ color: CABINET.side });
-      for (let y = col.y + 12; y < col.y + col.h - 8; y += 14) g.rect(col.channelX + 3, y, col.channelW - 6, 2);
-      g.fill({ color: CABINET.inner, alpha: 0.6 });
-      const head = txt(`${rack.label} · ${rack.heightU}U`, 14, OUTLINE, '800');
-      head.position.set(col.x + 4, col.y - 22);
+      // Frame (graphite), mounting area, side channel with subtle (semi-transparent) rails.
+      g.roundRect(col.x, col.y, col.w, col.h, 6).fill(CABINET.front).stroke({ color: OUTLINE, width: 2 });
+      g.rect(col.innerX, col.y + 4, col.innerW, col.h - 8).fill(CABINET.inner);
+      g.rect(col.channelX, col.y + 4, col.channelW, col.h - 8).fill({ color: CABINET.side });
+      g.moveTo(col.innerX + 0.5, col.y + 4).lineTo(col.innerX + 0.5, col.y + col.h - 4).moveTo(col.innerX + col.innerW - 0.5, col.y + 4).lineTo(col.innerX + col.innerW - 0.5, col.y + col.h - 4);
+      g.stroke({ color: CABINET.rail, width: 1, alpha: 0.5 });
+      const head = txt(`${rack.label} · ${rack.heightU}U`, 13, OUTLINE, '800');
+      head.position.set(col.x + 2, col.y - 19);
       layer.addChild(head);
       for (const row of col.rows) {
-        // U number on the left rail.
-        const num = txt(row.kind === 'empty' && row.compressed ? `${row.topU}–${row.bottomU}` : String(row.topU), row.kind === 'empty' && row.compressed ? 8 : 10, 0xc9d3ea, '700');
+        // U ruler on the left rail: ranges ("7–8") for devices, single numbers for empty U.
+        const big = row.kind === 'device' || (row.kind === 'empty' && row.compressed);
+        const num = txt(rowRange(row), Math.min(11, U * 0.55), big ? 0xe6edf6 : 0x8592a3, '700');
         num.anchor.set(1, 0.5);
-        num.position.set(col.innerX - 3, row.y + Math.min(row.h / 2, 12));
+        num.position.set(col.innerX - 4, row.y + (row.kind === 'device' ? row.h / 2 : Math.min(row.h / 2, U / 2)));
         layer.addChild(num);
+        // Tick between rows.
+        g.moveTo(col.x + 6, row.y).lineTo(col.innerX - 2, row.y);
+        g.stroke({ color: 0x4a5b73, width: 1, alpha: 0.6 });
         if (row.kind === 'empty') {
           if (row.compressed) {
-            g.rect(col.innerX + 2, row.y + 3, col.innerW - 4, row.h - 6).fill({ color: 0x2e3d55 });
-            for (let x = col.innerX + 6; x < col.innerX + col.innerW - 6; x += 10) g.moveTo(x, row.y + row.h - 5).lineTo(x + 8, row.y + 5);
-            g.stroke({ color: 0x4a5b73, width: 1.5 });
-            const t = txt(`${row.topU - row.bottomU + 1} U volné`, 12, 0xe6edf6, '700');
+            g.rect(col.innerX + 2, row.y + 2, col.innerW - 4, row.h - 4).fill({ color: 0x2e3d55 });
+            for (let x = col.innerX + 6; x < col.innerX + col.innerW - 6; x += 10) g.moveTo(x, row.y + row.h - 4).lineTo(x + 8, row.y + 4);
+            g.stroke({ color: 0x4a5b73, width: 1.2 });
+            // Break marks (two slanted lines) on the left edge.
+            g.moveTo(col.innerX - 10, row.y + row.h / 2 + 4).lineTo(col.innerX - 2, row.y + row.h / 2 - 4).moveTo(col.innerX - 6, row.y + row.h / 2 + 4).lineTo(col.innerX + 2, row.y + row.h / 2 - 4);
+            g.stroke({ color: 0xe6edf6, width: 1.5 });
+            const t = txt(`${row.topU - row.bottomU + 1} U volné`, Math.min(12, U * 0.62), 0xe6edf6, '700');
             t.anchor.set(0.5);
             t.position.set(col.innerX + col.innerW / 2, row.y + row.h / 2);
             layer.addChild(t);
           } else {
             g.rect(col.innerX + 2, row.y + 1, col.innerW - 4, row.h - 2).stroke({ color: 0x33435c, width: 1 });
           }
+        } else if (row.kind === 'reserved') {
+          // Reserved U for the recommended second ToR (UX 19.5): dashed outline.
+          dashedRect(g, col.innerX + 3, row.y + 2, col.innerW - 6, row.h - 4, 5, 4);
+          g.stroke({ color: 0x9fb3cc, width: 1.2 });
+          const t = txt('+ druhý ToR (doporučeno)', Math.min(11, U * 0.55), 0xc9d3ea, '700');
+          t.anchor.set(0.5);
+          t.position.set(col.innerX + col.innerW / 2, row.y + row.h / 2);
+          layer.addChild(t);
         }
       }
     }
@@ -269,57 +318,72 @@ export class RackElevationView {
     const geo = this.layoutCache.devices.get(d.id);
     if (!geo) return;
     const { x, y, w, h } = geo;
+    const U = this.layoutCache.uPx;
     if (d.kind === 'server') {
-      g.roundRect(x, y, w, h, 4).fill(DEVICE.serverFace).stroke({ color: OUTLINE, width: 2 });
-      g.roundRect(x + 3, y + 3, 10, h - 6, 2).fill(d.tagColor ?? 0x2560c4);
-      // Drive bays.
-      for (let bx = x + 238; bx < x + 318; bx += 11) g.roundRect(bx, y + 5, 8, h - 10, 1.5);
+      g.roundRect(x, y, w, h, 3).fill(DEVICE.serverFace).stroke({ color: OUTLINE, width: 1.6 });
+      g.roundRect(x + 3, y + 3, 8, h - 6, 2).fill(d.tagColor ?? 0x2560c4);
+      // Drive bays (per U one row).
+      const bays = Math.max(1, Math.round(h / U));
+      for (let r = 0; r < bays; r++) for (let bx = x + 150; bx < x + 205; bx += 9) g.roundRect(bx, y + 3 + r * (h / bays), 7, h / bays - 6, 1.5);
       g.fill(DEVICE.serverShade).stroke({ color: DEVICE.bay, width: 1 });
-      const t = txt(d.label, 13, OUTLINE, '800');
-      t.position.set(x + 18, y + 4);
-      const sub = txt(d.sublabel ?? '', 10, 0x4a5566, '700');
-      sub.position.set(x + 18, y + 21);
-      layer.addChild(t, sub);
-      // Status LED: shape + colour (● online, ■ no OS / off) – UX §4.5.
+      const t = txt(d.label, Math.min(13, U * 0.62), OUTLINE, '800');
+      t.position.set(x + 15, y + 2);
+      layer.addChild(t);
+      if (h >= U * 1.6) {
+        const sub = txt((d.sublabel ?? '').slice(0, 24), Math.min(10, U * 0.48), 0x4a5566, '700');
+        sub.position.set(x + 15, y + h / 2 + 1);
+        layer.addChild(sub);
+      }
+      // Status LED: shape + colour (● online, ◐ installing, ■ no OS) – UX §4.5.
       const lx = x + w - 10;
-      const ly = y + 9;
+      const ly = y + h / 2;
       if (st?.esxInstalled) g.circle(lx, ly, 4).fill(LED_UP).stroke({ color: OUTLINE, width: 1.2 });
+      else if (st?.installing) g.circle(lx, ly, 4).fill(DEVICE.ledAct).stroke({ color: OUTLINE, width: 1.2 });
       else g.rect(lx - 3.5, ly - 3.5, 7, 7).fill(LED_OFF).stroke({ color: OUTLINE, width: 1.2 });
+      // Free NIC slots "[+]" (DOM buttons sit on top; UX 19.4).
+      for (const sl of this.layoutCache.slots.values()) {
+        if (sl.deviceId !== d.id) continue;
+        dashedRect(g, sl.x, sl.y, sl.w, sl.h, 3, 2);
+        g.stroke({ color: 0x4a5b73, width: 1 });
+        const p = txt('+', Math.min(12, sl.h * 0.8), 0x1d63c8, '800');
+        p.anchor.set(0.5);
+        p.position.set(sl.x + sl.w / 2, sl.y + sl.h / 2);
+        layer.addChild(p);
+      }
     } else {
-      g.roundRect(x, y, w, h, 4).fill(DEVICE.switchFace).stroke({ color: OUTLINE, width: 2 });
-      g.roundRect(x + 3, y + 3, 8, h - 6, 2).fill(d.tagColor ?? DEVICE.ledAct);
-      const t = txt(d.label, 12, 0xffffff, '800');
-      t.position.set(x + 15, y + 3);
-      const sub = txt(d.sublabel ? `${d.sublabel.slice(0, 14)}` : 'generický', 8, 0xdfe8ff, '700');
-      sub.position.set(x + 15, y + 19);
-      layer.addChild(t, sub);
+      g.roundRect(x, y, w, h, 3).fill(DEVICE.switchFace).stroke({ color: OUTLINE, width: 1.6 });
+      const t = txt(d.label, Math.min(12, U * 0.6), 0xffffff, '800');
+      t.anchor.set(0, 0.5);
+      t.position.set(x + 8, y + h / 2 - (d.preinstalled && h >= U * 0.9 ? 3 : 0));
+      layer.addChild(t);
+      if (d.preinstalled) {
+        const sub = txt('předinstalováno · herní', Math.min(7.5, U * 0.36), 0xc9d3ea, '700');
+        sub.anchor.set(0, 0);
+        sub.position.set(x + 8, y + h / 2 + 2);
+        layer.addChild(sub);
+      } else {
+        const sub = txt((d.sublabel ?? 'generický').slice(0, 14), Math.min(7.5, U * 0.36), 0xdfe8ff, '700');
+        sub.position.set(x + 8, y + h / 2 + 2);
+        layer.addChild(sub);
+      }
     }
     for (const p of this.layoutCache.ports.values()) {
       if (p.deviceId !== d.id) continue;
       const up = st?.companyUplinkPort;
-      const isUplink = d.kind === 'switch' && p.port === (up ?? d.switchPorts - 1);
-      this.drawPort(g, p, up !== undefined && isUplink ? true : linked.get(p.id), isUplink);
-      if (up !== undefined && isUplink) {
-        // Company uplink: short cable up to the tray + label (GAME abstraction "Síť firmy").
+      const isUplink = d.kind === 'switch' && up !== undefined && p.port === up;
+      this.drawPort(g, p, isUplink ? true : linked.get(p.id), isUplink);
+      if (isUplink) {
+        // Company uplink: short cable up to the ceiling bar + label (GAME abstraction "Síť firmy").
         const ty = this.layoutCache.trayY;
-        g.moveTo(p.x, p.y - p.h / 2).lineTo(p.x, ty + 12).stroke({ color: OUTLINE, width: 3.2, cap: 'round' });
-        g.moveTo(p.x, p.y - p.h / 2).lineTo(p.x, ty + 12).stroke({ color: 0xffc94d, width: 1.6, cap: 'round' });
-        const lab = txt('⇧ síť firmy (herní)', 9, OUTLINE, '800');
-        lab.anchor.set(0.5, 1);
-        lab.position.set(p.x, ty - 13);
+        const col = this.layoutCache.columns[p.column]!;
+        const ex = col.channelX + col.channelW - 5;
+        const path = [{ x: p.x, y: p.y }, { x: p.x, y: p.stubY - 1 }, { x: ex, y: p.stubY - 1 }, { x: ex, y: ty + 4 }];
+        roundedPath(g, path, 3).stroke({ color: OUTLINE, width: 3, join: 'round', cap: 'round' });
+        roundedPath(g, path, 3).stroke({ color: 0xffc94d, width: 1.5, join: 'round', cap: 'round' });
+        const lab = txt('↑ síť firmy (herní)', 9, OUTLINE, '800');
+        lab.anchor.set(1, 1);
+        lab.position.set(ex + 4, ty - 6);
         layer.addChild(lab);
-      }
-      if (d.kind === 'switch' && typeof p.port === 'number') {
-        const n = txt(String(p.port + 1), 7, 0xdfe8ff, '700');
-        n.anchor.set(0.5, p.stubY < p.y ? 1 : 0);
-        n.position.set(p.x, p.stubY < p.y ? p.y - 6 : p.y + 6);
-        layer.addChild(n);
-      }
-      if (p.port === 'bmc') {
-        const b = txt('BMC', 7, 0x4a5566, '800');
-        b.anchor.set(0.5, 1);
-        b.position.set(p.x, p.y - 7);
-        layer.addChild(b);
       }
     }
   }
@@ -328,12 +392,12 @@ export class RackElevationView {
     const bmc = p.port === 'bmc';
     const w = p.w;
     const hh = p.h;
-    if (bmc) g.rect(p.x - w / 2, p.y - hh / 2, w, hh).fill(0x8592a3).stroke({ color: OUTLINE, width: 1.4 });
-    else g.roundRect(p.x - w / 2, p.y - hh / 2, w, hh, 2.5).fill(link === undefined ? DEVICE.port : 0x24324a).stroke({ color: uplink ? 0xffc94d : OUTLINE, width: uplink ? 2.2 : 1.4 });
-    // Link LED (shape: filled = link, hollow = no link) above the port.
-    const ly = p.y - hh / 2 - 2.5;
-    if (link === undefined) g.circle(p.x + w / 2 - 2, ly, 1.4).stroke({ color: LED_OFF, width: 1 });
-    else g.circle(p.x + w / 2 - 2, ly, 1.8).fill(link ? LED_UP : LED_DOWN);
+    if (bmc) g.rect(p.x - w / 2, p.y - hh / 2, w, hh).fill(0x8592a3).stroke({ color: OUTLINE, width: 1.2 });
+    else g.roundRect(p.x - w / 2, p.y - hh / 2, w, hh, 2).fill(link === undefined ? DEVICE.port : 0x24324a).stroke({ color: uplink ? 0xffc94d : OUTLINE, width: uplink ? 2 : 1.1 });
+    // Link LED (shape: filled = link, hollow = no link) at the port corner.
+    const ly = p.y - hh / 2 - 1.5;
+    if (link === undefined) g.circle(p.x + w / 2 - 1.5, ly, 1.1).stroke({ color: LED_OFF, width: 0.8 });
+    else g.circle(p.x + w / 2 - 1.5, ly, 1.5).fill(link ? LED_UP : LED_DOWN);
   }
 
   private drawCables(): void {
@@ -419,6 +483,21 @@ export class RackElevationView {
     this.packetView = view;
     this.root.addChildAt(view, this.root.getChildIndex(this.fx));
   }
+}
+
+/** Dashed rectangle outline (no shader / filter – plain segments; stroke by the caller). */
+function dashedRect(g: Graphics, x: number, y: number, w: number, h: number, dash: number, gap: number): void {
+  const seg = (x0: number, y0: number, x1: number, y1: number): void => {
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    for (let d = 0; d < len; d += dash + gap) {
+      const e = Math.min(len, d + dash);
+      g.moveTo(x0 + ((x1 - x0) * d) / len, y0 + ((y1 - y0) * d) / len).lineTo(x0 + ((x1 - x0) * e) / len, y0 + ((y1 - y0) * e) / len);
+    }
+  };
+  seg(x, y, x + w, y);
+  seg(x + w, y, x + w, y + h);
+  seg(x + w, y + h, x, y + h);
+  seg(x, y + h, x, y);
 }
 
 /** Orthogonal polyline with rounded corners (radius clamped to half of the shorter neighbour segment). */

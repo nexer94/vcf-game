@@ -212,14 +212,14 @@ export function drawCabinet(g: Graphics, kind: CabinetKind, devices: readonly Ro
       const b = at(u, geo.base + geo.units * geo.uPx);
       g.moveTo(a.x, a.y).lineTo(b.x, b.y);
     }
-    g.stroke({ color: CABINET.rail, width: 1.2 });
+    g.stroke({ color: CABINET.rail, width: 1, alpha: 0.5 });
     // Unit marks every 6U.
     for (let i = 6; i < geo.units; i += 6) {
       const a = at(FACE_U0, geo.base + i * geo.uPx);
       const b = at(FACE_U0 + 0.03, geo.base + i * geo.uPx);
       g.moveTo(a.x, a.y).lineTo(b.x, b.y);
     }
-    g.stroke({ color: CABINET.rail, width: 1, alpha: 0.7 });
+    g.stroke({ color: CABINET.rail, width: 1, alpha: 0.35 });
     // Vents on the other visible face + top grille.
     const vents = Math.max(1, Math.min(4, Math.floor((H - 30) / 18)));
     for (let i = 0; i < vents; i++) {

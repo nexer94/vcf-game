@@ -8,10 +8,14 @@
  */
 import { BCG_DATASET, type BcgDataset } from './bcgDataset';
 import { type HardwareCatalog, buildHardwareCatalogFrom } from './hardwareCatalogCore';
+import { SERVER_RACK_UNITS, rackUnitsLookup } from './serverRackUnits';
 
 export * from './hardwareCatalogCore';
 
-/** Builds the catalog from a BCG dataset (default: the repository dataset). Pure. */
+/**
+ * Builds the catalog from a BCG dataset (default: the repository dataset) with the verified server heights of
+ * docs/spec/data/server-rack-units.json when present (serverRackUnits.ts). Pure.
+ */
 export function buildHardwareCatalog(dataset: BcgDataset = BCG_DATASET): HardwareCatalog {
-  return buildHardwareCatalogFrom(dataset);
+  return buildHardwareCatalogFrom(dataset, rackUnitsLookup(SERVER_RACK_UNITS?.data));
 }

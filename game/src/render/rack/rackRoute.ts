@@ -89,7 +89,21 @@ export function routeCable(layout: ElevationLayout, a: PortGeom, b: PortGeom, la
   ]);
 }
 
-/** Route all cables with deterministic lanes. Cables whose ports are not in the layout are skipped. */
+/**
+ * Cable leaving the view (other end outside the shown racks, e.g. BMC -> the room's OOB switch, uplink -> company
+ * network): port -> stub -> channel lane -> up to the thin bar to the ceiling tray (UX 19.3 / 19.6).
+ */
+export function routeExit(layout: ElevationLayout, a: PortGeom, lane: number): Pt[] {
+  const ca = layout.columns[a.column]!;
+  const ax = laneX(ca.channelX, ca.channelW, lane);
+  const sa = stub(a, lane);
+  return simplify([{ x: a.x, y: a.y }, { x: a.x, y: sa }, { x: ax, y: sa }, { x: ax, y: layout.trayY + 4 }]);
+}
+
+/**
+ * Route all cables with deterministic lanes. A cable with ONE end outside the layout leaves the view upwards
+ * (routeExit); cables with no end in the layout are skipped.
+ */
 export function routeAll(layout: ElevationLayout, cables: readonly RouteCable[]): Map<string, Pt[]> {
   const out = new Map<string, Pt[]>();
   const laneCount = new Map<number, number>();
@@ -102,7 +116,12 @@ export function routeAll(layout: ElevationLayout, cables: readonly RouteCable[])
   for (const c of [...cables].sort((x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0))) {
     const a = layout.ports.get(c.a);
     const b = layout.ports.get(c.b);
-    if (!a || !b) continue;
+    if (!a && !b) continue;
+    if (!a || !b) {
+      const p = (a ?? b)!;
+      out.set(c.id, routeExit(layout, p, next(p.column)));
+      continue;
+    }
     const la = next(a.column);
     const lb = a.column === b.column ? la : next(b.column);
     const tl = a.column === b.column ? 0 : tray++;
@@ -126,4 +145,18 @@ export function toFloat32(pts: readonly Pt[]): Float32Array {
     f[i * 2 + 1] = p.y;
   });
   return f;
+}
+
+/** Point at fraction `t` (0..1) of a polyline's length. */
+export function pointAt(pts: readonly Pt[], t: number): Pt {
+  const total = pathLength(pts);
+  let d = Math.max(0, Math.min(1, t)) * total;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]!;
+    const b = pts[i]!;
+    const l = Math.hypot(b.x - a.x, b.y - a.y);
+    if (d <= l && l > 0) return { x: a.x + ((b.x - a.x) * d) / l, y: a.y + ((b.y - a.y) * d) / l };
+    d -= l;
+  }
+  return pts[pts.length - 1] ?? { x: 0, y: 0 };
 }

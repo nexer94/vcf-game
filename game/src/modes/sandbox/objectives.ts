@@ -12,6 +12,7 @@
  */
 import { type DistributedSwitchModelId, type DnsRecords, type HostPortTraffic, type SwitchPortConfig, hostPortRequirements, nicRequirementForVdsModel, plannedHostPortTraffic, validateDnsRecords } from '../../model';
 import sandboxObjectivesJson from '../../scenarios/objectives/sandbox.json';
+import { type SourceLink, sourceByKey, sourceLinksForKeys } from '../../scenarios/sources';
 import type { SandboxSnapshotBase } from './snapshot';
 import type { ObjectivesPrefs, SandboxPhase } from './types';
 
@@ -40,6 +41,18 @@ export interface ObjectiveWhy {
   readonly quote?: string;
 }
 
+/**
+ * "Co teď" bubble of an objective (UX 18, 26.1). `anchor`: 'avatar' | 'object:<kind>:<id|first>' | 'ui:<id>'
+ * (object kinds: rack, server, switch, tor, slot, port, pc, whiteboard, console; ui ids are opaque for the engine).
+ */
+export interface ObjectiveBubble {
+  /** 1–2 sentences, Czech (≤ 160 characters). */
+  readonly text: string;
+  readonly anchor: string;
+  /** Registry keys 'file:ID' for the "Zdroj" popover (scenarios/sources). */
+  readonly sourceKeys?: readonly string[];
+}
+
 export type ObjectiveParamValue = string | number | boolean;
 export type ObjectiveParams = Readonly<Record<string, ObjectiveParamValue>>;
 
@@ -61,6 +74,12 @@ export interface ObjectiveDef {
   readonly onActivateTip?: string;
   /** Content waiting for the spec – shown as 'blocked-spec', hidden in the player build. */
   readonly featureFlag?: string;
+  /** Instruction bubble while this is the active step (UX 18). */
+  readonly bubble?: ObjectiveBubble;
+  /** Career: game points for completing the objective (game mechanic, UX 25.3). */
+  readonly points?: number;
+  /** Career ★ bonus: optional, not counted in progress / next step, points only add (UX 25.3). */
+  readonly bonus?: boolean;
 }
 
 export interface ObjectiveGroupDef {
@@ -76,7 +95,12 @@ export interface ObjectiveSet {
   readonly byId: ReadonlyMap<string, ObjectiveDef>;
   /** Non-empty = the file was rejected (UX §8.8: "Úkoly nejsou k dispozici"), objectives are empty. */
   readonly loadErrors: readonly string[];
+  /** Non-fatal problems (e.g. bubble sourceKeys missing in the source registry). */
+  readonly warnings?: readonly string[];
 }
+
+/** No objectives (Sandbox default – the tracker is a Career feature). */
+export const EMPTY_OBJECTIVE_SET: ObjectiveSet = { version: 1, groups: [], objectives: [], byId: new Map(), loadErrors: [] };
 
 // ===========================================================================
 // Selectors (pure functions over the snapshot)
@@ -100,7 +124,7 @@ export interface SelectorResult {
  *   nicRequirementForVdsModel; 1 without a choice or for models without a documented count – VCF-NET-REQD-TOR-001),
  * - `flag`: boolean.
  */
-type ParamKind = 'count' | 'phase' | 'decision' | 'nics' | 'flag';
+type ParamKind = 'count' | 'phase' | 'decision' | 'nics' | 'flag' | 'text';
 
 export interface SelectorDef {
   readonly description: string;
@@ -411,6 +435,22 @@ export const SELECTORS: Readonly<Record<string, SelectorDef>> = {
     params: {},
     evaluate: (snap) => flag(['ready-to-deploy', 'deploying', 'completed'].includes(snap.deploy.deployment.status)),
   },
+  wizardMatchesLevel: {
+    description:
+      'The VCF Installer wizard draft matches the level: deploymentModel (ha | simple), size (small | medium | large), storage (vsan-esa | vsan-osa | vmfs-fc | nfs-v3), hosts (ESX hosts in the wizard). Only given params are checked; counter = matching params.',
+    params: { deploymentModel: 'text', size: 'text', storage: 'text', hosts: 'count' },
+    evaluate: (snap, p) => {
+      const spec = snap.deploy.spec;
+      const checks: boolean[] = [];
+      const dm = p['deploymentModel'];
+      if (dm !== undefined) checks.push(spec.model === (dm === 'ha' ? 'high-availability' : dm));
+      if (p['size'] !== undefined) checks.push(spec.size === p['size']);
+      if (p['storage'] !== undefined) checks.push(spec.storage.type === p['storage']);
+      if (p['hosts'] !== undefined) checks.push(spec.esxHosts.filter((h) => h.fqdn.trim() !== '').length === targetOf(snap, p['hosts']));
+      const okN = checks.filter(Boolean).length;
+      return { done: checks.length > 0 && okN === checks.length, current: okN, target: checks.length };
+    },
+  },
   deploymentCompleted: {
     description: 'The bring-up finished and the VCF fleet exists.',
     params: {},
@@ -451,8 +491,14 @@ function checkParams(errs: string[], where: string, selector: string, params: un
     if (kind === 'decision' && !isStr(v)) errs.push(`${where}: param ${k} must be a design decision id`);
     if (kind === 'nics' && !(v === 'design' || (typeof v === 'number' && Number.isInteger(v) && v > 0))) errs.push(`${where}: param ${k} must be a positive integer or "design"`);
     if (kind === 'flag' && typeof v !== 'boolean') errs.push(`${where}: param ${k} must be true or false`);
+    if (kind === 'text' && !isStr(v)) errs.push(`${where}: param ${k} must be a non-empty string`);
   }
 }
+
+const ANCHOR_RE = /^(avatar|object:[a-z-]+:[A-Za-z0-9._-]+|ui:[A-Za-z0-9._:-]+)$/;
+const isAnchor = (a: string): boolean => ANCHOR_RE.test(a);
+
+let warns: string[] = [];
 
 function parseObjective(errs: string[], raw: unknown, where: string, groupIds: ReadonlySet<string>, inheritedGroup?: string): ObjectiveDef | undefined {
   if (!isObj(raw)) {
@@ -476,6 +522,21 @@ function parseObjective(errs: string[], raw: unknown, where: string, groupIds: R
     if (!isObj(why) || !isStr(why['specRef']) || !isStr(why['url'])) errs.push(`${at}: why {specRef, url} is required for kind ${String(kind)}`);
     else if (!checkUrl(why['url'] as string)) errs.push(`${at}: why.url must be an https link to ${ALLOWED_DOC_HOSTS.join(' / ')}`);
   }
+  const bubble = raw['bubble'];
+  if (bubble !== undefined) {
+    if (!isObj(bubble) || !isStr(bubble['text']) || !isStr(bubble['anchor'])) errs.push(`${at}: bubble needs text and anchor`);
+    else {
+      if ((bubble['text'] as string).length > 200) errs.push(`${at}: bubble text longer than 200 characters`);
+      if (!isAnchor(bubble['anchor'] as string)) errs.push(`${at}: bubble anchor must be 'avatar', 'object:<kind>:<id|first>' or 'ui:<id>'`);
+      const keys = bubble['sourceKeys'];
+      if (keys !== undefined && !(Array.isArray(keys) && keys.every((k) => isStr(k) && /^\d{2}-[a-z0-9-]+:[A-Z]{1,4}\d+[a-z]?$/.test(k))))
+        errs.push(`${at}: bubble.sourceKeys must be registry keys 'file:ID' (e.g. 10-planning:P19)`);
+      else if (Array.isArray(keys)) for (const k of keys as string[]) if (!sourceByKey(k)) warns.push(`${at}: source ${k} is not in the source registry`);
+    }
+  }
+  const points = raw['points'];
+  if (points !== undefined && !(typeof points === 'number' && Number.isInteger(points) && points >= 0)) errs.push(`${at}: points must be a non-negative integer`);
+  if (raw['bonus'] !== undefined && typeof raw['bonus'] !== 'boolean') errs.push(`${at}: bonus must be true or false`);
   for (const k of ['after'] as const) {
     const v = raw[k];
     if (v !== undefined && !(Array.isArray(v) && v.every(isStr))) errs.push(`${at}: ${k} must be a list of objective ids`);
@@ -497,6 +558,7 @@ function parseObjective(errs: string[], raw: unknown, where: string, groupIds: R
 /** Validates and loads an objectives file. Invalid file -> empty set with `loadErrors` (UX §8.8). */
 export function loadObjectiveSet(raw: unknown): ObjectiveSet {
   const errs: string[] = [];
+  warns = [];
   const empty = (e: string[]): ObjectiveSet => ({ version: OBJECTIVES_SCHEMA_VERSION, groups: [], objectives: [], byId: new Map(), loadErrors: e });
   if (!isObj(raw)) return empty(['objectives file must be an object']);
   if (raw['version'] !== OBJECTIVES_SCHEMA_VERSION) errs.push(`version must be ${OBJECTIVES_SCHEMA_VERSION}`);
@@ -525,7 +587,7 @@ export function loadObjectiveSet(raw: unknown): ObjectiveSet {
     }
   for (const d of byId.values()) for (const a of d.after ?? []) if (!byId.has(a)) errs.push(`${d.id}: after refers to unknown objective ${a}`);
   if (errs.length) return empty(errs);
-  return { version: OBJECTIVES_SCHEMA_VERSION, groups, objectives, byId, loadErrors: [] };
+  return { version: OBJECTIVES_SCHEMA_VERSION, groups, objectives, byId, loadErrors: [], ...(warns.length ? { warnings: [...warns] } : {}) };
 }
 
 let defaultSet: ObjectiveSet | undefined;
@@ -562,6 +624,54 @@ export interface ObjectiveView {
   readonly showMe?: Readonly<Record<string, string>>;
   readonly onActivateTip?: string;
   readonly featureFlag?: string;
+  readonly bubble?: ObjectiveBubbleView;
+  readonly points?: number;
+  readonly bonus?: boolean;
+}
+
+/** Resolved bubble anchor (UX 18.1). `id` undefined = target not found -> UI anchors to the avatar with "Ukaž". */
+export type BubbleAnchor =
+  | { readonly kind: 'avatar' }
+  | { readonly kind: 'object'; readonly objectKind: string; readonly id?: string; readonly raw: string }
+  | { readonly kind: 'ui'; readonly id: string };
+
+export interface ObjectiveBubbleView {
+  readonly text: string;
+  readonly anchor: BubbleAnchor;
+  /** Readable sources (titles, never bracket ids – UX 21). */
+  readonly sources: readonly SourceLink[];
+  readonly unknownSourceKeys: readonly string[];
+}
+
+/** One line of the checklist (UX 17.2). */
+export interface ChecklistItem {
+  readonly id: string;
+  readonly title: string;
+  readonly group: string;
+  readonly state: ObjectiveState;
+  readonly progress?: { readonly current: number; readonly target: number };
+  readonly bonus?: boolean;
+  readonly points?: number;
+}
+
+/**
+ * Checklist model "one active step" (UX 17.2): hotové (max. 3 nejnovější aktuální skupiny) · aktivní krok (+ bublina,
+ * + nanejvýš 1 doporučení ★) · 2 budoucí kroky · ostatní skupiny sbalené.
+ */
+export interface ChecklistView {
+  readonly doneCount: number;
+  readonly total: number;
+  /** A regressed doc-required step comes back as active first ("Bylo hotové – teď chybí", UX 17.2). */
+  readonly active?: ChecklistItem & { readonly regressed: boolean; readonly why?: ObjectiveWhy; readonly bubble?: ObjectiveBubbleView };
+  /** First unfinished doc-recommended / bonus objective of the active group (shown under the active step). */
+  readonly recommendation?: ChecklistItem;
+  /** Last done steps of the active group (≤ 3) and how many older ones are folded ("✓ 5 hotovo ▸"). */
+  readonly recentDone: readonly ChecklistItem[];
+  readonly olderDoneCount: number;
+  /** Next 2 steps after the active one (preview, no actions). */
+  readonly upcoming: readonly ChecklistItem[];
+  /** All groups, folded rows "▸ název · N kroků". */
+  readonly groups: readonly { readonly id: string; readonly title: string; readonly state: 'done' | 'current' | 'future'; readonly done: number; readonly total: number; readonly steps: number }[];
 }
 
 export interface ObjectiveGroupView {
@@ -574,6 +684,10 @@ export interface ObjectiveGroupView {
 }
 
 export interface ObjectivesView {
+  /** False = no objective set (Sandbox default; objectives are a Career feature). */
+  readonly enabled: boolean;
+  /** One-active-step checklist + bubble (UX 17–18). */
+  readonly checklist: ChecklistView;
   readonly hidden: boolean;
   /** False when the objectives file was rejected (UX §8.8). */
   readonly available: boolean;
@@ -596,7 +710,7 @@ function evalOne(snap: ObjectiveInput, def: ObjectiveDef, prefs: ObjectivesPrefs
   const r: SelectorResult = sel ? sel.evaluate(snap, def.params ?? {}) : { done: false };
   if (r.applicable === false) return undefined;
   const subSteps = def.subSteps?.map((d) => evalOne(snap, d, prefs)).filter((x): x is ObjectiveView => x !== undefined);
-  const counted = def.kind !== 'game-optional' && def.featureFlag === undefined;
+  const counted = def.kind !== 'game-optional' && def.featureFlag === undefined && def.bonus !== true;
   let state: ObjectiveState;
   if (def.featureFlag !== undefined) state = 'blocked-spec';
   else if (r.done) state = 'done';
@@ -618,6 +732,79 @@ function evalOne(snap: ObjectiveInput, def: ObjectiveDef, prefs: ObjectivesPrefs
     ...(def.showMe ? { showMe: def.showMe } : {}),
     ...(def.onActivateTip !== undefined ? { onActivateTip: def.onActivateTip } : {}),
     ...(def.featureFlag !== undefined ? { featureFlag: def.featureFlag } : {}),
+    ...(def.bubble ? { bubble: bubbleView(snap, def.bubble) } : {}),
+    ...(def.points !== undefined ? { points: def.points } : {}),
+    ...(def.bonus !== undefined ? { bonus: def.bonus } : {}),
+  };
+}
+
+/** Resolves an anchor string against the snapshot ('first' = first matching object). */
+export function resolveAnchor(snap: ObjectiveInput, anchor: string): BubbleAnchor {
+  if (anchor === 'avatar') return { kind: 'avatar' };
+  if (anchor.startsWith('ui:')) return { kind: 'ui', id: anchor.slice(3) };
+  const [, objectKind = '', ref = ''] = anchor.split(':');
+  const ph = snap.physical;
+  const pick = (ids: readonly string[]): string | undefined => (ref === 'first' ? ids[0] : ids.includes(ref) ? ref : undefined);
+  let id: string | undefined;
+  switch (objectKind) {
+    case 'rack':
+      id = pick([...ph.racks.filter((r) => r.placed), ...ph.racks.filter((r) => !r.placed)].map((r) => r.id));
+      break;
+    case 'server':
+      id = pick(ph.servers.map((x) => x.id));
+      break;
+    case 'switch':
+      id = pick(ph.switches.filter((x) => !x.preinstalledOob).map((x) => x.id));
+      break;
+    case 'tor':
+      id = pick(ph.switches.filter((x) => x.preinstalledTor !== undefined).map((x) => x.id));
+      break;
+    default:
+      id = ref === 'first' ? undefined : ref;
+  }
+  return { kind: 'object', objectKind, raw: anchor, ...(id !== undefined ? { id } : {}) };
+}
+
+function bubbleView(snap: ObjectiveInput, b: ObjectiveBubble): ObjectiveBubbleView {
+  const src = sourceLinksForKeys(b.sourceKeys ?? []);
+  return { text: b.text, anchor: resolveAnchor(snap, b.anchor), sources: src.links, unknownSourceKeys: src.unknownKeys };
+}
+
+const item = (v: ObjectiveView): ChecklistItem => ({
+  id: v.id,
+  title: v.title,
+  group: v.group,
+  state: v.state,
+  ...(v.progress ? { progress: v.progress } : {}),
+  ...(v.bonus !== undefined ? { bonus: v.bonus } : {}),
+  ...(v.points !== undefined ? { points: v.points } : {}),
+});
+
+function checklistOf(set: ObjectiveSet, all: readonly ObjectiveView[], groups: readonly ObjectiveGroupView[], nextId: string | undefined): ChecklistView {
+  const counted = all.filter((v) => v.counted);
+  const regressed = counted.find((v) => v.state === 'regressed');
+  const activeView = regressed ?? (nextId !== undefined ? all.find((v) => v.id === nextId) : undefined);
+  const groupId = activeView?.group;
+  const order = (v: ObjectiveView): number => set.groups.findIndex((g) => g.id === v.group);
+  const inGroup = counted.filter((v) => v.group === groupId);
+  const doneIn = inGroup.filter((v) => v.state === 'done' && v.id !== activeView?.id);
+  const upcoming = counted
+    .filter((v) => v.id !== activeView?.id && !finished(v) && (groupId === undefined || order(v) >= set.groups.findIndex((g) => g.id === groupId)))
+    .sort((a, b) => order(a) - order(b))
+    .filter((v) => v.group === groupId)
+    .slice(0, 2);
+  const rec = all.find((v) => v.group === groupId && (v.kind === 'doc-recommended' || v.bonus === true) && !finished(v) && v.id !== activeView?.id);
+  return {
+    doneCount: counted.filter((v) => v.state === 'done').length,
+    total: counted.length,
+    ...(activeView
+      ? { active: { ...item(activeView), regressed: activeView.state === 'regressed', ...(activeView.why ? { why: activeView.why } : {}), ...(activeView.bubble ? { bubble: activeView.bubble } : {}) } }
+      : {}),
+    ...(rec ? { recommendation: item(rec) } : {}),
+    recentDone: doneIn.slice(-3).map(item),
+    olderDoneCount: Math.max(0, doneIn.length - 3),
+    upcoming: upcoming.map(item),
+    groups: groups.map((g) => ({ id: g.id, title: g.title, state: g.state, done: g.done, total: g.total, steps: g.objectives.filter((o) => o.counted).length })),
   };
 }
 
@@ -651,6 +838,8 @@ export function evaluateObjectives(snap: ObjectiveInput, set: ObjectiveSet, pref
   });
   const aheadCount = all.filter((v) => v.counted && v.state === 'done' && set.groups.findIndex((g) => g.id === v.group) > nextGroupIdx).length;
   return {
+    enabled: set.objectives.length > 0 || set.loadErrors.length > 0,
+    checklist: checklistOf(set, all, groups, nextView?.id),
     hidden: prefs.hidden,
     available: set.loadErrors.length === 0,
     loadErrors: set.loadErrors,

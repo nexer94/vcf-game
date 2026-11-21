@@ -35,7 +35,7 @@ export class SandboxSession implements GameSystem {
   private regressed = new Set<string>();
 
   constructor(options: SandboxOptions = {}) {
-    this.context = sandboxContext(options.context);
+    this.context = sandboxContext(options.context, options.objectives ?? false);
     this.current = deepFreeze(initialSandboxState(options));
     this.clockMs = this.current.timeMs;
     this.trackObjectives();

@@ -1,0 +1,276 @@
+{
+  "version": 1,
+  "note": "Screen sequence of the interactive ESX installer and the DCUI (docs/spec/26-esx-install.md §4.1, §4.3). Titles and body texts ONLY from the spec (quotes of the documentation); screens whose text the spec does not give are 'simplified' (UI label 'zjednodušená obrazovka (herní)'). Actions are engine handlers (modes/sandbox/console.ts). Authored by engine-dev as a first version – scenario-designer completes it (UX backlog S3).",
+  "installer": [
+    {
+      "id": "welcome",
+      "title": "Welcome",
+      "body": ["press Enter to continue"],
+      "keys": [{ "key": "Enter", "label": "Continue", "next": "eula" }],
+      "specRef": "26-esx-install §4.1 I-4 [E4][E30]"
+    },
+    {
+      "id": "eula",
+      "title": "End User License Agreement",
+      "keys": [{ "key": "Enter", "label": "Accept", "next": "select-disk" }],
+      "specRef": "26-esx-install §4.1 I-5 [E4][E30]",
+      "simplified": true
+    },
+    {
+      "id": "select-disk",
+      "title": "Select a Disk to Install or Upgrade",
+      "body": ["Press F1 for information about the selected disk.", "Do not rely on the disk order in the list to select a disk."],
+      "input": "disk",
+      "keys": [
+        { "key": "Up", "label": "Up" },
+        { "key": "Down", "label": "Down" },
+        { "key": "F1", "label": "Details", "action": "disk-details" },
+        { "key": "Enter", "label": "Continue", "action": "select-disk", "next": "keyboard" }
+      ],
+      "specRef": "26-esx-install §4.1 I-6, §5.1 [E4]"
+    },
+    {
+      "id": "select-osdata",
+      "title": "Select a Disk to store ESX OSData",
+      "body": ["select a persistent storage device with minimum 32 GB of available space."],
+      "input": "disk",
+      "keys": [
+        { "key": "Up", "label": "Up" },
+        { "key": "Down", "label": "Down" },
+        { "key": "Enter", "label": "Continue", "action": "select-osdata", "next": "keyboard" }
+      ],
+      "specRef": "26-esx-install §4.1 I-6c [E4]"
+    },
+    {
+      "id": "keyboard",
+      "title": "Keyboard type",
+      "body": ["You can change the keyboard type after installation in the direct console."],
+      "input": "keyboard",
+      "keys": [
+        { "key": "Up", "label": "Up" },
+        { "key": "Down", "label": "Down" },
+        { "key": "Enter", "label": "Continue", "action": "set-keyboard", "next": "root-password" }
+      ],
+      "specRef": "26-esx-install §4.1 I-7, §3.3 [E4][E10]",
+      "simplified": true
+    },
+    {
+      "id": "root-password",
+      "title": "Root password",
+      "body": ["You can change the password after installation in the direct console."],
+      "input": "password",
+      "keys": [{ "key": "Enter", "label": "Continue", "action": "set-password", "next": "confirm-install" }],
+      "specRef": "26-esx-install §4.1 I-8, §3.4 [E4][E12]",
+      "simplified": true
+    },
+    {
+      "id": "confirm-install",
+      "title": "Confirm Install",
+      "body": ["Press F11 to confirm the start of the installation."],
+      "keys": [{ "key": "F11", "label": "Install", "action": "install", "next": "installing" }],
+      "specRef": "26-esx-install §4.1 I-10 [E4][E30]"
+    },
+    {
+      "id": "installing",
+      "title": "Installing ESX",
+      "keys": [],
+      "specRef": "26-esx-install §4.1 I-11 [E4]",
+      "simplified": true
+    },
+    {
+      "id": "complete",
+      "title": "Installation Complete",
+      "body": ["When the installation is complete, remove the installation CD, DVD, or USB flash drive.", "Press Enter to reboot the host."],
+      "keys": [{ "key": "Enter", "label": "Reboot", "action": "reboot", "next": "dcui-home" }],
+      "specRef": "26-esx-install §4.1 I-12a [E4][E30]"
+    },
+    {
+      "id": "operation-failed",
+      "title": "Operation Failed",
+      "keys": [{ "key": "Enter", "label": "Back", "next": "confirm-install" }],
+      "specRef": "26-esx-install §4.1 I-12b [E4]",
+      "simplified": true
+    }
+  ],
+  "dcui": [
+    {
+      "id": "dcui-home",
+      "title": "Direct Console",
+      "body": ["The assigned IP address appears on the direct console."],
+      "keys": [{ "key": "F2", "label": "Customize System", "next": "dcui-login" }],
+      "specRef": "26-esx-install §4.2, §4.3 D-1 [E28][E31]",
+      "simplified": true
+    },
+    {
+      "id": "dcui-login",
+      "title": "Log in (root)",
+      "input": "password",
+      "keys": [
+        { "key": "Enter", "label": "OK", "action": "login", "next": "dcui-menu" },
+        { "key": "Esc", "label": "Cancel", "next": "dcui-home" }
+      ],
+      "specRef": "26-esx-install §4.3 D-2 [E31]",
+      "simplified": true
+    },
+    {
+      "id": "dcui-menu",
+      "title": "System Customization",
+      "menu": [
+        { "label": "Configure Password", "next": "dcui-password" },
+        { "label": "Configure Keyboard", "next": "dcui-keyboard" },
+        { "label": "Configure Management Network", "next": "dcui-mgmt", "action": "mgmt-begin" },
+        { "label": "Restart Management Network", "next": "dcui-restart" },
+        { "label": "Test Management Network", "next": "dcui-test" }
+      ],
+      "keys": [
+        { "key": "Up", "label": "Up" },
+        { "key": "Down", "label": "Down" },
+        { "key": "Enter", "label": "Select", "action": "menu-enter" },
+        { "key": "Esc", "label": "Log Out", "action": "logout", "next": "dcui-home" }
+      ],
+      "specRef": "26-esx-install §4.3 D-1 [E29][E31]"
+    },
+    {
+      "id": "dcui-password",
+      "title": "Configure Password",
+      "input": "password",
+      "keys": [
+        { "key": "Enter", "label": "OK", "action": "change-password", "next": "dcui-menu" },
+        { "key": "Esc", "label": "Cancel", "next": "dcui-menu" }
+      ],
+      "specRef": "26-esx-install §4.3 D-3, §3.4 [E20][E12]"
+    },
+    {
+      "id": "dcui-keyboard",
+      "title": "Configure Keyboard",
+      "input": "keyboard",
+      "keys": [
+        { "key": "Up", "label": "Up" },
+        { "key": "Down", "label": "Down" },
+        { "key": "Enter", "label": "OK", "action": "set-keyboard", "next": "dcui-menu" },
+        { "key": "Esc", "label": "Cancel", "next": "dcui-menu" }
+      ],
+      "specRef": "26-esx-install §4.3 D-4 [E19]"
+    },
+    {
+      "id": "dcui-mgmt",
+      "title": "Configure Management Network",
+      "menu": [
+        { "label": "Network Adapters", "next": "dcui-adapters" },
+        { "label": "VLAN (Optional)", "next": "dcui-vlan" },
+        { "label": "IPv4 Configuration", "next": "dcui-ipv4" },
+        { "label": "DNS Configuration", "next": "dcui-dns" },
+        { "label": "Custom DNS Suffixes", "next": "dcui-suffixes" }
+      ],
+      "keys": [
+        { "key": "Up", "label": "Up" },
+        { "key": "Down", "label": "Down" },
+        { "key": "Enter", "label": "Select", "action": "menu-enter" },
+        { "key": "Esc", "label": "Exit", "action": "mgmt-exit", "next": "dcui-confirm" }
+      ],
+      "specRef": "26-esx-install §4.3 D-5 [E21][E31]"
+    },
+    {
+      "id": "dcui-adapters",
+      "title": "Network Adapters",
+      "input": "form",
+      "fields": [{ "id": "vmnics", "label": "vmnic (comma separated)" }],
+      "keys": [
+        { "key": "Enter", "label": "OK", "action": "save-form", "next": "dcui-mgmt" },
+        { "key": "Esc", "label": "Cancel", "next": "dcui-mgmt" }
+      ],
+      "specRef": "26-esx-install §4.3 D-5a [E21]"
+    },
+    {
+      "id": "dcui-vlan",
+      "title": "VLAN (Optional)",
+      "body": ["from 1 through 4094"],
+      "input": "form",
+      "fields": [{ "id": "vlan", "label": "VLAN ID", "optional": true }],
+      "keys": [
+        { "key": "Enter", "label": "OK", "action": "save-form", "next": "dcui-mgmt" },
+        { "key": "Esc", "label": "Cancel", "next": "dcui-mgmt" }
+      ],
+      "specRef": "26-esx-install §4.3 D-5b [E22][E31]"
+    },
+    {
+      "id": "dcui-ipv4",
+      "title": "IPv4 Configuration",
+      "body": ["Set static IPv4 address and network configuration"],
+      "input": "form",
+      "fields": [
+        { "id": "ip", "label": "IPv4 Address" },
+        { "id": "mask", "label": "Subnet Mask" },
+        { "id": "gw", "label": "Default Gateway" }
+      ],
+      "keys": [
+        { "key": "Space", "label": "Select" },
+        { "key": "Enter", "label": "OK", "action": "save-form", "next": "dcui-mgmt" },
+        { "key": "Esc", "label": "Cancel", "next": "dcui-mgmt" }
+      ],
+      "specRef": "26-esx-install §4.3 D-5c [E23][E31]"
+    },
+    {
+      "id": "dcui-dns",
+      "title": "DNS Configuration",
+      "body": ["Use the following DNS Server address and hostname"],
+      "input": "form",
+      "fields": [
+        { "id": "dns1", "label": "Primary DNS Server" },
+        { "id": "dns2", "label": "Alternate DNS Server", "optional": true },
+        { "id": "hostname", "label": "Hostname (FQDN)" }
+      ],
+      "keys": [
+        { "key": "Space", "label": "Select" },
+        { "key": "Enter", "label": "OK", "action": "save-form", "next": "dcui-mgmt" },
+        { "key": "Esc", "label": "Cancel", "next": "dcui-mgmt" }
+      ],
+      "specRef": "26-esx-install §4.3 D-5e [E24][E31]"
+    },
+    {
+      "id": "dcui-suffixes",
+      "title": "Custom DNS Suffixes",
+      "body": ["By default, DHCP acquires the DNS suffixes."],
+      "input": "form",
+      "fields": [{ "id": "suffixes", "label": "Suffixes", "optional": true }],
+      "keys": [
+        { "key": "Enter", "label": "OK", "action": "save-form", "next": "dcui-mgmt" },
+        { "key": "Esc", "label": "Cancel", "next": "dcui-mgmt" }
+      ],
+      "specRef": "26-esx-install §4.3 D-5f [E25][E31]"
+    },
+    {
+      "id": "dcui-confirm",
+      "title": "Configure Management Network: Confirm",
+      "body": ["Press Escape to exit and press Y to confirm the changes."],
+      "keys": [
+        { "key": "Y", "label": "Yes", "action": "apply-mgmt", "next": "dcui-menu" },
+        { "key": "N", "label": "No", "action": "discard-mgmt", "next": "dcui-menu" },
+        { "key": "Esc", "label": "Cancel", "next": "dcui-mgmt" }
+      ],
+      "specRef": "26-esx-install §4.3 D-6 [E31]",
+      "simplified": true
+    },
+    {
+      "id": "dcui-restart",
+      "title": "Restart Management Network",
+      "body": ["Press F11 to confirm the restart."],
+      "keys": [
+        { "key": "F11", "label": "Restart", "action": "restart-network", "next": "dcui-menu" },
+        { "key": "Esc", "label": "Cancel", "next": "dcui-menu" }
+      ],
+      "specRef": "26-esx-install §4.3 D-7, §5.4 [E26]"
+    },
+    {
+      "id": "dcui-test",
+      "title": "Test Management Network",
+      "body": ["Press Enter to start the test."],
+      "keys": [
+        { "key": "Enter", "label": "OK", "action": "test-network", "next": "dcui-menu" },
+        { "key": "Esc", "label": "Cancel", "next": "dcui-menu" }
+      ],
+      "specRef": "26-esx-install §4.3 D-8 [E27]"
+    }
+  ],
+  "keyboardLayouts": ["U.S. English"]
+}

@@ -55,8 +55,8 @@ export const DIFFICULTY_LABEL_CS: Readonly<Record<Difficulty, string>> = {
 };
 
 /** Spec files a mission may cite (docs/spec/<file>.md). */
-export type SpecFile = '00-architektura' | '10-planning' | '20-deployment';
-export const SPEC_FILES: readonly SpecFile[] = ['00-architektura', '10-planning', '20-deployment'];
+export type SpecFile = '00-architektura' | '06-blueprints' | '10-planning' | '15-hardware' | '20-deployment' | '25-usecases-and-physical' | '26-esx-install';
+export const SPEC_FILES: readonly SpecFile[] = ['00-architektura', '06-blueprints', '10-planning', '15-hardware', '20-deployment', '25-usecases-and-physical', '26-esx-install'];
 
 /** Reference into the spec: file + numbered section ("§4.1.5") + source ids ("S6"). */
 export interface SpecRef {

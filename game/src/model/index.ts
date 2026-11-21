@@ -10,9 +10,11 @@ export * from './hardware';
 // via `server.fs.allow: ['..']` (vite.config.ts). Importing the barrel therefore loads the dataset (~360 kB JSON).
 export * from './bcgDataset';
 export * from './hardwareCatalog';
+export * from './serverRackUnits';
 export * from './physical';
 export * from './sites';
 export * from './roomLayout';
 export * from './roomFixtures';
 export * from './hardwareDesign';
 export * from './rackAwareness';
+export * from './deployedInventory';

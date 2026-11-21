@@ -18,12 +18,16 @@ import type { ValidationIssue } from '../../model';
 import { button, h } from '../dom';
 import { chip, message, type MessageType } from '../messages';
 import { icon, MESSAGE_ICON } from '../icons';
-import { elevationRacks, linkTrafficOf } from './roomSync';
+import { bmcTransfersOf, elevationRacks, linkTrafficOf } from './roomSync';
+import { createNicSlotPopover } from './nicSlotPopover';
+import type { Rect } from './layoutZones';
 import { CABLE_COLORS, isCableColorId, portKeyId, type CableColorId, type PortKey, type RoomCable, type RoomDevice, type RoomPort, type RoomState } from './sessionPort';
 
-const TOP_H = 52;
+const TOP_H = 48;
 const BAR_H = 44;
-const BOTTOM_H = 168;
+const BOTTOM_H = 40;
+/** 1 U = 18 px (1366×768) / 22 px (1920×1080) – UX 19.3. */
+const uPxFor = (w: number, h: number): number => (w >= 1680 && h >= 960 ? 22 : 18);
 
 export function issueMessageType(i: ValidationIssue): MessageType {
   if (i.scope === 'game-scope') return 'game-limit';
@@ -58,6 +62,10 @@ export interface RackPanelOptions {
   readonly onOpenHost?: (serverId: string) => void;
   /** Extra toolbar items (undo / redo, DNS…), owned by the caller. */
   readonly toolbarExtra?: readonly HTMLElement[];
+  /** Width of the right detail panel (the rack centres in the rest). */
+  readonly rightInset?: () => number;
+  /** Zone obstacles for popovers. */
+  readonly obstacles?: () => readonly Rect[];
 }
 
 export interface RackPanel {
@@ -91,45 +99,53 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
   let suppressClick = false;
   let armed: string | null = null;
   let showTraffic = true;
+  let showCables = true;
   let showList = false;
+  let showProblems = false;
+  let nicPop: HTMLElement | null = null;
 
   // ------------------------------------------------------------- DOM
   const title = h('strong', null, '');
   const subtitle = h('span', { class: 'muted' }, '');
   const trafficToggle = h('input', { type: 'checkbox', id: 'rack-traffic' });
   trafficToggle.checked = true;
+  const cablesToggle = h('input', { type: 'checkbox', id: 'rack-cables' });
+  cablesToggle.checked = true;
   const listBtn = button('Seznam zapojení (S)', () => toggleList(), { class: 'btn btn-small', 'aria-expanded': 'false', 'aria-controls': 'rack-list' });
   const otherRacks = h('span', { class: 'rack-others' });
   const bar = h('div', { class: 'rack-bar', role: 'toolbar', 'aria-label': 'Pohled racku' },
     button('← Místnost', () => o.onBack(), { class: 'btn btn-small', title: 'Zpět (Esc)' }),
     h('div', { class: 'rack-title' }, title, ' ', subtitle),
-    otherRacks,
+    h('label', { class: 'inv-check', for: 'rack-cables' }, cablesToggle, ' kabely'),
     h('label', { class: 'inv-check', for: 'rack-traffic' }, trafficToggle, ' provoz'),
-    listBtn,
     ...(o.toolbarExtra ?? []),
+    listBtn,
+    otherRacks,
   );
   const deviceLayer = h('div', { class: 'rack-devbtns', 'aria-label': 'Zařízení v racku' });
+  const slotLayer = h('div', { class: 'rack-slots', 'aria-label': 'Volné sloty a pozice' });
   const portLayer = h('div', { class: 'rack-ports', 'aria-label': 'Porty zařízení' });
   const badgeLayer = h('div', { class: 'rack-badges' });
   const popover = h('div', { class: 'cable-pop', role: 'dialog', 'aria-label': 'Kabel', hidden: true });
   const list = h('div', { class: 'rack-list', id: 'rack-list', hidden: true, role: 'region', 'aria-label': 'Seznam zapojení' });
-  const problems = h('div', { class: 'rack-problems', role: 'region', 'aria-label': 'Problémy' });
+  const problems = h('div', { class: 'rack-problems', role: 'region', 'aria-label': 'Problémy', hidden: true });
+  const problemsBtn = button('', () => toggleProblems(), { class: 'rack-prob-btn', 'aria-expanded': 'false', 'aria-controls': 'rack-problems' });
+  problems.id = 'rack-problems';
   const mountBox = h('div', { class: 'rack-mount' });
-  const hint = h('p', { class: 'rack-hint' }, '');
-  const bottom = h('footer', { class: 'rack-bottom', 'aria-label': 'Kabely' },
-    h('div', { class: 'rack-bottom-col' }, h('strong', null, 'Kabely'), ' ', chip('zdarma – herní zjednodušení', 'badge-generic'), hint, mountBox),
-    problems,
+  const hint = h('span', { class: 'rack-hint' }, '');
+  const bottom = h('footer', { class: 'rack-bottom v3', 'aria-label': 'Kabely a problémy' },
+    problemsBtn, mountBox, hint, chip('kabely zdarma · herní', 'badge-generic', 'Kabely jsou v Sandboxu zdarma – herní zjednodušení'),
   );
-  const root = h('div', { class: 'rack-ui' }, deviceLayer, portLayer, badgeLayer, bar, list, popover, bottom);
+  const root = h('div', { class: 'rack-ui' }, deviceLayer, portLayer, slotLayer, badgeLayer, bar, list, popover, problems, bottom);
   ui.appendChild(root);
 
   // ------------------------------------------------------------- camera
-  const area = (): { w: number; h: number } => ({ w: canvas.clientWidth, h: canvas.clientHeight - TOP_H - BAR_H - BOTTOM_H });
+  const area = (): { w: number; h: number } => ({ w: canvas.clientWidth - (o.rightInset?.() ?? 0), h: canvas.clientHeight - TOP_H - BAR_H - BOTTOM_H });
   const fit = (): Camera => {
     const L = view.layout;
     const a = area();
     const cam = fitRect({ x: 0, y: 0, width: L.width, height: L.height }, Math.max(200, a.w), Math.max(150, a.h), 8);
-    const scale = Math.min(cam.scale, 2.2);
+    const scale = Math.min(cam.scale, 1.6);
     return { x: (a.w - L.width * scale) / 2, y: TOP_H + BAR_H + Math.max(0, (a.h - L.height * scale) / 2), scale };
   };
   let cam: Camera = { x: 0, y: 0, scale: 1 };
@@ -180,10 +196,11 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
       linkUp: c.linkUp,
       bmc: c.bmc,
     }));
-    const devState = new Map(state.devices.map((d) => [d.id, { esxInstalled: d.esxInstalled, ...(state.companyNetwork?.switchId === d.id ? { companyUplinkPort: state.companyNetwork.port } : {}) }]));
+    const devState = new Map(state.devices.map((d) => [d.id, { esxInstalled: d.esxInstalled, ...(d.status === 'installing' ? { installing: true } : {}), ...(state.companyNetwork?.switchId === d.id ? { companyUplinkPort: state.companyNetwork.port } : {}) }]));
     const before = view.layout;
-    view.setData(racks, cables, devState);
+    view.setData(racks, showCables ? cables : [], devState, uPxFor(innerWidth, innerHeight));
     view.setTraffic(linkTrafficOf(state), showTraffic);
+    view.setBmcTraffic(bmcTransfersOf(state));
     if (before !== view.layout && (before.width !== view.layout.width || before.height !== view.layout.height || !controls)) {
       const c = fit();
       if (controls) controls.set(c);
@@ -191,14 +208,17 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
     }
     const rack = state.racks.find((r) => r.id === o.rackId)!;
     const inRack = state.devices.filter((d) => d.mount?.rackId === o.rackId);
+    const nSrv = inRack.filter((d) => d.kind === 'server').length;
+    const nTor = inRack.filter((d) => d.kind === 'switch').length;
     title.textContent = `Rack ${rack.label}`;
-    subtitle.textContent = `· ${inRack.filter((d) => d.kind === 'server').length} serverů · ${inRack.filter((d) => d.kind === 'switch').length} switchů`;
+    subtitle.textContent = `· ${rack.heightU}U · ${nSrv} ${nSrv === 1 ? 'server' : nSrv >= 2 && nSrv <= 4 ? 'servery' : 'serverů'} · ${nTor} ${nTor === 1 ? 'ToR' : 'switche'}`;
     otherRacks.replaceChildren(
       ...state.racks.filter((r) => r.tile && r.id !== o.rackId).map((r) => button(`${r.label} ▶`, () => o.onOpenRack(r.id), { class: 'btn btn-small', title: `Otevřít rack ${r.label}` })),
     );
     if (selectedCable && !state.cables.some((c) => c.id === selectedCable)) selectCable(null);
     renderPorts();
     renderDeviceButtons();
+    renderSlots();
     renderBadges();
     renderProblems();
     renderMount();
@@ -392,10 +412,20 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
     }
   }
 
+  function toggleProblems(force?: boolean): void {
+    showProblems = force ?? !showProblems;
+    problems.hidden = !showProblems;
+    problemsBtn.setAttribute('aria-expanded', String(showProblems));
+    renderProblems();
+  }
+
   function renderProblems(): void {
     const inView = new Set(view.layout.devices.keys());
     const iss = state.issues.filter((i) => i.subject && inView.has(i.subject));
-    problems.replaceChildren(h('strong', null, `Problémy (${iss.length})`));
+    const bad = iss.filter((i) => issueMessageType(i) === 'vcf-error').length;
+    problemsBtn.replaceChildren(iss.length ? `Problémy: ${iss.length} ${bad ? '⚠' : '△'} ${showProblems ? '▾' : '▸'}` : '✓ Problémy: 0');
+    problemsBtn.classList.toggle('has-bad', bad > 0);
+    problems.replaceChildren(h('div', { class: 'pop-head' }, h('strong', null, `Problémy (${iss.length})`), button('×', () => toggleProblems(false), { class: 'btn btn-small', 'aria-label': 'Zavřít' })));
     if (!iss.length) {
       problems.append(h('p', { class: 'ok-line' }, state.cables.length ? '✓ Vše v pořádku' : 'Zatím nic – zapoj servery do switche.'));
       return;
@@ -407,7 +437,7 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
         title: `${deviceOf(i.subject!)?.label ?? i.subject}: ${issueTitle(i)}`,
         body: i.message,
         bodyLang: 'en',
-        reference: `${i.specRef} · ${i.code}`,
+        ...(i.specRef ? { source: { specRef: i.specRef, rule: i.code } } : { reference: i.code }),
       });
       box.tabIndex = -1;
       box.dataset['subject'] = i.subject!;
@@ -420,7 +450,7 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
     const devs = state.inventory.filter((e) => e.kind !== 'rack');
     mountBox.replaceChildren();
     if (!devs.length) return;
-    mountBox.append(h('span', { class: 'muted' }, 'Do racku: '));
+    mountBox.append(h('span', { class: 'muted' }, 'Nezaracováno: '));
     for (const e of devs) {
       const on = armed === e.id;
       mountBox.append(
@@ -526,8 +556,63 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
     hint.textContent = pending
       ? `Kabel visí z ${portLabel(state, parsePortId(pending.from))} – klikni na zvýrazněný port (Esc = zrušit).`
       : armed
-        ? 'Klikni na volnou pozici (U) v racku, kam server / switch zasuneš.'
-        : 'Táhni z portu na port, nebo klikni na port a pak na cíl. Klik na kabel = detail.';
+        ? 'Klikni na volnou pozici (U) v racku, kam server zasuneš.'
+        : 'Táhni z portu serveru do ToR. Klik na kabel = detail.';
+  }
+
+  // ------------------------------------------------------------- NIC slots "[+]" + reserved ToR-B (UX 19.4 / 19.5)
+  function renderSlots(): void {
+    slotLayer.replaceChildren();
+    for (const sl of view.layout.slots.values()) {
+      const dev = deviceOf(sl.deviceId);
+      const b = button('', () => openNicSlot(sl.deviceId, sl.slot, b), {
+        class: 'slot-btn',
+        'data-slot': sl.id,
+        'aria-label': `Volný NIC slot ${sl.slot}, ${dev?.label ?? sl.deviceId}`,
+        title: `Volný NIC slot ${sl.slot} – přidat síťovou kartu (počet slotů je herní hodnota)`,
+      });
+      slotLayer.appendChild(b);
+    }
+    for (const c of view.layout.columns) {
+      if (!c.rows.some((r) => r.kind === 'reserved')) continue;
+      const rid = c.rackId;
+      slotLayer.appendChild(button('', () => {
+        if (!port.addSecondTor) return o.announce('Druhý ToR zatím engine nepodporuje.', true);
+        const r = port.addSecondTor(rid);
+        o.announce(r.ok ? `Druhý ToR switch přidán do racku ${rid}.` : `Nelze: ${r.message}`, !r.ok);
+      }, { class: 'slot-btn reserved-btn', 'data-reserved': rid, 'aria-label': `Přidat druhý ToR switch do racku ${rid} (doporučeno)`, title: 'Přidat druhý ToR (doporučení: dva ToR switche na rack) – generický, herní cena' }));
+    }
+  }
+
+  function closeNicPop(): void {
+    nicPop?.remove();
+    nicPop = null;
+  }
+
+  function openNicSlot(serverId: string, slot: number, anchorEl: HTMLElement): void {
+    closeNicPop();
+    const dev = deviceOf(serverId);
+    const r = anchorEl.getBoundingClientRect();
+    const bcgUrl = state.catalog.servers.find((x) => x.id === dev?.catalogItemId)?.bcgUrl;
+    nicPop = createNicSlotPopover({
+      serverLabel: dev?.label ?? serverId,
+      modelLabel: dev?.modelLabel ?? '',
+      slot,
+      choices: port.nicChoices?.(serverId),
+      ...(bcgUrl ? { bcgUrl } : {}),
+      anchor: { x: r.left, y: r.top, w: r.width, h: r.height },
+      obstacles: o.obstacles?.() ?? [],
+      onAdd: (partId) => {
+        if (!port.addNic) return { ok: false, message: 'Přidávání karet zatím engine nepodporuje.' };
+        const res = port.addNic(serverId, slot, partId);
+        o.announce(res.ok ? `Karta přidána do slotu ${slot} (${dev?.label ?? serverId}).` : `Nelze: ${res.message}`, !res.ok);
+        return res;
+      },
+      onClose: () => {
+        closeNicPop();
+        anchorEl.focus({ preventScroll: true });
+      },
+    });
   }
 
   // ------------------------------------------------------------- layout of DOM over the canvas
@@ -552,6 +637,23 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
       el.style.width = `${w * s}px`;
       el.style.height = `${Math.max(12, (d.h - 2) * s)}px`;
     }
+    for (const b of slotLayer.children) {
+      const el = b as HTMLElement;
+      const sl = el.dataset['slot'] ? view.layout.slots.get(el.dataset['slot']) : undefined;
+      const rid = el.dataset['reserved'];
+      if (sl) {
+        el.style.transform = `translate(${cam.x + sl.x * s}px, ${cam.y + sl.y * s}px)`;
+        el.style.width = `${Math.max(14, sl.w * s)}px`;
+        el.style.height = `${Math.max(14, sl.h * s)}px`;
+      } else if (rid) {
+        const col = view.layout.columns.find((c) => c.rackId === rid);
+        const row = col?.rows.find((r) => r.kind === 'reserved');
+        if (!col || !row) continue;
+        el.style.transform = `translate(${cam.x + (col.innerX + 3) * s}px, ${cam.y + (row.y + 2) * s}px)`;
+        el.style.width = `${(col.innerW - 6) * s}px`;
+        el.style.height = `${Math.max(14, (row.h - 4) * s)}px`;
+      }
+    }
     for (const b of badgeLayer.children) {
       const id = (b as HTMLElement).dataset['device'];
       const d = id ? view.layout.devices.get(id) : undefined;
@@ -563,6 +665,7 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
       const mid = c[Math.floor(c.length / 2)]!;
       const x = Math.min(canvas.clientWidth - 330, Math.max(8, cam.x + mid.x * s + 16));
       const y = Math.min(canvas.clientHeight - BOTTOM_H - 200, Math.max(TOP_H + BAR_H + 8, cam.y + mid.y * s - 40));
+      void y;
       popover.style.transform = `translate(${x}px, ${y}px)`;
     }
   }
@@ -600,6 +703,10 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
     showTraffic = trafficToggle.checked;
     view.setTraffic(linkTrafficOf(state), showTraffic);
   });
+  cablesToggle.addEventListener('change', () => {
+    showCables = cablesToggle.checked;
+    sync();
+  });
   const onKey = (e: KeyboardEvent): void => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const t = e.target;
@@ -619,6 +726,14 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
 
   return {
     escape() {
+      if (nicPop) {
+        closeNicPop();
+        return true;
+      }
+      if (showProblems) {
+        toggleProblems(false);
+        return true;
+      }
       if (pending) {
         cancelPending();
         return true;
@@ -644,6 +759,7 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
     },
     dispose() {
       off();
+      closeNicPop();
       window.removeEventListener('pointermove', onWinMove);
       window.removeEventListener('pointerup', onWinUp);
       window.removeEventListener('keydown', onKey);

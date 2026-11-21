@@ -24,6 +24,8 @@ interface SnapshotLike {
   readonly physical?: PhysicalView;
   readonly flows?: FlowsView;
   readonly objectives?: ObjectivesView;
+  /** Career layer (CareerSession snapshot merged by sessionPort). */
+  readonly career?: { readonly budget: { readonly total: number; readonly spent: number }; readonly score: { readonly points: number } };
 }
 
 const STATUS: Readonly<Record<EngineObjective['state'], ObjectiveStatus | null>> = {
@@ -51,9 +53,34 @@ export function objectivesOf(v: ObjectivesView | undefined): { items: ObjectiveV
         ...(o.progress ? { progress: { done: o.progress.current, total: o.progress.target } } : {}),
         ...(o.why ? { specRef: o.why.specRef, docUrl: o.why.url } : {}),
         ...(o.showMe ? { showMe: o.showMe } : {}),
+        ...v3Objective(o),
       });
     }
   return { items, hidden: v.hidden, ...(v.next ? { nextId: v.next.id } : {}) };
+}
+
+/** v3 fields of an engine objective (UX 26.1): bubble (anchor resolved by the engine), points, bonus. */
+function v3Objective(o: EngineObjective): Pick<ObjectiveView, 'bubble' | 'points' | 'bonus'> {
+  const b = o.bubble;
+  let anchor = 'avatar';
+  if (b) {
+    const a = b.anchor;
+    anchor = a.kind === 'avatar' ? 'avatar' : a.kind === 'ui' ? `ui:${a.id}` : a.id !== undefined ? `object:${a.objectKind}:${a.id}` : a.raw;
+  }
+  return {
+    ...(b ? { bubble: { text: b.text, anchor, sourceKeys: b.sources.map((x) => x.key) } } : {}),
+    ...(o.points !== undefined ? { points: o.points } : {}),
+    ...(o.bonus === true ? { bonus: true } : {}),
+  };
+}
+
+/** Server NIC slots (engine nicSlots.ts, UX 19.4). */
+function nicSlotsOf(v: PhysicalView['servers'][number]): RoomDevice['nicSlots'] {
+  if (!Array.isArray(v.nicSlots)) return undefined;
+  return v.nicSlots.map((x) => ({
+    slot: x.slot,
+    ...(x.partId ? { nic: { partId: x.partId, label: x.label ?? x.partId, ports: x.ports ?? 0, speedsGbE: x.speedsGbE ?? [] } } : {}),
+  }));
 }
 
 export function catalogOf(p: PhysicalView): ShopCatalog {
@@ -89,6 +116,10 @@ export function catalogOf(p: PhysicalView): ShopCatalog {
           certified91: it.certified91,
           bcgUrl: it.bcgUrl,
           price: it.price,
+          starterStatus: it.expectedStatus,
+          ...(it.note ? { note: it.note } : {}),
+          rackUnitsGameDefault: it.rackUnitsGameDefault,
+          ...(it.rackUnitsUrl ? { rackUnitsUrl: it.rackUnitsUrl } : {}),
         });
         break;
       }
@@ -108,7 +139,14 @@ export function catalogOf(p: PhysicalView): ShopCatalog {
         break;
     }
   }
-  return { servers, switches, racks, drives, nics, datasetFetchedAt: p.catalog.datasetFetchedAt, datasetRelease: p.catalog.datasetRelease };
+  const shelves = p.catalog.serversByVendor?.map((sh) => ({ vendor: sh.vendor, items: sh.items.map((x) => x.id), traps: sh.traps.map((x) => x.id) }));
+  return { servers, switches, racks, drives, nics, datasetFetchedAt: p.catalog.datasetFetchedAt, datasetRelease: p.catalog.datasetRelease, ...(shelves ? { shelves } : {}) };
+}
+
+/** Pre-installed ToR of a rack (engine tor.ts: SwitchView.preinstalledTor.position 'a' | 'b'). */
+function torLabel(w: PhysicalView['switches'][number]): string | undefined {
+  const t = w.preinstalledTor;
+  return t ? (t.position === 'b' ? 'ToR-B' : 'ToR-A') : undefined;
 }
 
 export function roomStateFromSnapshot(raw: unknown): RoomState | null {
@@ -129,12 +167,15 @@ export function roomStateFromSnapshot(raw: unknown): RoomState | null {
       bmc: { label: v.bmc.label },
       switchPorts: 0,
       esxInstalled: v.status === 'esx-dhcp' || v.status === 'esx-static',
+      status: v.status,
+      ...(nicSlotsOf(v) ? { nicSlots: nicSlotsOf(v)! } : {}),
     })),
     ...p.switches.map((w): RoomDevice => ({
       id: w.id,
       kind: 'switch',
       // pre-installed wall-mounted OOB switch of the Sandbox (game scope, modes/sandbox/oob.ts)
-      label: w.preinstalledOob ? `${w.id} (OOB, předinstalovaný)` : w.id,
+      label: w.preinstalledOob ? `${w.id} (OOB, předinstalovaný)` : torLabel(w) ?? w.id,
+      ...(w.preinstalledOob ? { role: 'oob' as const, preinstalled: true } : torLabel(w) ? { role: 'tor' as const, preinstalled: true } : {}),
       catalogItemId: w.modelId,
       modelLabel: w.label,
       heightU: w.rackUnits,
@@ -178,8 +219,17 @@ export function roomStateFromSnapshot(raw: unknown): RoomState | null {
     objectives: obj.items,
     ...(obj.nextId ? { nextObjectiveId: obj.nextId } : {}),
     objectivesHidden: obj.hidden,
-    spent: p.economy.spent,
+    spent: s.career ? s.career.budget.spent : p.economy.spent,
+    ...(s.career ? { budget: s.career.budget.total, points: s.career.score.points } : {}),
     undo: p.undo,
+    ...torReservationsOf(p),
     ...(p.companyNetwork ? { companyNetwork: { switchId: p.companyNetwork.switchId, port: p.companyNetwork.port } } : {}),
   };
+}
+
+/** Reserved U for ToR-B per rack (engine E1, read defensively: rack view `reservedU` / `torReservedU`). */
+function torReservationsOf(p: PhysicalView): Pick<RoomState, 'torReservations'> {
+  const out: Record<string, number> = {};
+  for (const r of p.racks) if (r.tor?.reservedU !== undefined && !r.tor.b) out[r.id] = r.tor.reservedU;
+  return Object.keys(out).length ? { torReservations: out } : {};
 }

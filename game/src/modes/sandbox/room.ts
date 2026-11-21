@@ -61,6 +61,8 @@ import { netContextOf } from './roomNet';
 import { isOobSwitch, syncOob } from './oob';
 import { isAzRole } from './site';
 import { checkRackPlacement, facingOfTile, isFacing, occupiesSlot, tileWithFacing } from './rackLayout';
+import { DEFAULT_TOR_MODEL_ID, isTorModel, provisionTor, reservedTorU, torBPosition, torSwitchId } from './tor';
+import { cardsToNics, certifiedNicParts, nicCards, nicSlotCount } from './nicSlots';
 import { type SandboxContext, Tx, flow, invalid, no, ok } from './tx';
 import type { CableEndInput, CommandResult, RoomTile, SandboxCommand, SandboxRoomState, SandboxState, SwitchPortInput } from './types';
 
@@ -112,6 +114,9 @@ const ROOM_TYPES = [
   'moveRackToRoom',
   'rotateRack',
   'assignRoomRole',
+  'addTor',
+  'addNic',
+  'removeNic',
 ] as const;
 type RoomType = (typeof ROOM_TYPES)[number];
 export type RoomCommand = Extract<SandboxCommand, { type: RoomType }> | PhysicalInstallCommand;
@@ -138,6 +143,9 @@ const UNDOABLE: ReadonlySet<string> = new Set([
   'moveRackToRoom',
   'rotateRack',
   'assignRoomRole',
+  'addTor',
+  'addNic',
+  'removeNic',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -400,6 +408,7 @@ function applyRoomInner(tx: Tx, cmd: RoomCommand, ctx: SandboxContext): CommandR
       if (!Number.isInteger(t.gx) || !Number.isInteger(t.gy) || t.gx < 0 || t.gy < 0) return no(flow('invalid-input', 'Dlaždice musí mít nezáporné celé souřadnice.'));
       if (cmd.facing !== undefined && !isFacing(cmd.facing)) return no(flow('invalid-input', `Neznámá orientace racku ${String(cmd.facing)}.`));
       if (t.rotation !== undefined && ![0, 90, 180, 270].includes(t.rotation)) return no(flow('invalid-input', `Neplatné otočení racku ${String(t.rotation)}.`));
+      if (cmd.torModelId !== undefined && !isTorModel(catalog, cmd.torModelId)) return no(flow('unknown-item', `Switch ${cmd.torModelId} není model ToR v katalogu.`));
       let next = room;
       let id = cmd.inventoryId ?? cmd.rackId;
       const created: string[] = [];
@@ -427,7 +436,15 @@ function applyRoomInner(tx: Tx, cmd: RoomCommand, ctx: SandboxContext): CommandR
       const target = roomOfRack(next.physical, id) ?? '';
       const bad = placementProblem(next, id, target, t, facing);
       if (bad) return no(bad);
-      setRoom(tx, { ...next, rackTiles: { ...next.rackTiles, [id]: tileWithFacing(t.gx, t.gy, facing) } }, undoable);
+      let placed: SandboxRoomState = { ...next, rackTiles: { ...next.rackTiles, [id]: tileWithFacing(t.gx, t.gy, facing) } };
+      // [GAME] pre-installed ToR-A in the top U on the first placement (tor.ts, UX 19.5)
+      if (s.autoTor && !room.rackTiles[id] && !placed.preinstalledTors?.[id]) {
+        const r = provisionTor(placed, catalog, id, cmd.torModelId ?? DEFAULT_TOR_MODEL_ID);
+        if (typeof r === 'string') return no(flow('invalid-input', r));
+        placed = r;
+        created.push(r.preinstalledTors![id]!.a!);
+      }
+      setRoom(tx, placed, undoable);
       return { ok: true, warnings: [], created };
     }
     case 'rotateRack': {
@@ -476,7 +493,18 @@ function applyRoomInner(tx: Tx, cmd: RoomCommand, ctx: SandboxContext): CommandR
       } else if (!byId(p.switches, id)) return no(flow('unknown-device', `Zařízení ${id} neexistuje.`));
       if (!byId(p.racks, cmd.rackId)) return no(flow('unknown-rack', `Rack ${cmd.rackId} neexistuje.`));
       if (!room.rackTiles[cmd.rackId]) return no(flow('rack-not-placed', `Rack ${cmd.rackId} ještě nestojí v místnosti.`));
-      const u = cmd.u ?? cmd.positionU ?? firstFreeU(p, catalog, id, cmd.rackId);
+      const reserved = srv ? reservedTorU(room, cmd.rackId) : undefined;
+      const h = srv?.rackUnits ?? 1;
+      const hits = (u0: number): boolean => reserved !== undefined && u0 <= reserved && u0 + h - 1 >= reserved;
+      const explicit = cmd.u ?? cmd.positionU;
+      if (explicit !== undefined && hits(explicit))
+        return no(flow('u-reserved', `U${reserved} racku ${cmd.rackId} je rezervovaná pro druhý ToR switch (herní pravidlo Sandboxu).`));
+      let u = explicit ?? firstFreeU(p, catalog, id, cmd.rackId);
+      if (explicit === undefined && u !== undefined && hits(u)) {
+        const rack = byId(p.racks, cmd.rackId)!;
+        u = undefined;
+        for (let x = 1; x <= rack.heightU; x++) if (!hits(x) && validateMount(p, catalog, id, cmd.rackId, x).length === 0) { u = x; break; }
+      }
       if (u === undefined) return no(invalid(validateMount(p, catalog, id, cmd.rackId, 1)));
       const r = mountDevice(p, catalog, id, cmd.rackId, u);
       if (!r.ok) return no(invalid([r.error]));
@@ -498,11 +526,22 @@ function applyRoomInner(tx: Tx, cmd: RoomCommand, ctx: SandboxContext): CommandR
       const rack = byId(p.racks, id);
       if (rack) {
         if (room.rackTiles[id]) {
-          if (p.servers.some((x) => x.mount?.rackId === id) || p.switches.some((x) => x.mount?.rackId === id))
+          // pre-installed ToR-A goes with the rack (it was never bought); a bought ToR-B goes to the inventory
+          const tor = room.preinstalledTors?.[id];
+          const onlyTors = (x: { id: string; mount?: { rackId: string } }) => x.mount?.rackId === id && x.id !== tor?.a && x.id !== tor?.b;
+          if (p.servers.some((x) => x.mount?.rackId === id) || p.switches.some(onlyTors))
             return no(flow('rack-not-empty', `Rack ${id} není prázdný – nejdřív z něj vyndej zařízení.`));
-          const rackTiles = { ...room.rackTiles };
+          let r: SandboxRoomState = room;
+          if (tor?.b !== undefined && isMounted(p, tor.b)) r = unmountInRoom(r, tor.b);
+          if (tor?.a !== undefined && byId(r.physical.switches, tor.a)) {
+            r = unmountInRoom(r, tor.a);
+            r = withPhysical(r, { ...r.physical, switches: r.physical.switches.filter((x) => x.id !== tor.a) });
+          }
+          const rackTiles = { ...r.rackTiles };
           delete rackTiles[id];
-          setRoom(tx, { ...room, rackTiles }, undoable);
+          const preinstalledTors = { ...r.preinstalledTors };
+          delete preinstalledTors[id];
+          setRoom(tx, { ...r, rackTiles, preinstalledTors }, undoable);
           return ok();
         }
         const sold = charge(tx, withPhysical(room, { ...p, racks: p.racks.filter((x) => x.id !== id) }), 'sell', rack.modelId, 1, -(itemPrice(catalog, rack.modelId, prices) ?? 0));
@@ -622,6 +661,52 @@ function applyRoomInner(tx: Tx, cmd: RoomCommand, ctx: SandboxContext): CommandR
         tx.s = { ...s, room: nxt, roomHistory: { undo: [...h.undo, room], redo: h.redo.slice(0, -1) } };
       }
       return ok();
+    }
+
+    // --------------------------------------------------- pre-installed ToR-B
+    case 'addTor': {
+      const rack = byId(p.racks, cmd.rackId);
+      if (!rack) return no(flow('unknown-rack', `Rack ${cmd.rackId} neexistuje.`));
+      if (!room.rackTiles[cmd.rackId]) return no(flow('rack-not-placed', `Rack ${cmd.rackId} ještě nestojí v místnosti.`));
+      const rec = room.preinstalledTors?.[cmd.rackId];
+      if (rec?.b !== undefined && byId(p.switches, rec.b)) return no(flow('nothing-to-do', `Rack ${cmd.rackId} už má druhý ToR switch.`));
+      const modelId = cmd.modelId ?? rec?.modelId ?? DEFAULT_TOR_MODEL_ID;
+      if (!isTorModel(catalog, modelId)) return no(flow('unknown-item', `Switch ${modelId} není model ToR v katalogu.`));
+      const u = torBPosition(room, catalog, cmd.rackId);
+      if (u === undefined) return no(flow('invalid-input', `V racku ${cmd.rackId} není volná pozice pro ToR switch.`));
+      let swId = torSwitchId(cmd.rackId, 'b');
+      for (let n = 2; byId(p.switches, swId) || byId(p.servers, swId); n++) swId = `${torSwitchId(cmd.rackId, 'b')}-${n}`;
+      const added = addSwitch(p, catalog, swId, modelId);
+      if (!added.ok) return no(invalid([added.error]));
+      const mounted = mountDevice(added.state, catalog, swId, cmd.rackId, u);
+      if (!mounted.ok) return no(invalid([mounted.error]));
+      const next = charge(tx, { ...withPhysical(room, mounted.state), preinstalledTors: { ...room.preinstalledTors, [cmd.rackId]: { ...(rec ?? { modelId }), b: swId } } }, 'buy', modelId, 1, itemPrice(catalog, modelId, prices) ?? 0);
+      setRoom(tx, next, undoable);
+      return { ok: true, warnings: [], created: [swId] };
+    }
+
+    // -------------------------------------------------------------- NIC slots
+    case 'addNic':
+    case 'removeNic': {
+      const g = serverGuard(cmd.serverId);
+      if (isResult(g)) return g;
+      if (g.esx.esxVersion !== undefined)
+        return no(flow('esx-installed', 'Vypni host (herní zjednodušení: hardware se mění jen u serveru bez nainstalovaného ESX).'));
+      const cards = nicCards(g.config);
+      const slots = nicSlotCount(g.config);
+      if (!Number.isInteger(cmd.slot) || cmd.slot < 1 || cmd.slot > slots) return no(flow('invalid-input', `Server ${g.id} nemá slot ${cmd.slot} (sloty 1–${slots}, herní hodnota).`));
+      let nextCards: string[];
+      if (cmd.type === 'addNic') {
+        if (cards.length >= slots) return no(flow('no-free-slot', `Server ${g.id} nemá volný NIC slot.`));
+        if (cmd.slot <= cards.length) return no(flow('invalid-input', `Slot ${cmd.slot} serveru ${g.id} je obsazený.`));
+        if (!certifiedNicParts(catalog, g.config.modelId).some((n) => n.id === cmd.nicPartId))
+          return no(flow('nic-not-certified', `Karta ${cmd.nicPartId} není v certifikované sestavě (BCG) modelu serveru ${g.id}.`));
+        nextCards = [...cards, cmd.nicPartId];
+      } else {
+        if (cmd.slot > cards.length) return no(flow('slot-empty', `Slot ${cmd.slot} serveru ${g.id} je prázdný.`));
+        nextCards = cards.filter((_, i) => i !== cmd.slot - 1);
+      }
+      return applyRoomInner(tx, { type: 'configureServer', serverId: g.id, config: { ...g.config, nics: cardsToNics(nextCards) } }, ctx);
     }
 
     // ------------------------------------------------------ server hardware
@@ -813,6 +898,12 @@ export function describeRoom(cmd: RoomCommand): string {
       return 'Znovu (místnost)';
     case 'configureServer':
       return `${cmd.serverId}: změna hardwaru`;
+    case 'addTor':
+      return `Rack ${cmd.rackId}: přidán druhý ToR switch`;
+    case 'addNic':
+      return `${cmd.serverId}: NIC ${cmd.nicPartId} do slotu ${cmd.slot}`;
+    case 'removeNic':
+      return `${cmd.serverId}: NIC ze slotu ${cmd.slot} odebrána`;
     case 'installEsx':
       return `${cmd.serverId}: spuštěna instalace ESX (${cmd.method === 'bmc' ? 'přes BMC' : 'u serveru'})`;
     case 'configureMgmtNetwork':

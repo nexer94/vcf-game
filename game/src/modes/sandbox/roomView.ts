@@ -42,6 +42,7 @@ import {
   type SwitchPortConfig,
   type TrafficFlow,
   type TrafficView,
+  HW_VENDORS,
   bmcReachable,
   cableAt,
   computeTrafficFlows,
@@ -66,6 +67,8 @@ import { type IssueGroups, groupIssues } from './design';
 import { physicalBringupIssues } from './reducer';
 import { BMC_REMOTE_INSTALL_REF, BMC_REMOTE_INSTALL_VENDORS, serverInDeployedDomain, serverTask } from './room';
 import { isOobSwitch, oobRoomOf } from './oob';
+import { type NicSlotView, NIC_SLOTS_GAME_DEFAULT, certifiedNicParts, nicSlotViews } from './nicSlots';
+import { isPreinstalledTor, nicMatchesSwitch, reservedTorU } from './tor';
 import { facingOfTile } from './rackLayout';
 import { derivedEndpoints, flowContextOf, netContextOf, plannedHostNetworks, specServerIds } from './roomNet';
 import type { SandboxContext } from './tx';
@@ -118,9 +121,16 @@ export interface ServerView {
   /** BCG lists the model for "ESXi 9.1 (vSAN 9.1)" (15 B.1). */
   readonly certified91: boolean;
   readonly rackUnits: number;
+  /** True = 2U game default ([SIMPL]); false = verified height from the vendor spec sheet (`rackUnitsUrl`). */
+  readonly rackUnitsGameDefault: boolean;
+  readonly rackUnitsUrl?: string;
   readonly mount?: Mount;
   readonly config: ServerConfig;
   readonly metrics?: ReturnType<typeof configMetrics>;
+  /** NIC slots (UX 19.4; slot count = game value NIC_SLOTS_GAME_DEFAULT). */
+  readonly nicSlots: readonly NicSlotView[];
+  /** Cards offered for a free slot: model BOM (BCG) ∩ game catalog, with the speed check against the rack's ToRs. */
+  readonly nicOptions: readonly NicOptionView[];
   readonly status: ServerStatus;
   /** Running ESX install / DCUI test task id (progress: snapshot.tasks). */
   readonly taskId?: string;
@@ -156,6 +166,17 @@ export interface ServerView {
   readonly price: number;
 }
 
+export interface NicOptionView {
+  readonly partId: string;
+  readonly label: string;
+  readonly ports: number;
+  readonly speedsGbE: readonly number[];
+  /** Game price of the card (game currency). */
+  readonly price: number;
+  /** ToR switches of the server's rack whose ports share no speed with the card ("⚠ Nespojíš s ToR-A (25G)" – game / physical). */
+  readonly incompatibleTors: readonly { readonly switchId: string; readonly label: string; readonly speedsGbE: readonly number[] }[];
+}
+
 export interface SwitchPortView extends PortView {
   readonly index: number;
   readonly config: SwitchPortConfig;
@@ -181,6 +202,8 @@ export interface SwitchView {
    * game; never a ToR for VCF. Uplink port = `uplinkPort` (company network).
    */
   readonly preinstalledOob?: { readonly roomId: string; readonly uplinkPort: number };
+  /** Pre-installed ToR of a rack (tor.ts, GAME, UX 19.5): 'a' = ToR-A (free), 'b' = ToR-B (added by the player). */
+  readonly preinstalledTor?: { readonly rackId: string; readonly position: 'a' | 'b' };
 }
 
 export interface RackView {
@@ -196,6 +219,11 @@ export interface RackView {
   readonly uMap: readonly (string | null)[];
   readonly devices: readonly { readonly deviceId: string; readonly kind: 'server' | 'switch'; readonly fromU: number; readonly toU: number }[];
   readonly freeU: number;
+  /**
+   * Pre-installed ToRs (UX 19.3/19.5, GAME): ToR-A / ToR-B switch ids, the U reserved for ToR-B ("+ druhý ToR
+   * (doporučeno)") and whether ToR-A carries the company network uplink.
+   */
+  readonly tor?: { readonly a?: string; readonly b?: string; readonly reservedU?: number; readonly companyUplink: boolean };
 }
 
 export interface CableView {
@@ -238,6 +266,8 @@ export type CatalogItemView =
       readonly bcgUrl: string;
       readonly certified91: boolean;
       readonly rackUnits: number;
+      readonly rackUnitsGameDefault: boolean;
+      readonly rackUnitsUrl?: string;
       readonly config: ServerConfig;
       readonly metrics?: ReturnType<typeof configMetrics>;
       /** Model-derived vSAN ESA HCI profile (15 §6.1). */
@@ -276,6 +306,23 @@ export interface CatalogView {
   /** Every BCG ReadyNode model (custom builds: buyItem with the model id, then configureServer). */
   readonly serverModels: readonly ServerModelView[];
   readonly cableItemId: string;
+  /**
+   * Shop v3 (UX 19.1): starter configurations (15 B.3) grouped vendor -> models. `items` = ✓ and DEV configurations;
+   * `traps` = ✗ / EXT ones (hidden in Sandbox v3 unless "Ukázat i nevhodné sestavy"). Vendors in HW_VENDORS order.
+   */
+  readonly serversByVendor: readonly VendorShelfView[];
+  /** Shop v3 categories of the Sandbox (racks, servers). Other purchase commands stay in the engine (Career). */
+  readonly shopCategoriesV3: readonly ('rack' | 'server')[];
+}
+
+export type ServerCatalogItemView = Extract<CatalogItemView, { kind: 'server' }>;
+
+export interface VendorShelfView {
+  readonly vendor: HwVendor;
+  /** Number of offered configurations ("4 sestavy"). */
+  readonly count: number;
+  readonly items: readonly ServerCatalogItemView[];
+  readonly traps: readonly ServerCatalogItemView[];
 }
 
 export interface EconomyView {
@@ -315,6 +362,10 @@ export interface PhysicalView {
   readonly economy: EconomyView;
   readonly undo: { readonly canUndo: boolean; readonly canRedo: boolean };
   readonly bmcRemoteInstallVendors: readonly HwVendor[];
+  /** Pre-installed ToR in every placed rack is on (tor.ts, GAME, UX 19.5). */
+  readonly autoTor: boolean;
+  /** [SIMPL] NIC slots per server (game value). */
+  readonly nicSlotsGameDefault: number;
 }
 
 /** Device pair × traffic class aggregate (room dots, UX §12.2). */
@@ -388,7 +439,22 @@ export function catalogView(catalog: HardwareCatalog, prices: PriceTable): Catal
       basePrice: serverConfigPrice(catalog, emptyConfigFor(m), prices),
     }),
   );
-  const view: CatalogView = { datasetFetchedAt: catalog.datasetFetchedAt, datasetRelease: catalog.datasetRelease, currency: GAME_CURRENCY, items, serverModels, cableItemId: CABLE_ITEM_ID };
+  const servers = items.filter((i): i is ServerCatalogItemView => i.kind === 'server');
+  const serversByVendor = HW_VENDORS.map((vendor): VendorShelfView => {
+    const mine = servers.filter((x) => x.vendor === vendor);
+    const offered = mine.filter((x) => x.expectedStatus === 'ok' || x.expectedStatus === 'dev');
+    return { vendor, count: offered.length, items: offered, traps: mine.filter((x) => !offered.includes(x)) };
+  });
+  const view: CatalogView = {
+    datasetFetchedAt: catalog.datasetFetchedAt,
+    datasetRelease: catalog.datasetRelease,
+    currency: GAME_CURRENCY,
+    items,
+    serverModels,
+    cableItemId: CABLE_ITEM_ID,
+    serversByVendor,
+    shopCategoriesV3: ['rack', 'server'],
+  };
   const inner = catalogMemo.get(catalog) ?? new WeakMap<PriceTable, CatalogView>();
   inner.set(prices, view);
   catalogMemo.set(catalog, inner);
@@ -410,6 +476,8 @@ function itemView(catalog: HardwareCatalog, it: CatalogItem, price: number, pric
         bcgUrl: it.model.bcgUrl,
         certified91: isCertifiedFor(it.model, '9.1'),
         rackUnits: it.model.rackUnits,
+        rackUnitsGameDefault: it.model.rackUnitsGameDefault,
+        ...(it.model.rackUnitsUrl !== undefined ? { rackUnitsUrl: it.model.rackUnitsUrl } : {}),
         config: it.config,
         ...(v.metrics ? { metrics: v.metrics } : {}),
         ...(v.esaProfile ? { esaProfile: v.esaProfile } : {}),
@@ -453,6 +521,8 @@ export function physicalView(s: SandboxState, ctx: SandboxContext): PhysicalView
     const uMap: (string | null)[] = Array.from({ length: r.heightU }, () => null);
     for (const o of occ) for (let u = o.from; u <= o.to && u <= r.heightU; u++) uMap[u - 1] = o.deviceId;
     const tile = room.rackTiles[r.id];
+    const tor = room.preinstalledTors?.[r.id];
+    const reservedU = reservedTorU(room, r.id);
     return {
       id: r.id,
       modelId: r.modelId,
@@ -463,6 +533,16 @@ export function physicalView(s: SandboxState, ctx: SandboxContext): PhysicalView
       uMap,
       devices: occ.map((o) => ({ deviceId: o.deviceId, kind: p.servers.some((x) => x.id === o.deviceId) ? ('server' as const) : ('switch' as const), fromU: o.from, toU: o.to })),
       freeU: uMap.filter((x) => x === null).length,
+      ...(tor
+        ? {
+            tor: {
+              ...(tor.a !== undefined && p.switches.some((x) => x.id === tor.a && x.mount?.rackId === r.id) ? { a: tor.a } : {}),
+              ...(tor.b !== undefined && p.switches.some((x) => x.id === tor.b && x.mount?.rackId === r.id) ? { b: tor.b } : {}),
+              ...(reservedU !== undefined ? { reservedU } : {}),
+              companyUplink: tor.a !== undefined && room.companyNetwork?.switchId === tor.a,
+            },
+          }
+        : {}),
     };
   });
 
@@ -491,6 +571,7 @@ export function physicalView(s: SandboxState, ctx: SandboxContext): PhysicalView
       gameGeneric: true,
       price: itemPrice(catalog, sw.modelId, prices) ?? 0,
       ...(oobRoom !== undefined && oobRoom(sw.id) !== undefined ? { preinstalledOob: { roomId: oobRoom(sw.id)!, uplinkPort: sw.ports.length - 1 } } : {}),
+      ...(isPreinstalledTor(room, sw.id) ? { preinstalledTor: isPreinstalledTor(room, sw.id)! } : {}),
     };
   });
 
@@ -545,6 +626,8 @@ export function physicalView(s: SandboxState, ctx: SandboxContext): PhysicalView
     economy: { currency: GAME_CURRENCY, moneyUnlimited: true, spent: room.economy.spent, recent: room.economy.ledger.slice(-20) },
     undo: { canUndo: s.roomHistory.undo.length > 0, canRedo: s.roomHistory.redo.length > 0 },
     bmcRemoteInstallVendors: BMC_REMOTE_INSTALL_VENDORS,
+    autoTor: s.autoTor,
+    nicSlotsGameDefault: NIC_SLOTS_GAME_DEFAULT,
   };
 }
 
@@ -580,6 +663,19 @@ function serverView(
     ? validatePhysicalNetworkForBringup(net, { serverIds: [srv.id], plan: plan ?? TOPOLOGY_ONLY_PLAN, storage: storage ?? 'vsan-esa' }).filter((i) => i.subject === srv.id)
     : [];
   const lastTest = s.room.mgmtTests[srv.id];
+  const rackTors = srv.mount
+    ? s.room.physical.switches.filter((x) => x.mount?.rackId === srv.mount!.rackId && catalog.switches.get(x.modelId)?.oobOnly === false)
+    : [];
+  const nicOptions = certifiedNicParts(catalog, srv.config.modelId).map((n): NicOptionView => ({
+    partId: n.id,
+    label: n.bomName,
+    ports: n.ports,
+    speedsGbE: n.speedsGbE,
+    price: itemPrice(catalog, n.id, prices) ?? 0,
+    incompatibleTors: rackTors
+      .filter((t) => !nicMatchesSwitch(n, catalog.switches.get(t.modelId)?.speedsGbE ?? []))
+      .map((t) => ({ switchId: t.id, label: catalog.switches.get(t.modelId)?.label ?? t.modelId, speedsGbE: catalog.switches.get(t.modelId)?.speedsGbE ?? [] })),
+  }));
   return {
     kind: 'server',
     id: srv.id,
@@ -589,8 +685,12 @@ function serverView(
     modelName: model?.model ?? srv.config.modelId,
     certified91: model ? isCertifiedFor(model, '9.1') : false,
     rackUnits: srv.rackUnits,
+    rackUnitsGameDefault: model?.rackUnitsGameDefault ?? true,
+    ...(model?.rackUnitsUrl !== undefined ? { rackUnitsUrl: model.rackUnitsUrl } : {}),
     ...(srv.mount ? { mount: srv.mount } : {}),
     config: srv.config,
+    nicSlots: nicSlotViews(catalog, srv.config),
+    nicOptions,
     ...(resolved.ok ? { metrics: configMetrics(resolved.resolved) } : {}),
     status,
     ...(task ? { taskId: task.id } : {}),

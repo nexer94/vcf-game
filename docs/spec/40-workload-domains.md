@@ -591,7 +591,7 @@ Varianty instance 2 *(součty per-VM odvozené, celkové součty z [W6])*:
 | Profil | Uzly runtime | Počet VM | Součet per-VM | Celkem [W6] |
 |---|---|---|---|---|
 | Simple | 1 CP + **1** worker | **6** | 34 / 111 / 3312 | 34 / 111 GB / 4562 GB |
-| HA – Small | 3 CP + 2 worker | 11 | 62 / 187 / 3112 | 62 / 187 GB / 5462 GB |
+| HA – Small | 3 CP + 2 worker | 11 | 62 / 187 / 4112 | 62 / 187 GB / 5462 GB |
 | HA – Large | 3 CP (8/14) + 2 worker (16/32) | 11 | 120 / 353 / 5261 | 120 / 353 GB / 8321 GB |
 
 Volitelně Day-N v instanci 2: Identity broker, Software depot, Real-time metrics. Běží uvnitř VCF services runtime

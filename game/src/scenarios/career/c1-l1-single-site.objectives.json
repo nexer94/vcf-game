@@ -1,0 +1,476 @@
+{
+  "version": 1,
+  "_note": "Career – Kampaň 1, Level 1 (UX ch. 25.3). Draft by engine-dev for the level runner; `why` blocks copied from scenarios/objectives/sandbox.json (scenario-designer). Bubble texts from UX 25.3 – scenario-designer finalises (backlog S2). Points / bonuses are game mechanics.",
+  "groups": [
+    {
+      "id": "HW",
+      "title": "Servery"
+    },
+    {
+      "id": "NET",
+      "title": "Kabeláž a síť"
+    },
+    {
+      "id": "HOSTS",
+      "title": "Hosty (ESX)"
+    },
+    {
+      "id": "DEPLOY",
+      "title": "Návrh a nasazení"
+    }
+  ],
+  "objectives": [
+    {
+      "id": "l1.servers",
+      "group": "HW",
+      "title": "Kup 4 stejné certifikované servery",
+      "kind": "doc-required",
+      "selector": "serversForDesign",
+      "why": {
+        "specRef": "10-planning §6.1 [P9]; §4 krok 5; 06-blueprints §6.1",
+        "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/cluster-models/single-instance-single-availability-zone.html",
+        "paraphrase": "Minimální počet hostů default clusteru management domain závisí na principal storage a deployment modelu (Simple / High Availability). Dokud nemáš návrh, stačí zatím jeden server; v realitě se nejdřív plánuje a pak nakupuje. S vybraným design blueprintem platí aspoň počet ESX hostů z jeho Minimum Requirements.",
+        "quote": "You choose the number of ESX hosts per vSphere which supports your storage type and VCF domain considerations."
+      },
+      "points": 20,
+      "bubble": {
+        "text": "Blueprint Single Site počítá se 4 ESX hosty. Vyber výrobce a kup 4 stejné certifikované sestavy.",
+        "anchor": "ui:shop-servers",
+        "sourceKeys": [
+          "06-blueprints:B7",
+          "15-hardware:H1"
+        ]
+      },
+      "subSteps": [
+        {
+          "id": "l1.servers.certified",
+          "title": "Certifikované pro VCF 9.1",
+          "kind": "doc-required",
+          "selector": "certifiedServerBought",
+          "params": {
+            "min": 4
+          },
+          "why": {
+            "specRef": "10-planning §3.4 [P33]; 15-hardware B.1",
+            "url": "https://knowledge.broadcom.com/external/article/452580",
+            "paraphrase": "Server a jeho BIOS musí být v Broadcom Compatibility Guide vedené jako „certified for VCF 9.1“; ověřují se i NIC a HBA. Pro vSAN ESA se důrazně doporučují vSAN ESA ReadyNodes."
+          }
+        },
+        {
+          "id": "l1.servers.homogeneous",
+          "title": "Jeden vendor, stejná sestava",
+          "kind": "doc-required",
+          "selector": "serversHomogeneous",
+          "why": {
+            "specRef": "20-deployment §3.2 [S7]; 10-planning §3.4 [P28][P14]",
+            "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation.html",
+            "paraphrase": "Počáteční nasazení management domain nepodporuje heterogenní clustery – všichni hosté prvního clusteru musí mít jednotný HW profil a být od jednoho HW vendora. U dalších clusterů je homogenní konfigurace doporučení (VCF-ESX-RCMD-CFG-002)."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l1.mount",
+      "group": "HW",
+      "title": "Zaracuj servery pod ToR",
+      "kind": "game-step",
+      "selector": "serversMounted",
+      "params": {
+        "min": "all"
+      },
+      "points": 10,
+      "after": [
+        "l1.servers"
+      ],
+      "bubble": {
+        "text": "Klikni na rack – server se zasune na nejnižší volnou pozici. Nahoře už čeká ToR switch.",
+        "anchor": "object:rack:first"
+      }
+    },
+    {
+      "id": "l1.nics",
+      "group": "HW",
+      "title": "Přidej NIC podle návrhu",
+      "kind": "doc-required",
+      "selector": "hostsWithUplinks",
+      "params": {
+        "min": "all",
+        "nics": "design"
+      },
+      "points": 10,
+      "after": [
+        "l1.mount"
+      ],
+      "why": {
+        "specRef": "10-planning §3.3 [P17]; 05-design §4.6 [D15]; 25 §3.5 [U18][U37]",
+        "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/network-designs/vsphere-cluster-network-models/simple-network-model.html",
+        "paraphrase": "Model Single Distributed Switch počítá se 2 fyzickými NIC na hosta (odolnost vůči výpadku jedné NIC), Storage and Workload Separation potřebuje minimálně 6 pNIC. Dokud model nevybereš, stačí jedno spojení se switchem (VCF-NET-REQD-TOR-001). Před bring-upem zůstává na vSwitch0 jen jedna NIC (vmnic0); ostatní zůstanou nepřiřazené a installer hosty migruje na VDS."
+      },
+      "bubble": {
+        "text": "Návrh chce víc síťových portů na hostu – klikni na volný NIC slot serveru a zapoj nové porty.",
+        "anchor": "object:server:first",
+        "sourceKeys": [
+          "10-planning:P17"
+        ]
+      }
+    },
+    {
+      "id": "l1.cabling",
+      "group": "NET",
+      "title": "Zapoj hosty do ToR",
+      "kind": "doc-required",
+      "selector": "hostsCabledToSwitch",
+      "params": {
+        "min": "all"
+      },
+      "points": 10,
+      "why": {
+        "specRef": "10-planning §3.3 [P19]",
+        "ruleId": "VCF-NET-REQD-TOR-001",
+        "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/physical-datacenter-design-9-x.html",
+        "paraphrase": "Každý host musí mít aspoň jedno spojení do switche. Po instalaci ESX jde management provoz přes vmnic0, proto začni tímhle portem."
+      },
+      "bubble": {
+        "text": "Každý host musí být připojený aspoň k jednomu switchi. Táhni kabel z portu serveru do ToR.",
+        "anchor": "object:tor:first",
+        "sourceKeys": [
+          "10-planning:P19"
+        ]
+      }
+    },
+    {
+      "id": "l1.tor-ports",
+      "group": "NET",
+      "title": "Nastav porty ToR (trunk + MTU)",
+      "kind": "doc-required",
+      "selector": "switchPortsTrunkVlans",
+      "params": {
+        "min": "all"
+      },
+      "points": 20,
+      "after": [
+        "l1.cabling"
+      ],
+      "why": {
+        "specRef": "10-planning §3.3 [P19]; 25 §3.5 [U55], §5.4 [U47]",
+        "ruleId": "VCF-NET-RCMD-SWT-001",
+        "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/physical-datacenter-design-9-x.html",
+        "paraphrase": "Porty switchů k hostům v trunk módu 802.1Q (VCF-NET-RCMD-SWT-001). Trunk musí propustit VLAN každého typu provozu: ESX management (z DCUI) a vMotion, vSAN / NFS a Host TEP, jakmile je zadáš v průvodci (Network details). Špatné VLAN tagování na uplinkových portech uvádí KB jako jednu z příčin selhání pre-checku vMotion Network Connectivity."
+      },
+      "bubble": {
+        "text": "Porty k hostům musí propustit VLANy všech typů provozu a mít dost velké MTU.",
+        "anchor": "object:tor:first",
+        "sourceKeys": [
+          "10-planning:P19"
+        ]
+      },
+      "subSteps": [
+        {
+          "id": "l1.tor-ports.mtu",
+          "title": "MTU podle provozu",
+          "kind": "doc-required",
+          "selector": "switchMtuForTraffic",
+          "params": {
+            "min": "all"
+          },
+          "why": {
+            "specRef": "10-planning §3.3 [P19]",
+            "ruleId": "VCF-NET-REQD-SWT-002",
+            "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/physical-datacenter-design-9-x.html",
+            "paraphrase": "Porty k hostům: největší MTU ze všech typů provozu, minimálně 1500 (VCF-NET-REQD-SWT-003). Porty pro NSX Host TEP minimálně 1700 (VCF-NET-REQD-SWT-002) – Geneve pakety mají nastavený DF bit a nelze je fragmentovat. Když plánuješ vMotion nebo vSAN s MTU 9000, musí ho unést celá cesta.",
+            "quote": "1600 is the minimum required MTU, however 1700 is recommended to address future expansion"
+          }
+        }
+      ]
+    },
+    {
+      "id": "l1.esx",
+      "group": "HOSTS",
+      "title": "Nainstaluj ESX na 4 hosty",
+      "kind": "doc-required",
+      "selector": "esxInstalled",
+      "params": {
+        "min": "all"
+      },
+      "points": 20,
+      "after": [
+        "l1.mount"
+      ],
+      "why": {
+        "specRef": "20-deployment §4.1.1 [S8]; §3.2; 25 §10.4.1",
+        "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/install-esx-on-hosts-using-the-iso.html",
+        "paraphrase": "Připojit ESX ISO, nabootovat z něj, vybrat disk, zadat root heslo, F11 a reboot; opakovat pro všechny hosty. Verzi ESX určují VCF Release Notes; stateless ESX VCF nepodporuje."
+      },
+      "bubble": {
+        "text": "Otevři konzoli serveru a projdi instalaci ESX – jako u skutečného serveru.",
+        "anchor": "object:server:first",
+        "sourceKeys": [
+          "20-deployment:S8",
+          "26-esx-install:E4"
+        ]
+      }
+    },
+    {
+      "id": "l1.dcui",
+      "group": "HOSTS",
+      "title": "DCUI: management síť",
+      "kind": "doc-required",
+      "selector": "mgmtNetworkUp",
+      "params": {
+        "min": "all"
+      },
+      "points": 20,
+      "after": [
+        "l1.esx"
+      ],
+      "why": {
+        "specRef": "25 §7 [U18][U55]; 20-deployment §3.3 [S6]; 10-planning §3.3 [P19] (VCF-NET-RCMD-SWT-001)",
+        "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/physical-datacenter-design-9-x.html",
+        "paraphrase": "Management VLAN je tagovaná na vmk0 (DCUI), takže port switche k hostu musí být trunk 802.1Q a tu VLAN propustit (trunk 802.1Q doporučuje VCF-NET-RCMD-SWT-001). VCF Installer pak musí na hosty dosáhnout po management síti."
+      },
+      "bubble": {
+        "text": "V konzoli stiskni F2 a nastav IP adresu hosta z workbooku.",
+        "anchor": "object:server:first",
+        "sourceKeys": [
+          "20-deployment:S9"
+        ]
+      },
+      "subSteps": [
+        {
+          "id": "l1.dcui.configured",
+          "title": "Statická IP, DNS a FQDN v DCUI",
+          "kind": "doc-required",
+          "selector": "mgmtNetworkConfigured",
+          "params": {
+            "min": "all"
+          },
+          "why": {
+            "specRef": "20-deployment §4.1.2 [S9], §3.2; 25 §3.5, §6.3, §10.2.2",
+            "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/configure-the-network-on-vmware-cloud-foundation-hosts.html",
+            "paraphrase": "První síť, kterou VCF dokumentuje. V DCUI nastav management VLAN ID, statickou IPv4 (adresa, maska, gateway), DNS servery a hostname jako FQDN; v „Custom DNS Suffixes“ nesmí nic být. Po instalaci má ESX DHCP – VCF chce statickou IP. vmk0 zůstává na vSwitch0 s jednou NIC (vmnic0)."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l1.dns",
+      "group": "HOSTS",
+      "title": "DNS záznamy hostů",
+      "kind": "doc-required",
+      "selector": "hostDnsRecordsValid",
+      "params": {
+        "min": "all"
+      },
+      "points": 10,
+      "after": [
+        "l1.dcui"
+      ],
+      "why": {
+        "specRef": "10-planning §3.1 [P2][P21]; 20-deployment §3.5 [S20]",
+        "ruleId": "VCF-NET-REQD-IPA-002",
+        "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/infrastucture-ip-addressing-models/ipv4-addressing-model.html",
+        "paraphrase": "Každé FQDN musí mít funkční forward (A) i reverse (PTR) záznam. Pro ESX host: A záznam jeho FQDN z DCUI ukazuje na IP vmk0 a PTR této IP vede zpět na stejné FQDN.",
+        "quote": "Configure forward and reverse DNS records for all management components"
+      },
+      "bubble": {
+        "text": "Založ A a PTR záznam každého hosta v DNS.",
+        "anchor": "ui:hud-dns",
+        "sourceKeys": [
+          "20-deployment:S20"
+        ]
+      }
+    },
+    {
+      "id": "l1.ntp-cert",
+      "group": "HOSTS",
+      "title": "NTP a certifikát hostů",
+      "kind": "doc-required",
+      "selector": "certificateRegenerated",
+      "params": {
+        "min": "all"
+      },
+      "points": 10,
+      "after": [
+        "l1.dcui"
+      ],
+      "why": {
+        "specRef": "20-deployment §4.1.4 [S11], §3.2; 10-planning §3.1 [P14]",
+        "ruleId": "VCF-ESX-REQD-SEC-001",
+        "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/regenerate-the-self-signed-certificate-on-esx-hosts.html",
+        "paraphrase": "Původní certifikát má CN localhost.localdomain. Po nastavení FQDN spusť /sbin/generate-certificates a host restartuj. Installer kontroluje, že CN certifikátu odpovídá FQDN z průvodce.",
+        "quote": "Regenerate the certificate of each ESX host after assigning the ESX host an FQDN"
+      },
+      "bubble": {
+        "text": "Zapni NTP na hostech a přegeneruj self-signed certifikát, aby odpovídal FQDN.",
+        "anchor": "object:server:first",
+        "sourceKeys": [
+          "20-deployment:S10",
+          "20-deployment:S11"
+        ]
+      },
+      "subSteps": [
+        {
+          "id": "l1.ntp-cert.ntp",
+          "title": "NTP na hostech",
+          "kind": "doc-required",
+          "selector": "ntpConfigured",
+          "params": {
+            "min": "all"
+          },
+          "why": {
+            "specRef": "20-deployment §4.1.3 [S10], §3.2",
+            "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/preparing-your-environment/preparing-esx-hosts-for-vmware-cloud-foundation-or-vmware-vsphere-foundation/configure-ntp-on-vmware-cloud-foundation-hosts.html",
+            "paraphrase": "VMware Host Client → Host > Configure > Time Configuration → Network Time Protocol: zapnout, zadat NTP server a ověřit, že služba NTP běží. Na všech hostech."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l1.design",
+      "group": "DEPLOY",
+      "title": "Potvrď návrh (blueprint)",
+      "kind": "doc-required",
+      "selector": "designDecided",
+      "points": 5,
+      "why": {
+        "specRef": "05-design §4, §4.10 [D2]; 10-planning §4 krok 2",
+        "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/vmware-cloud-foundation-concepts.html",
+        "paraphrase": "Před bring-upem se volí topologie fleet, model domén, deployment model, cluster model, principal storage, síťový model a modely VCF Operations a identity. Pořadí ve hře je herní; dokumentace závazné pořadí nedefinuje. Nabízejí se jen volby, které tvůj hardware umožňuje."
+      },
+      "bubble": {
+        "text": "Projdi návrh v počítači – volby blueprintu jsou předvybrané.",
+        "anchor": "object:pc:first",
+        "sourceKeys": [
+          "06-blueprints:B6"
+        ]
+      }
+    },
+    {
+      "id": "l1.wizard",
+      "group": "DEPLOY",
+      "title": "Průvodce: HA + Medium, vSAN ESA, 4 hosty",
+      "kind": "doc-required",
+      "selector": "wizardMatchesLevel",
+      "params": {
+        "deploymentModel": "ha",
+        "size": "medium",
+        "storage": "vsan-esa",
+        "hosts": 4
+      },
+      "points": 20,
+      "after": [
+        "l1.design"
+      ],
+      "why": {
+        "specRef": "06-blueprints §2.2, §6.1 [B6][B7]",
+        "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-in-a-single-site-blueprint/minimal-requirements-for-fleet-single-site.html",
+        "paraphrase": "Blueprint VCF Fleet in a Single Site: 1 site, 1 AZ, 1 VCF Instance; ESX: 4 nodes; VCF Installer deployment model High Availability, velikost Medium."
+      },
+      "bubble": {
+        "text": "Ve VCF Installeru zvol High Availability a velikost Medium – blueprint to tak chce, i když výchozí je Small.",
+        "anchor": "object:pc:first",
+        "sourceKeys": [
+          "06-blueprints:B7",
+          "20-deployment:S14"
+        ]
+      }
+    },
+    {
+      "id": "l1.validation",
+      "group": "DEPLOY",
+      "title": "Validace bez chyb",
+      "kind": "doc-required",
+      "selector": "validationPassed",
+      "points": 20,
+      "after": [
+        "l1.wizard"
+      ],
+      "why": {
+        "specRef": "20-deployment §4.2 krok 19 [S14]",
+        "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/deploy-a-new-vcf-fleet-or-a-new-vcf-instance.html",
+        "paraphrase": "Review validation: warningy oprav nebo potvrď (Acknowledge), errory oprav podle remediation a validuj znovu."
+      },
+      "bubble": {
+        "text": "Spusť validaci. Chyby oprav, varování potvrď.",
+        "anchor": "object:pc:first",
+        "sourceKeys": [
+          "20-deployment:S14"
+        ]
+      }
+    },
+    {
+      "id": "l1.bringup",
+      "group": "DEPLOY",
+      "title": "Deploy a hotový bring-up",
+      "kind": "doc-required",
+      "selector": "deploymentCompleted",
+      "points": 50,
+      "after": [
+        "l1.validation"
+      ],
+      "why": {
+        "specRef": "20-deployment §4.2 krok 20 [S14]",
+        "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/deployment/deploying-a-new-vmware-cloud-foundation-or-vmware-vsphere-foundation-private-cloud-/deploy-a-new-vcf-fleet-or-a-new-vcf-instance.html",
+        "paraphrase": "Deploy a sleduj průběh; při chybě otevři panel Tasks, oprav příčinu a dej retry."
+      },
+      "bubble": {
+        "text": "Spusť Deploy a sleduj průběh bring-upu.",
+        "anchor": "object:pc:first",
+        "sourceKeys": [
+          "20-deployment:S14"
+        ]
+      }
+    },
+    {
+      "id": "l1.bonus.two-tor",
+      "group": "NET",
+      "title": "Druhý ToR a uplinky na oba switche",
+      "kind": "doc-recommended",
+      "selector": "hostsOnTwoSwitches",
+      "params": {
+        "min": "all"
+      },
+      "points": 15,
+      "bonus": true,
+      "why": {
+        "specRef": "10-planning §3.3 [P19][P17]",
+        "ruleId": "VCF-NET-RCMD-TOR-001",
+        "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/physical-datacenter-design-9-x.html",
+        "paraphrase": "Doporučené jsou dva a více ToR switchů. Každé spojení host–fabric je samostatný uplink, ne LAG (VCF-NET-REQD-LAG-001). Model Single Distributed Switch počítá se 2 fyzickými NIC na hosta kvůli odolnosti vůči výpadku jedné NIC. Před bring-upem ale na vSwitch0 zůstává jen vmnic0 – další NIC přidá installer při migraci na VDS."
+      },
+      "bubble": {
+        "text": "Doporučení: dva ToR switche a každý host zapojený do obou.",
+        "anchor": "object:rack:first",
+        "sourceKeys": [
+          "10-planning:P19"
+        ]
+      }
+    },
+    {
+      "id": "l1.bonus.mtu-9000",
+      "group": "NET",
+      "title": "Jumbo frames (MTU 9000)",
+      "kind": "doc-recommended",
+      "selector": "switchMtuForTraffic",
+      "params": {
+        "min": "all",
+        "recommended": true
+      },
+      "points": 10,
+      "bonus": true,
+      "why": {
+        "specRef": "10-planning §3.3 [P19][P18]; 25 §5.4 [U46]",
+        "ruleId": "VCF-NET-RCMD-SWT-004",
+        "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/datacenter-network-requirements/physical-datacenter-design-9-x.html",
+        "paraphrase": "Doporučené MTU je 9000 a více a musí ho podporovat celá cesta. Installer ověřuje sítě vMotion, vSAN a TEP pomocí vmkping s MTU 9000. KB doporučuje fyzické MTU 9128 nebo ekvivalent výrobce (např. 9216)."
+      },
+      "bubble": {
+        "text": "Doporučení: MTU 9000 na portech k hostům.",
+        "anchor": "object:tor:first",
+        "sourceKeys": [
+          "10-planning:P19"
+        ]
+      }
+    }
+  ]
+}

@@ -28,7 +28,7 @@ import { CABLE, DECOR, HOVER_TILE, OUTLINE, SHADOW, TARGET_TILE } from './palett
 import { BUNDLE_Z, bundleWidth, devicePath, faceEdgePoint, flatten, pairKey, polyLength, riserTop, trayPoint, trayRoute } from './roomBundles';
 import type { RoomCableSpec } from './roomCables';
 import { depthOf, nearestReachable, Occupancy, worldToTile, type Footprint, type RoomSize, type Tile } from './roomGrid';
-import { drawStaticRoom, SLAB_H, WALL_H, WALL_T, wallJack } from './roomStatic';
+import { drawRowTrays, drawStaticRoom, SLAB_H, WALL_H, WALL_T, wallJack } from './roomStatic';
 import { DESK, isFixtureId, RoomFixtures, type FixtureId } from './fixtures';
 
 export const DEFAULT_ROOM: RoomSize = { cols: 11, rows: 9 };
@@ -432,6 +432,32 @@ export class RoomScene {
     }
     for (const x of c.cables) if (!this.cables.has(x.id)) this.connect(x);
     this.cablesDirty = true;
+    this.drawTrays();
+  }
+
+  /** v3 (UX 23): thin grey wire tray only above rack rows that hold a rack (rows along the rack's side axis). */
+  private readonly trayFx = new Graphics();
+  private trayKey = '';
+  private drawTrays(): void {
+    const cabs = [...this.cabinets.values()].map((e) => e.spec).filter((sp) => sp.kind === 'rack');
+    const key = cabs.map((c) => `${c.gx},${c.gy},${c.facing ?? 'S'}`).sort().join('|');
+    if (key === this.trayKey) return;
+    this.trayKey = key;
+    if (!this.trayFx.parent) this.overhead.addChildAt(this.trayFx, 0);
+    this.trayFx.clear();
+    const rows = new Map<string, { gx0: number; gx1: number; gy0: number; gy1: number; ns: boolean; line: number }>();
+    for (const c of cabs) {
+      const ns = (c.facing ?? 'S') === 'S' || c.facing === 'N';
+      const line = ns ? c.gy : c.gx;
+      const k = `${ns ? 'r' : 'c'}${line}`;
+      const r = rows.get(k) ?? { gx0: c.gx, gx1: c.gx, gy0: c.gy, gy1: c.gy, ns, line };
+      r.gx0 = Math.min(r.gx0, c.gx);
+      r.gx1 = Math.max(r.gx1, c.gx);
+      r.gy0 = Math.min(r.gy0, c.gy);
+      r.gy1 = Math.max(r.gy1, c.gy);
+      rows.set(k, r);
+    }
+    drawRowTrays(this.trayFx, [...rows.values()].map((r) => (r.ns ? { a: { gx: r.gx0, gy: r.line + 0.5 }, b: { gx: r.gx1 + 1, gy: r.line + 0.5 } } : { a: { gx: r.line + 0.5, gy: r.gy0 }, b: { gx: r.line + 0.5, gy: r.gy1 + 1 } })));
   }
 
   /** Mount a server/switch into a cabinet. `u` <= 0 = first free slot. */
@@ -696,6 +722,7 @@ export class RoomScene {
     if (!this.uplinkLabel) {
       this.uplinkLabel = new Text({ text: 'Síť firmy · herní zjednodušení', style: { fontFamily: 'system-ui, sans-serif', fontSize: 9, fontWeight: '800', fill: OUTLINE, stroke: { color: 0xffffff, width: 3 } }, resolution: 3 });
       this.uplinkLabel.anchor.set(0.5, 0);
+      this.uplinkLabel.visible = false; // v3 (UX 23): only as a tooltip on hover / focus
       this.uplinkLabel.position.set(j.label.x, j.label.y);
       this.uplinkLayer.addChild(this.uplinkLabel);
     }
@@ -822,6 +849,12 @@ export class RoomScene {
   /** World rect of a fixed object (camera flight target: the monitor / the board). */
   fixtureRect(id: FixtureId): { x: number; y: number; width: number; height: number } {
     return this.fixtures.rect(id);
+  }
+
+  /** World rect of the avatar (speech bubble anchor 'avatar', UX 18.1). */
+  avatarRect(): { x: number; y: number; width: number; height: number } {
+    const p = isoToScreen(this.avatar.x, this.avatar.y);
+    return { x: p.x - 10, y: p.y - 46, width: 20, height: 46 };
   }
 
   cabinetRect(id: string): { x: number; y: number; width: number; height: number } | null {
@@ -969,6 +1002,7 @@ export class RoomScene {
     const t = new Text({ text: 'OOB switch · mimo VCF scope – herní', style: { fontFamily: 'system-ui, sans-serif', fontSize: 8, fontWeight: '700', fill: OUTLINE, stroke: { color: 0xffffff, width: 3 } }, resolution: 3 });
     t.anchor.set(0.5, 0);
     t.position.set(label.x, label.y);
+    t.visible = false; // v3 (UX 23): only as a tooltip on hover / focus
     this.oobLayer.addChild(g, t);
   }
 

@@ -5,7 +5,7 @@ import { sessionHasPhysical } from './sessionPort';
 
 describe('session adapter (SandboxSession v2)', () => {
   it('maps the real session snapshot', () => {
-    const s = new SandboxSession();
+    const s = new SandboxSession({ objectives: true });
     expect(sessionHasPhysical(s)).toBe(true);
     const created = (cmd: Parameters<SandboxSession['dispatch']>[0]): string => {
       const r = s.dispatch(cmd);

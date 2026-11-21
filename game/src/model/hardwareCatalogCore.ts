@@ -16,6 +16,7 @@
  * `buildHardwareCatalog()` with the repository dataset lives in './hardwareCatalog'.
  */
 import type { BcgDataset } from './bcgDataset';
+import { type RackUnitsLookup, SERVER_RACK_UNITS, rackUnitsLookup } from './serverRackUnits';
 import {
   type BootDevice,
   type DrivePart,
@@ -274,10 +275,10 @@ function toConfig(def: StarterConfigDef, model: ServerModel, boot: BootDevice): 
   };
 }
 
-/** Builds the catalog from a BCG dataset. Pure. */
-export function buildHardwareCatalogFrom(dataset: BcgDataset): HardwareCatalog {
+/** Builds the catalog from a BCG dataset (+ optional verified server heights, serverRackUnits.ts). Pure. */
+export function buildHardwareCatalogFrom(dataset: BcgDataset, rackUnits?: RackUnitsLookup): HardwareCatalog {
   const problems: string[] = [];
-  const modelList = serverModelsFromDataset(dataset);
+  const modelList = serverModelsFromDataset(dataset, rackUnits);
   const models = new Map(modelList.map((m) => [m.id, m]));
   const byProduct = new Map(modelList.map((m) => [m.productId, m]));
   const drives = new Map(DRIVE_PARTS.map((d) => [d.id, d]));
@@ -344,7 +345,7 @@ let catalogPromise: Promise<HardwareCatalog> | undefined;
  */
 export function loadHardwareCatalog(): Promise<HardwareCatalog> {
   catalogPromise ??= import('./bcgDataset').then(
-    (m) => buildHardwareCatalogFrom(m.BCG_DATASET),
+    (m) => buildHardwareCatalogFrom(m.BCG_DATASET, rackUnitsLookup(SERVER_RACK_UNITS?.data)),
     (e: unknown) => {
       catalogPromise = undefined;
       throw e;

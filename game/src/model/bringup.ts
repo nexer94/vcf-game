@@ -37,6 +37,7 @@ import {
   parseIpv4,
   poolToIntervals,
 } from './net';
+import { managementServicesNodes } from './servicesRuntimeNodes';
 import { type TransitionResult, type ValidationCode, type ValidationIssue, hasErrors, issue, warningsOf } from './validation';
 
 // ===========================================================================
@@ -203,12 +204,13 @@ export interface InstanceSizing {
 
 /**
  * Sizing for the first VCF Instance (20 §6.2 [S23], same as 00 §6 [S19]).
+ * Management services node counts come from servicesRuntimeNodes.ts (40 §6.4: counts that fit the documented totals).
  * TODO(spec 00 §8 q1): Simple management services: sizing says 1 CP + 2 workers, taxonomy says 3 workers.
  * TODO(spec 00 §8 q2): VCF Automation HA-Small "1x Medium" vs [S15] "Medium -> 3 nodes" vs 20 §2.1 (HA nodes 2/3 = Yes).
  */
 export const FIRST_INSTANCE_SIZING: Readonly<Record<SizingProfile, InstanceSizing>> = {
   simple: {
-    managementServices: { controlPlaneNodes: 1, workerNodes: 2 },
+    managementServices: managementServicesNodes('first', 'simple'),
     sddcManager: { nodes: 1, size: 'Default' },
     vcenter: { nodes: 1, size: 'Small' },
     nsx: { nodes: 1, size: 'Medium' },
@@ -219,7 +221,7 @@ export const FIRST_INSTANCE_SIZING: Readonly<Record<SizingProfile, InstanceSizin
     totals: { vcpu: 76, ramGb: 251, diskGb: 7448 },
   },
   'ha-small': {
-    managementServices: { controlPlaneNodes: 3, workerNodes: 3 },
+    managementServices: managementServicesNodes('first', 'ha-small'),
     sddcManager: { nodes: 1, size: 'Default' },
     vcenter: { nodes: 1, size: 'Small' },
     nsx: { nodes: 3, size: 'Medium' },
@@ -230,7 +232,7 @@ export const FIRST_INSTANCE_SIZING: Readonly<Record<SizingProfile, InstanceSizin
     totals: { vcpu: 106, ramGb: 335, diskGb: 8422 },
   },
   'ha-medium': {
-    managementServices: { controlPlaneNodes: 3, workerNodes: 3 },
+    managementServices: managementServicesNodes('first', 'ha-medium'),
     sddcManager: { nodes: 1, size: 'Default' },
     vcenter: { nodes: 1, size: 'Medium' },
     nsx: { nodes: 3, size: 'Medium' },
@@ -241,7 +243,7 @@ export const FIRST_INSTANCE_SIZING: Readonly<Record<SizingProfile, InstanceSizin
     totals: { vcpu: 184, ramGb: 656, diskGb: 11445 },
   },
   'ha-large': {
-    managementServices: { controlPlaneNodes: 3, workerNodes: 4 },
+    managementServices: managementServicesNodes('first', 'ha-large'),
     sddcManager: { nodes: 1, size: 'Default' },
     vcenter: { nodes: 1, size: 'Large' },
     nsx: { nodes: 3, size: 'Large' },
@@ -253,10 +255,13 @@ export const FIRST_INSTANCE_SIZING: Readonly<Record<SizingProfile, InstanceSizin
   },
 };
 
-/** Sizing for an additional VCF Instance (00 §6 [S19], 20 §6.2 [S23]). */
+/**
+ * Sizing for an additional VCF Instance (00 §6 [S19], 20 §6.2 [S23]).
+ * Worker counts per 40 §6.4 (Simple = 1 worker per the 9.1.1 workbook, fits the documented totals; HA = 2).
+ */
 export const ADDITIONAL_INSTANCE_SIZING: Readonly<Record<SizingProfile, InstanceSizing>> = {
   simple: {
-    managementServices: { controlPlaneNodes: 1, workerNodes: 2 },
+    managementServices: managementServicesNodes('additional', 'simple'),
     sddcManager: { nodes: 1, size: 'Default' },
     vcenter: { nodes: 1, size: 'Small' },
     nsx: { nodes: 1, size: 'Medium' },
@@ -264,7 +269,7 @@ export const ADDITIONAL_INSTANCE_SIZING: Readonly<Record<SizingProfile, Instance
     totals: { vcpu: 34, ramGb: 111, diskGb: 4562 },
   },
   'ha-small': {
-    managementServices: { controlPlaneNodes: 3, workerNodes: 2 },
+    managementServices: managementServicesNodes('additional', 'ha-small'),
     sddcManager: { nodes: 1, size: 'Default' },
     vcenter: { nodes: 1, size: 'Small' },
     nsx: { nodes: 3, size: 'Medium' },
@@ -272,7 +277,7 @@ export const ADDITIONAL_INSTANCE_SIZING: Readonly<Record<SizingProfile, Instance
     totals: { vcpu: 62, ramGb: 187, diskGb: 5462 },
   },
   'ha-medium': {
-    managementServices: { controlPlaneNodes: 3, workerNodes: 2 },
+    managementServices: managementServicesNodes('additional', 'ha-medium'),
     sddcManager: { nodes: 1, size: 'Default' },
     vcenter: { nodes: 1, size: 'Medium' },
     nsx: { nodes: 3, size: 'Medium' },
@@ -280,7 +285,7 @@ export const ADDITIONAL_INSTANCE_SIZING: Readonly<Record<SizingProfile, Instance
     totals: { vcpu: 74, ramGb: 244, diskGb: 5813 },
   },
   'ha-large': {
-    managementServices: { controlPlaneNodes: 3, workerNodes: 2 },
+    managementServices: managementServicesNodes('additional', 'ha-large'),
     sddcManager: { nodes: 1, size: 'Default' },
     vcenter: { nodes: 1, size: 'Large' },
     nsx: { nodes: 3, size: 'Large' },
