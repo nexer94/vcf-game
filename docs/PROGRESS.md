@@ -34,8 +34,9 @@
 - [x] `doc-researcher` – `40-workload-domains`: WLD ve 9.1 (VCF Operations, vCenter + NSX WLD běží v mgmt doméně),
   inventář VM a součty pro 5 scénářů (Simple 10 VM / 76 vCPU / 251 GB / 7448 GB; HA-Small/Medium/Large; + WLD;
   více WLD; 2 instance)
-- [ ] `doc-researcher` – doplnit velikosti VM z Planning and Preparation Workbook 9.1.1 (orchestrátor stáhl, TSV
-  v `docs/spec/data/`) *(běží)*
+- [x] `doc-researcher` – velikosti VM z Workbooku 9.1.1 (SDDC Manager, vCenter, NSX, VCF Ops, cloud proxy, Automation,
+  control plane/worker, Edge/VNA, Supervisor); tabulky scénářů s dokumentovanými součty + per-VM součty
+  - otevřené: License server (≈2 vCPU / 4 GB rozdíl, nedoloženo), počty workerů (stránka vs workbook), disk součty
 - [ ] `domain-modeler` / `engine-dev` – hotové scénáře: replay příkazů do plně nasazeného stavu, inventář VM
 - [ ] `scenario-designer` – 5 hotových scénářů (nejmenší Simple, HA, mgmt + WLD, více WLD, více instancí)
 - [ ] `ui-dev` – prohlížeč hotového prostředí (VM, zdroje)
