@@ -18,7 +18,8 @@ Výjimka: drobné úpravy `docs/PROGRESS.md` a tohoto souboru děláš sám.
   Pro API (endpointy, payloady, API workflow) je povolený **developer.broadcom.com** – jen pro API, s odkazem.
   Pro hardware (servery, disky, NIC) je povolený **Broadcom Compatibility Guide** (compatibilityguide.broadcom.com,
   vSAN ESA ReadyNodes / certifikované servery pro VCF 9.x) – jen konfigurace certifikované tam, s odkazem.
-  Vendoři serverů ve hře: **Dell, HPE, Lenovo, Cisco, Supermicro**. Switche jsou generické „no-name“.
+  Pro **výšku serveru v U** (1U/2U…) je povolený oficiální spec sheet / datasheet výrobce – **jen tento údaj**,
+  s odkazem (rozhodnutí uživatele 2026-11-22). Vendoři serverů ve hře: **Dell, HPE, Lenovo, Cisco, Supermicro**. Switche jsou generické „no-name“.
 - **VCF Upgrade Planner** (https://vmware.github.io/vcf-upgrade-planner/) slouží jako **rozcestník**: výběr situací
   pro kampaně, struktura a pořadí kroků. Fakta z něj se nepřebírají – ověřují se na techdocs/knowledge stránce,
   na kterou planner odkazuje.

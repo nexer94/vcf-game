@@ -32,8 +32,15 @@
 ### Sandbox v3 – zjednodušení + Kariéra level 1 (uživatel 2026-11-22)
 - [x] `ux-designer` – UX.md Část III (kap. 16–27) + GRAPHICS (bez červeného pruhu, šedý rošt místo jantarových žlabů,
   svislý rack s U pravítkem a ToR nahoře, BMC provoz hned); backlog ui-dev U1–U10, engine-dev E1–E8, scenario S1–S3
-- [ ] `doc-researcher` – skutečná interaktivní instalace ESX 9.1 + DCUI krok za krokem *(běží)*
-- [ ] `ui-dev` + `engine-dev` + `scenario-designer` – implementace podle Části III
+- [x] `doc-researcher` – `26-esx-install.md` (41 zdrojů): obrazovky instalátoru I-1…I-14 (Welcome Enter, EULA Enter,
+  Select a Disk F1/Enter, Keyboard, Root password, Confirm Install F11, Installation Complete), DCUI klávesy a kroky
+  (Configure Management Network, Restart/Test), HW minima, CPU deprecated/discontinued, hesla 9.0 vs 9.1
+- [ ] `doc-researcher` – výška serverů v U z datasheetů výrobců (povoleno uživatelem 2026-11-22) *(běží)*
+- [ ] `engine-dev` – Sandbox v3 E1–E8 (ToR v racku, addNic, U výšky, ESX konzole, aktivní krok, registr zdrojů,
+  Kariéra level 1) *(běží)*
+- [ ] `ui-dev` – Sandbox v3 U1–U10 (rozložení, checklist, bubliny, obchod podle vendora, svislý rack, konzole ESX,
+  Zdroj popover, úklid místnosti, vstup do Kariéry) *(běží)*
+- [ ] `scenario-designer` – obsah úkolů v3 + Kariéra level 1 (po engine)
 
 ### Sandbox v2 – serverovna s panáčkem (rozhodnutí uživatele 2026-11-21, viz CLAUDE.md)
 Tok: fyzická stavba (koupit servery z BCG, switche, rack, kabely, MTU) → hosty (ESX 9, management provoz

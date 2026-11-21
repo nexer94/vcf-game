@@ -8,7 +8,9 @@
 >   appliance, konvergence v kostce, upgrade → `20-deployment` (sekce 2–6),
 > - sizing profily (celkové vCPU/RAM/disk), počty uzlů → `00-architektura` 6 a `20-deployment` 6.2,
 > - minima hostů podle cluster modelu, MTU/VLAN/NIC požadavky fyzické sítě, planning workflow (obecně) → `10-planning` 3.3, 6,
-> - porty mezi komponentami → `20-deployment` 7, `00-architektura` 7.
+> - porty mezi komponentami → `20-deployment` 7, `00-architektura` 7,
+> - **interaktivní instalace ESX obrazovku po obrazovce** (instalátor, klávesy, pravidla hesla, rozdělení boot disku,
+>   DCUI menu a klávesy, chybové stavy instalace) → `26-esx-install`.
 >
 > Nová fakta jsou tu: **(A)** katalog use cases / cest, jejich pořadí kroků a rozhodovací body (včetně cesty
 > „nejdřív vSphere, pak konvergence“) a výstupy a kontroly plánování a zdrojů; **(B)** stav sítě ESX hned po
@@ -617,7 +619,7 @@ v seznamu chybí.
 
 #### 10.4.1 Pořadí „nejdřív BMC, pak ESX přes virtual media“
 **Není dokumentováno jako postup VCF.** Doložené kousky:
-1. Instalace ESX (VCF 9.1, Install ESX on Hosts Using an ISO Image) [U66]: Mount ISO → restart → v BIOS/UEFI boot
+1. Instalace ESX (VCF 9.1, Install ESX on Hosts Using an ISO Image) [U66] – detail obrazovek viz `26-esx-install` §4.1: Mount ISO → restart → v BIOS/UEFI boot
    z ISO → Enter → EULA → výběr disku → klávesnice → root heslo → F11 → reboot → první boot device = disk s ESX →
    opakovat pro všechny hosty.
 2. Vzdálená varianta instalace (vSphere 9.1) [U67]: remote management aplikace lze použít pro interaktivní
