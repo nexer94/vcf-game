@@ -3,6 +3,9 @@ import type { GameEngine, GameSnapshot } from '../engine';
 import { fitRect, type Camera } from './camera';
 import { createDemoTopology } from './demo/demoTopology';
 import { DemoTrafficSource } from './demo/demoTraffic';
+import { loadRoomDemo } from './room/roomDemo';
+import { RoomScene } from './room/roomScene';
+import { ROOM_BG } from './room/palette';
 import { DatacenterScene } from './scene/datacenterScene';
 
 /**
@@ -11,6 +14,11 @@ import { DatacenterScene } from './scene/datacenterScene';
  * - off: ticker stopped, canvas hidden (no GPU work behind DOM-only screens)
  */
 export type StageMode = 'backdrop' | 'interactive' | 'off';
+
+/** Which world the stage shows: the old dark datacenter prototype or the cosy Sandbox room. */
+export type StageScene = 'datacenter' | 'room';
+
+const BACKGROUND: Readonly<Record<StageScene, number>> = { datacenter: 0x0f141b, room: ROOM_BG };
 
 export type FrameHook = (snapshot: GameSnapshot, realDeltaMs: number, fps: number) => void;
 
@@ -27,12 +35,15 @@ export class SceneStage {
   private mode: StageMode = 'off';
   private readonly hooks = new Set<FrameHook>();
   private backdropMs = 0;
+  private active: StageScene = 'datacenter';
 
   private constructor(
     readonly app: Application,
     readonly scene: DatacenterScene,
+    readonly room: RoomScene,
     private readonly engine: GameEngine,
   ) {
+    room.world.visible = false;
     app.ticker.add((ticker) => this.frame(ticker.deltaMS, ticker.FPS));
   }
 
@@ -54,14 +65,33 @@ export class SceneStage {
     host.appendChild(app.canvas);
     // DEMO data source - replaced by engine snapshot data once traffic is simulated there.
     const scene = new DatacenterScene(app.renderer, createDemoTopology(), new DemoTrafficSource());
-    app.stage.addChild(scene.world);
-    const stage = new SceneStage(app, scene, engine);
+    const room = new RoomScene(app.renderer);
+    app.stage.addChild(scene.world, room.world);
+    const stage = new SceneStage(app, scene, room, engine);
     stage.setMode('off');
     return stage;
   }
 
   get canvas(): HTMLCanvasElement {
     return this.app.canvas;
+  }
+
+  get activeScene(): StageScene {
+    return this.active;
+  }
+
+  /** Switch the visible world (also sets the canvas background colour). */
+  setScene(which: StageScene): void {
+    this.active = which;
+    this.scene.world.visible = which === 'datacenter';
+    this.room.world.visible = which === 'room';
+    this.app.renderer.background.color = BACKGROUND[which];
+  }
+
+  /** Menu backdrop: the cosy room with illustrative demo furniture. */
+  showRoomBackdrop(): void {
+    loadRoomDemo(this.room);
+    this.setScene('room');
   }
 
   setMode(mode: StageMode): void {
@@ -78,12 +108,15 @@ export class SceneStage {
 
   /** Camera that fits the whole scene into the current screen. */
   fit(padding = 60): Camera {
-    return fitRect(this.scene.layout.bounds, this.app.screen.width, this.app.screen.height, padding);
+    const bounds = this.active === 'room' ? this.room.bounds : this.scene.layout.bounds;
+    return fitRect(bounds, this.app.screen.width, this.app.screen.height, padding);
   }
 
   setCamera(cam: Camera): void {
-    this.scene.world.position.set(cam.x, cam.y);
-    this.scene.world.scale.set(cam.scale);
+    const world = this.active === 'room' ? this.room.world : this.scene.world;
+    world.position.set(cam.x, cam.y);
+    world.scale.set(cam.scale);
+    if (this.active === 'room') this.room.setViewScale(cam.scale, this.app.renderer.resolution);
   }
 
   /** Per-frame callback (after the scene update). Returns an unsubscribe function. */
@@ -97,7 +130,8 @@ export class SceneStage {
     // gets a live simulation, engine ticking moves to a render-independent loop.
     this.engine.tick(Math.min(realMs, 100));
     const snap = this.engine.snapshot();
-    this.scene.update(snap, realMs);
+    if (this.active === 'room') this.room.update(snap, realMs);
+    else this.scene.update(snap, realMs);
     if (this.mode === 'backdrop') this.driftBackdrop(realMs);
     for (const h of this.hooks) h(snap, realMs, fps);
   }

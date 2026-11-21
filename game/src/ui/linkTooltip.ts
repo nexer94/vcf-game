@@ -1,4 +1,4 @@
-import { LOAD_CSS, loadBand } from '../render/traffic/loadStyle';
+import { loadBand } from '../render/traffic/loadStyle';
 import type { LinkTraffic } from '../render/traffic/trafficModel';
 import { TRAFFIC_STYLE } from '../render/traffic/trafficTypes';
 import { formatCount, formatGbps, formatLatency, formatPercent } from './format';
@@ -32,7 +32,7 @@ export function createLinkTooltip(parent: HTMLElement): LinkTooltip {
       const html = `
         <h3>${title}</h3>
         <table>
-          <tr><td>Vytížení</td><td style="color:${LOAD_CSS[band]}">${formatPercent(t.utilization)} – ${BAND_LABEL[band]}</td></tr>
+          <tr><td>Vytížení</td><td class="band band-${band}">${formatPercent(t.utilization)} – ${BAND_LABEL[band]}</td></tr>
           <tr><td>Propustnost</td><td>${formatGbps(t.throughputGbps)} / ${formatGbps(t.capacityGbps)}</td></tr>
           <tr><td>Poptávka</td><td>${formatGbps(t.demandGbps)}</td></tr>
           <tr><td>Latence</td><td>${formatLatency(t.latencyMs)}</td></tr>

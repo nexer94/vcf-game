@@ -1,0 +1,185 @@
+/* Sandbox server room layout: thin HUD on top, inventory bar at the bottom,
+   collapsible design panel on the right, the room in the middle (canvas). */
+.room-ui { --top-h: 52px; --bottom-h: 132px; --side-w: 380px; }
+
+.room-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--top-h);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  pointer-events: auto;
+  background: var(--panel);
+  border-bottom: 3px solid var(--outline);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.room-title strong { color: var(--ink); font-size: 15px; }
+.hud-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 2px solid var(--line-2);
+  font-size: 13px;
+  color: var(--ink);
+}
+.hud-chip small { color: var(--muted); font-size: 11px; }
+.coin {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffd34d;
+  border: 2px solid var(--outline);
+  box-sizing: border-box;
+  display: inline-block;
+}
+.demo-toggle { cursor: pointer; }
+.demo-toggle input { accent-color: var(--accent); margin: 0; }
+.room-time .time { position: static; padding: 3px 6px; border-width: 2px; box-shadow: none; border-radius: 999px; }
+.room-hud .muted { white-space: nowrap; }
+.room-hud > :last-child { margin-left: auto; }
+.room-time .time button { padding: 2px 8px; }
+.room-toast {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--bottom-h) + 12px);
+  transform: translateX(-50%);
+  max-width: 60%;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--panel);
+  border: 2px solid var(--outline);
+  border-radius: 999px;
+  padding: 4px 14px;
+  box-shadow: 0 3px 0 var(--outline);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.room-toast.bad { color: var(--bad); border-color: var(--bad); box-shadow: 0 3px 0 var(--bad); }
+
+.room-ui .room-legend { top: calc(var(--top-h) + 12px); bottom: auto; left: 12px; min-width: 170px; padding: 8px 10px; font-size: 12px; }
+
+/* Right: collapsible design decisions */
+.room-side {
+  position: absolute;
+  top: var(--top-h);
+  right: 0;
+  bottom: var(--bottom-h);
+  width: var(--side-w);
+  pointer-events: auto;
+  background: var(--panel);
+  border-left: 3px solid var(--outline);
+  display: flex;
+  flex-direction: column;
+  transition: transform 160ms ease;
+}
+.room-side.collapsed { transform: translateX(var(--side-w)); }
+.room-side-tab {
+  position: absolute;
+  left: -38px;
+  top: 16px;
+  width: 38px;
+  padding: 12px 0;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font: inherit;
+  font-weight: 800;
+  font-size: 13px;
+  color: #fff;
+  background: var(--accent);
+  border: 3px solid var(--outline);
+  border-right: 0;
+  border-radius: 0 12px 12px 0;
+  cursor: pointer;
+}
+.room-side-tab:hover { background: var(--accent-2); }
+.room-side-body { overflow: auto; padding: 12px 14px; flex: 1; font-size: 13px; }
+.room-side .design-layout { grid-template-columns: 1fr; }
+
+/* Bottom: inventory / shop */
+.room-inv {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--bottom-h);
+  box-sizing: border-box;
+  pointer-events: auto;
+  background: var(--bg-2);
+  border-top: 3px solid var(--outline);
+  display: flex;
+  flex-direction: column;
+}
+.inv-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; padding: 6px 12px 0; }
+.inv-tabs { display: flex; gap: 4px; overflow-x: auto; }
+.inv-tab {
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--muted);
+  background: var(--panel-3);
+  border: 2px solid var(--line-2);
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.inv-tab[aria-selected='true'] { background: var(--panel); color: var(--ink); border-color: var(--outline); }
+.inv-note { font-size: 11px; color: var(--muted); white-space: nowrap; padding-bottom: 4px; }
+.inv-items {
+  flex: 1;
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  background: var(--panel);
+  border-top: 2px solid var(--outline);
+}
+.inv-item {
+  flex: none;
+  width: 200px;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 2px solid var(--outline);
+  border-radius: 12px;
+  padding: 6px 10px;
+  cursor: pointer;
+  box-shadow: 0 3px 0 var(--outline);
+}
+.inv-item:hover:not(:disabled) { background: #fff6e8; }
+.inv-item[aria-selected='true'] { background: #ffe9d6; border-color: var(--orange); box-shadow: 0 3px 0 var(--orange); }
+.inv-item:disabled { opacity: 0.55; cursor: default; box-shadow: none; }
+.inv-item-body { display: flex; gap: 10px; align-items: center; }
+.inv-text { display: flex; flex-direction: column; min-width: 0; }
+.inv-name { font-weight: 800; font-size: 13px; }
+.inv-desc { font-size: 12px; color: var(--muted); }
+
+/* Tiny CSS item icons (no image assets). */
+.inv-icon { flex: none; width: 34px; height: 40px; border-radius: 6px; border: 2px solid var(--outline); box-sizing: border-box; position: relative; }
+.icon-rack { background: #4a4a78; }
+.icon-rack::after { content: ''; position: absolute; inset: 4px 5px; background: #27274a; border-radius: 2px; }
+.icon-server-a, .icon-server-b, .icon-server-c { height: 18px; background: #eef0f7; border-left-width: 8px; }
+.icon-server-a { border-left-color: #3d8bfd; }
+.icon-server-b { border-left-color: #2bb673; }
+.icon-server-c { border-left-color: #e5484d; }
+.icon-switch { height: 16px; background: repeating-linear-gradient(90deg, #3d6fd1 0 4px, #e8f0ff 4px 6px); }
+.icon-cable { border: 0; background: radial-gradient(circle at 50% 120%, transparent 12px, #a37cf0 13px 16px, transparent 17px); }
+.icon-disk { height: 24px; background: #cfd3e3; border-radius: 4px; }
+.icon-nic { height: 20px; background: linear-gradient(#4cc38a, #4cc38a) bottom/100% 5px no-repeat, #2f8f63; }
+
+@media (max-width: 720px) {
+  .room-ui { --side-w: 300px; }
+  .room-ui .room-legend { display: none; }
+}

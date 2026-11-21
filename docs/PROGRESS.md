@@ -33,18 +33,27 @@
 Tok: fyzická stavba (koupit servery z BCG, switche, rack, kabely, MTU) → hosty (ESX 9, management provoz
 se rozběhne) → volba use case podle VCF Installeru → návrh omezený aktuálním HW → postupný deploy.
 Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v Sandboxu neomezené peníze.
-- [ ] `doc-researcher` – `15-hardware` (BCG: Dell, HPE, Lenovo, Cisco, Supermicro; ReadyNode profily) *(běží)*
-- [ ] `doc-researcher` – `25-usecases-and-physical` (use cases VCF Installeru a jejich pořadí, planning
-  workflow / nároky, výchozí síť ESX po instalaci, MTU) *(běží)*
-- [ ] `ui-dev` – nový styl: izometrická serverovna, avatar, objekty jako „nábytek“, světlejší UI *(běží)*
+- [x] BCG přímo (orchestrátor, 2026-11-21): API BCG (`viewResults`/`viewDetails`) → `docs/spec/data/
+  bcg-vsan-esa-readynodes-esxi91.json` (247 ESA ReadyNodes pro ESXi 9.1: Dell 32, HPE 26, Lenovo 76, Cisco 31,
+  Supermicro 82 – profily, CPU, RAM, certifikované disky, NIC, boot) + `bcg-vsan-esa-readynode-hardware-guidance.md`
+  (definice profilů HCI/SC/CR SM/MED/LRG); obnova dat: `tools/bcg/fetch-readynodes.sh`
+- [ ] `doc-researcher` – přepsat `15-hardware` na ověřená data z `docs/spec/data/` (místo [BCG-idx])
+- [x] `doc-researcher` – `25-usecases-and-physical`: 10 use cases (UC-1 nová fleet … UC-9 vSphere 8 → 9.1 bez
+  installeru) s pořadím kroků; cesta „nejdřív vSphere“ = UC-4/UC-9 + konvergence (VDS 8+, vLCM image, DRS FA…);
+  výchozí síť ESX (vSwitch0, vmk0, MTU 1500), jumbo frames, MTU validace installeru s doslovnými hláškami; 13 otázek
+- [x] `ui-dev` – serverovna (`render/room/`): místnost, panáček (A*), rack/server/switch jako nábytek, kabely
+  s pakety, inventář dole, panel rozhodnutí vpravo, HUD; světlý styl menu; `#/sandbox/mistnost`
 - [ ] `domain-modeler` – fyzická vrstva: server (CPU/RAM/disky/NIC), switch, rack, kabely, MTU, validace HW
   proti ReadyNode/10-planning; katalog z `15-hardware`; use cases z `25`
 - [ ] `engine-dev` – Sandbox v2: nákup (herní měna), stavba, provoz odvozený ze stavu (management flows),
   odemykání kroků; napojit stávající návrh a bring-up
 - [ ] `ui-dev` – obchod, umisťování, kabeláž, konfigurace hostů; pak use case, návrh, deploy v novém stylu
 - [ ] `fact-checker` – Sandbox v2
-- [ ] `ux-designer` – UX návrh Sandboxu v2 + review stávajícího UI → `docs/design/UX.md` *(běží)*
-- [ ] `code-reviewer` – první celkové review kódu (správnost, architektura, bezpečnost, závislosti) *(běží)*
+- [x] `ux-designer` – `docs/design/UX.md`: tok v2 (7 fází), onboarding T1–T7, 4 typy hlášení, backlog 25 položek
+  (MVP „první host online“); review: „Nerozhodnuto“ ≠ chyba, akordeon místo svitku, kontrast paketů na světlé podlaze
+- [x] `code-reviewer` – OK (0 blokujících); důležité: neomezený `expandPool` (IP pool /8 zamrzne), obejití gate
+  přes hash, UI návrhu mimo `SandboxSession`, revision/snapshot cache se zahazuje každý tick
+- [ ] `engine-dev` + `domain-modeler` – opravy z code review (4 důležité + drobné)
 
 ### Sandbox v1 (původní tok Návrh → Příprava → Deploy)
 - [x] `ui-dev` – hash router, hlavní menu (Sandbox / Kariéra „Připravujeme“ / Ukázka provozu), úvod Sandboxu,
@@ -104,6 +113,8 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
 4. [ ] Den 2 – nová workload doména (`40-workload-domains`), nová instance ve fleetu
 
 ## Otevřené otázky
+- ReadyNode servery (modely 5 vendorů) nejdou z BCG strojově číst – buď uživatel exportuje seznam ESA ReadyNodes
+  pro 9.1 z prohlížeče (CSV), nebo ve hře zůstanou modely označené „neověřeno“ [BCG-idx]
 - FQDN třídy: load balancer VCF Operations, Cloud Proxy, License Server, installer = „unclassified“ (spec je
   nezařazuje) → `.local`/velká písmena se nekontrolují; software depot v nové instanci – spec neříká (model vynechává)
 - Nové úrovně v modelu: severity `recommendation` (doporučení z docs, ne hláška systému), `scope: 'game-scope'`

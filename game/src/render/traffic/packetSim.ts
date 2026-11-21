@@ -6,13 +6,22 @@
  * This is purely visual - it does not decide what traffic exists (that comes from
  * the TrafficSource / engine snapshot). Packet pool is preallocated (no GC churn).
  */
-import { bezierPoint, type Vec2 } from '../geom/bezier';
-import type { CableGeometry } from '../scene/layout';
+import { bezierPoint, type CubicBezier, type Vec2 } from '../geom/bezier';
 import { createRng, weightedIndex } from '../util/rng';
 import type { LinkTraffic } from './trafficModel';
 import { TRAFFIC_STYLE } from './trafficTypes';
 
 export const DROP_COLOR = 0xe5484d;
+
+/**
+ * What the simulation needs from a cable: link id (key into TrafficSource data),
+ * curve and length. Datacenter CableGeometry and room cables both satisfy it.
+ */
+export interface PacketPath {
+  readonly spec: { readonly id: string };
+  readonly curve: CubicBezier;
+  readonly length: number;
+}
 
 export interface SimPacket {
   cable: number;
@@ -71,7 +80,7 @@ export class PacketSim {
   private readonly weights: number[] = [];
 
   constructor(
-    private readonly cables: readonly CableGeometry[],
+    private readonly cables: readonly PacketPath[],
     private readonly opts: PacketSimOptions = DEFAULT_PACKET_SIM,
   ) {
     this.rng = createRng(opts.seed);

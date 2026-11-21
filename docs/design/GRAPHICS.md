@@ -41,6 +41,11 @@ Přechody mezi úrovněmi plynulým zoomem (jako přelet nad mapou).
 - Vždy viditelná legenda, ovládání času (pauza / 1× / 4× / 16×), hover = detail linky
   (throughput, latence, fronta, dropy).
 - Hodnoty, které nejsou přímo z dokumentace, UI označí jako „ilustrativní model“.
+- **Světlá serverovna (kontrast, ux-designer 2026-11-21)**: barvy provozu výše jsou laděné pro tmavou scénu;
+  na světlé podlaze místnosti mají kontrast jen ~1–2,5 : 1. Proto se kabely a pakety v místnosti kreslí
+  s tmavým obrysem (`OUTLINE` z `render/room/palette.ts`), aby grafika měla ≥ 3 : 1 (WCAG 1.4.11). Fyzický
+  kabel nese víc typů provozu (trunk) → kabel je neutrální, barvu typu provozu nesou pakety (volitelně
+  proužek, když kabel nese jediný typ). Barva nikdy není jediný nosič informace (legenda, tooltip). Viz `UX.md` 2.5, 4.5.
 
 ## Technika
 - PixiJS (WebGL), sprity generované z vektorů, batching, cíl 60 FPS i na Chromebooku.

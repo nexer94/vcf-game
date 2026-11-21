@@ -26,12 +26,13 @@ export class PacketLayer {
     private readonly sim: PacketSim,
     bounds: { x: number; y: number; width: number; height: number },
     scale = 0.85,
+    blendMode: 'add' | 'normal' = 'add',
   ) {
     this.view = new ParticleContainer<Particle>({
       texture,
       dynamicProperties: { position: true, color: true, vertex: false, rotation: false, uvs: false },
     });
-    this.view.blendMode = 'add';
+    this.view.blendMode = blendMode;
     // ParticleContainer does not compute bounds itself.
     this.view.boundsArea = new Rectangle(bounds.x - 200, bounds.y - 200, bounds.width + 400, bounds.height + 600);
     this.pool = sim.packets.map(

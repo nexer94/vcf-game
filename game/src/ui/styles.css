@@ -1,63 +1,101 @@
-/* HUD / overlay UI. Own neutral styling - not a copy of any Broadcom UI. */
+/* Shared palette + HUD / overlay UI. Bright, friendly "room tycoon" look
+   (docs/design/GRAPHICS.md) - own styling, not a copy of any Broadcom UI or game.
+   All text colours keep >= 4.5:1 contrast on the panel backgrounds. */
+:root {
+  --font: ui-rounded, 'Nunito', 'Segoe UI Rounded', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --bg: #f4ead8;
+  --bg-2: #fbf5ea;
+  --panel: #ffffff;
+  --panel-2: #f7f3fc;
+  --panel-3: #efe9f8;
+  --line: #ddd4ec;
+  --line-2: #c9bde0;
+  --ink: #2a2440;
+  --text: #3b3555;
+  --muted: #6a6585;
+  --faint: #807a96;
+  --outline: #2e2645;
+  --accent: #5b4fd6;
+  --accent-2: #4a3fc0;
+  --accent-soft: #ebe8ff;
+  --link: #2f5fcf;
+  --link-2: #1d47a8;
+  --ok: #1d8a57;
+  --ok-soft: #e2f6ec;
+  --warn: #9a5a0a;
+  --warn-soft: #fff1dc;
+  --bad: #c0322e;
+  --bad-soft: #fde6e5;
+  --orange: #ff8a3d;
+  --shadow: 0 3px 0 rgba(46, 38, 69, 0.18), 0 8px 20px rgba(46, 38, 69, 0.12);
+  --radius: 12px;
+}
+
 .ui-root {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  font: 13px/1.35 system-ui, -apple-system, 'Segoe UI', sans-serif;
-  color: #c5d0de;
+  font: 13px/1.35 var(--font);
+  color: var(--text);
 }
 .ui-panel {
   position: absolute;
   pointer-events: auto;
-  background: rgba(16, 22, 30, 0.88);
-  border: 1px solid #2a3644;
-  border-radius: 8px;
+  background: var(--panel);
+  border: 2px solid var(--outline);
+  border-radius: var(--radius);
   padding: 10px 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow);
 }
 .ui-badge {
   display: inline-block;
   font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: #2a2412;
-  color: #f2c94c;
-  border: 1px solid #5a4a1a;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #fff4c7;
+  color: #6e5300;
+  border: 1.5px solid #e8c547;
 }
 .hud { top: 12px; left: 12px; }
-.hud h1 { margin: 0 0 4px; font-size: 15px; color: #e8edf3; font-weight: 600; }
-.hud .row { display: flex; gap: 10px; align-items: center; font-size: 12px; color: #8aa4c8; }
-.hud .hint { margin-top: 6px; font-size: 11px; color: #6b7a8c; }
+.hud h1 { margin: 0 0 4px; font-size: 15px; color: var(--ink); font-weight: 700; }
+.hud .row { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--muted); }
+.hud .hint { margin-top: 6px; font-size: 11px; color: var(--faint); }
 
 .time { top: 12px; right: 12px; display: flex; gap: 6px; align-items: center; }
-.time .clock { font-variant-numeric: tabular-nums; min-width: 64px; color: #e8edf3; margin-right: 4px; }
+.time .clock { font-variant-numeric: tabular-nums; min-width: 64px; color: var(--ink); font-weight: 700; margin-right: 4px; }
 .time button {
   font: inherit;
-  color: #c5d0de;
-  background: #1b2430;
-  border: 1px solid #2f3b4c;
-  border-radius: 6px;
-  padding: 4px 10px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1.5px solid var(--line-2);
+  border-radius: 8px;
+  padding: 3px 10px;
   cursor: pointer;
 }
-.time button:hover { background: #243042; }
-.time button[aria-pressed='true'] { background: #2d4a6b; border-color: #5b8bc0; color: #fff; }
+.time button:hover { background: var(--panel-3); }
+.time button[aria-pressed='true'] { background: var(--accent); border-color: var(--outline); color: #fff; }
 
 .legend { bottom: 12px; left: 12px; min-width: 200px; }
-.legend h2 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #8aa4c8; }
+.legend h2 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .legend h2:not(:first-child) { margin-top: 10px; }
 .legend ul { list-style: none; margin: 0; padding: 0; }
 .legend li { display: flex; align-items: center; gap: 8px; margin: 3px 0; font-size: 12px; }
-.legend .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
-.legend .bar { width: 22px; border-radius: 2px; flex: none; }
+.legend .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; outline: 1.5px solid var(--outline); box-shadow: none !important; }
+.legend .bar { width: 22px; border-radius: 2px; flex: none; outline: 1px solid var(--outline); }
 .legend .foot { margin-top: 8px; }
 
 .tooltip { min-width: 220px; pointer-events: none; display: none; }
 .tooltip.visible { display: block; }
-.tooltip h3 { margin: 0 0 6px; font-size: 13px; color: #e8edf3; font-weight: 600; }
+.tooltip h3 { margin: 0 0 6px; font-size: 13px; color: var(--ink); font-weight: 700; }
 .tooltip table { border-collapse: collapse; width: 100%; font-size: 12px; }
 .tooltip td { padding: 1px 0; }
-.tooltip td:last-child { text-align: right; font-variant-numeric: tabular-nums; color: #e8edf3; }
-.tooltip .mix { margin-top: 6px; border-top: 1px solid #2a3644; padding-top: 6px; }
-.tooltip .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.tooltip td:last-child { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); }
+.tooltip .mix { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 6px; }
+.tooltip .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; outline: 1px solid var(--outline); }
 .tooltip .foot { margin-top: 6px; }
+.tooltip .band { font-weight: 700; }
+.tooltip td.band-normal { color: var(--ok); }
+.tooltip td.band-warn { color: var(--warn); }
+.tooltip td.band-crit { color: var(--bad); }

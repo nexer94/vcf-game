@@ -1,5 +1,5 @@
 import type { GameEngine } from '../../engine';
-import type { SceneStage, StageMode } from '../../render/stage';
+import type { SceneStage, StageMode, StageScene } from '../../render/stage';
 import type { Route } from '../router';
 
 /** Shared services handed to every screen. */
@@ -19,6 +19,8 @@ export interface MountedScreen {
 export interface ScreenDef {
   /** What the shared PixiJS stage does behind this screen. */
   readonly stageMode: StageMode;
+  /** Which world the stage shows behind this screen (default: datacenter). */
+  readonly stageScene?: StageScene;
   mount(root: HTMLElement, ctx: AppContext, route: Route): MountedScreen;
 }
 

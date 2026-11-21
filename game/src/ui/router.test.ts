@@ -10,6 +10,8 @@ describe('router', () => {
     expect(parseRoute('#/sandbox/priprava')).toEqual({ name: 'sandbox', phase: 'priprava' });
     expect(parseRoute('#/kariera')).toEqual({ name: 'career' });
     expect(parseRoute('#/provoz')).toEqual({ name: 'traffic' });
+    expect(parseRoute('#/sandbox/mistnost')).toEqual({ name: 'sandbox-room', demo: false });
+    expect(parseRoute('#/sandbox/mistnost/ukazka')).toEqual({ name: 'sandbox-room', demo: true });
   });
 
   it('falls back on unknown input', () => {
@@ -23,6 +25,8 @@ describe('router', () => {
       { name: 'sandbox-intro' },
       { name: 'career' },
       { name: 'traffic' },
+      { name: 'sandbox-room', demo: false },
+      { name: 'sandbox-room', demo: true },
       ...SANDBOX_PHASES.map((phase) => ({ name: 'sandbox', phase }) as const),
     ];
     for (const r of routes) expect(parseRoute(formatRoute(r))).toEqual(r);

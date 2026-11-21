@@ -21,6 +21,7 @@ export const sandboxIntroScreen: ScreenDef = {
     const start = button('Začít – 1. Návrh →', () => ctx.navigate({ name: 'sandbox', phase: 'navrh' }), {
       class: 'btn btn-primary',
     });
+    const room = button('Serverovna (prototyp)', () => ctx.navigate({ name: 'sandbox-room', demo: false }), { class: 'btn' });
     const back = button('← Zpět do menu', () => ctx.navigate({ name: 'menu' }), { class: 'btn' });
 
     const view = h(
@@ -55,7 +56,7 @@ export const sandboxIntroScreen: ScreenDef = {
         ),
         h('p', { class: 'muted' }, 'Modelovaná verze: ', h('strong', null, VCF_VERSION), ' · ',
           docLink('oficiální dokumentace VCF (TechDocs)', VCF_DOCS_URL)),
-        h('div', { class: 'actions' }, back, start),
+        h('div', { class: 'actions' }, back, h('div', { class: 'actions-right' }, room, start)),
         disclaimer(),
       ),
     );

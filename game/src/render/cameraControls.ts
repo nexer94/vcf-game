@@ -6,7 +6,12 @@ export interface CameraControlsOptions {
   readonly onChange: (cam: Camera) => void;
   /** Pointer hover in screen (element-local) coordinates; null when leaving / dragging. */
   readonly onHover?: (pos: { sx: number; sy: number; wx: number; wy: number } | null) => void;
+  /** Primary-button click without dragging (pointer moved less than CLICK_SLOP_PX). */
+  readonly onClick?: (pos: { sx: number; sy: number; wx: number; wy: number }) => void;
 }
+
+/** Max pointer travel (px) for a press to still count as a click. */
+export const CLICK_SLOP_PX = 5;
 
 export interface CameraControls {
   get camera(): Camera;
@@ -18,7 +23,7 @@ export interface CameraControls {
 export function attachCameraControls(opts: CameraControlsOptions): CameraControls {
   const el = opts.element;
   let cam = opts.initial;
-  let drag: { id: number; x: number; y: number } | null = null;
+  let drag: { id: number; x: number; y: number; travel: number } | null = null;
 
   const local = (e: PointerEvent | WheelEvent): { sx: number; sy: number } => {
     const r = el.getBoundingClientRect();
@@ -31,13 +36,14 @@ export function attachCameraControls(opts: CameraControlsOptions): CameraControl
 
   const onDown = (e: PointerEvent): void => {
     if (e.button !== 0) return;
-    drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, travel: 0 };
     el.setPointerCapture(e.pointerId);
     el.style.cursor = 'grabbing';
     opts.onHover?.(null);
   };
   const onMove = (e: PointerEvent): void => {
     if (drag && drag.id === e.pointerId) {
+      drag.travel += Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y);
       apply(pan(cam, e.clientX - drag.x, e.clientY - drag.y));
       drag.x = e.clientX;
       drag.y = e.clientY;
@@ -49,9 +55,15 @@ export function attachCameraControls(opts: CameraControlsOptions): CameraControl
   };
   const onUp = (e: PointerEvent): void => {
     if (!drag || drag.id !== e.pointerId) return;
+    const click = e.type === 'pointerup' && drag.travel < CLICK_SLOP_PX;
     drag = null;
     el.releasePointerCapture(e.pointerId);
     el.style.cursor = '';
+    if (click && opts.onClick) {
+      const { sx, sy } = local(e);
+      const w = screenToWorld(cam, sx, sy);
+      opts.onClick({ sx, sy, wx: w.x, wy: w.y });
+    }
   };
   const onLeave = (): void => {
     if (!drag) opts.onHover?.(null);

@@ -5,6 +5,7 @@ import type { Route } from './router';
 import { careerScreen } from './screens/career';
 import { mainMenuScreen } from './screens/mainMenu';
 import { sandboxIntroScreen } from './screens/sandboxIntro';
+import { sandboxRoomScreen } from './screens/sandboxRoom';
 import { sandboxShellScreen } from './screens/sandboxShell';
 import type { AppContext, MountedScreen, ScreenDef } from './screens/screen';
 import { trafficDemoScreen } from './screens/trafficDemo';
@@ -13,6 +14,7 @@ const SCREENS: Readonly<Record<Route['name'], ScreenDef>> = {
   menu: mainMenuScreen,
   'sandbox-intro': sandboxIntroScreen,
   sandbox: sandboxShellScreen,
+  'sandbox-room': sandboxRoomScreen,
   career: careerScreen,
   traffic: trafficDemoScreen,
 };
@@ -31,6 +33,7 @@ export function startApp(host: HTMLElement, stage: SceneStage, engine: GameEngin
     }
     current?.screen.dispose();
     const def = SCREENS[route.name];
+    stage.setScene(def.stageScene ?? 'datacenter');
     stage.setMode(def.stageMode);
     current = { name: route.name, screen: def.mount(layer, ctx, route) };
   });
