@@ -399,6 +399,10 @@ Chování:
 | Validace bez problémů | „✓ Vše v pořádku“ (zeleně, krátce) – ne prázdný box |
 
 ### 3.2 Čtyři druhy hlášení (+ štítky) – jednotný vizuální jazyk
+> **Barvy a ikony (2026-11-21):** platí nové téma v `GRAPHICS.md` „Téma a paleta“ T4. Hra = vždy grafitová
+> rodina s čárkovaným rámečkem, dokumentace = sémantické barvy. Emoji ikony níže nahradí vlastní SVG ikony (T9).
+> Brand červená (`--brand`) není barva chyby: chyba nikdy nemá plnou červenou výplň.
+
 To je nejdůležitější pravidlo věrnosti v UI. Hráč musí na první pohled poznat, **kdo** mu co říká.
 
 | Typ | Kdo to říká | Vzhled | Text | Blokuje? |

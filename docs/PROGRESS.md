@@ -118,7 +118,10 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
   - [ ] `engine-dev` + `ui-dev` – napojit `validateRackPlacement` do `placeRack` a ghost náhledu (po doběhnutí engine-dev)
   - [ ] `doc-researcher` – `50-vsan`: vSAN fault domains / rack awareness, sítě Single-Rack vs Multi-Rack L2/L3 *(běží)*
   - [ ] `domain-modeler` – odvodit cluster model z rozmístění hostů v rackách (po `50-vsan`)
-  - [ ] `ui-dev` – náhled umístění racku s důvody, 3 velikosti v obchodě a scéně
+  - [ ] `ui-dev` – náhled umístění racku s důvody, 3 velikosti v obchodě a scéně + nové téma (GRAPHICS.md T0–T11)
+- [x] `ux-designer` – téma inspirované Broadcom/VCF (GRAPHICS.md T0–T11): brand červená jen pro CTA, navy/grafit,
+  enterprise panely, téma `console` pro PC, AA kontrasty, úprava barev Management/NFS kvůli barvosleposti,
+  tmavší vendor štítky, vlastní SVG ikony; checklist 15 bodů pro ui-dev
 - [ ] (odloženo do funkčního milníku) `code-reviewer` + `ux-designer` review → `fact-checker`
 
 ### Sandbox v1 (původní tok Návrh → Příprava → Deploy)
