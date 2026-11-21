@@ -1,25 +1,35 @@
 {
   "version": 1,
-  "note": "Screen sequence of the interactive ESX installer and the DCUI (docs/spec/26-esx-install.md §4.1, §4.3). Titles and body texts ONLY from the spec (quotes of the documentation); screens whose text the spec does not give are 'simplified' (UI label 'zjednodušená obrazovka (herní)'). Actions are engine handlers (modes/sandbox/console.ts). Authored by engine-dev as a first version – scenario-designer completes it (UX backlog S3).",
+  "note": "Screen sequence of the interactive ESX installer and the DCUI (docs/spec/26-esx-install.md §4.1, §4.3; VCF 9.1.1 / ESX 9.1). Titles = screen / menu names the spec gives in bold; body lines = sentences quoted in the spec (documentation sentences, not guaranteed on-screen text, 26 header note). Screens whose on-screen text the spec does not document carry `simplified: true` (UI label 'zjednodušená obrazovka (herní)') and use neutral wording; key labels on simplified screens are game controls. Main installer path first; screens with `conditional: true` appear only in special cases (SD/USB boot device, deprecated CPU, failure) and should not count in the 'krok n / N' counter. specRefs put the [E..] ids before step tokens like I-10 so the source parser does not read '10' as a spec file. Actions are engine handlers (modes/sandbox/console.ts). Reviewed by scenario-designer (UX backlog S3).",
+  "versionNotes": [
+    "Root password (26 §3.4): ESX 9.1 [E12] = length 7–128, all four character classes by default (an uppercase first character and a digit last character do not count, no user name). ESX 9.0 [E13] = length 7–39 ('less than 40'), at least three of the four classes. 'Required Information' 9.1 [E10] still says 'between 8 and 40 characters' – conflict, 26 §8 OQ4; the game uses [E12] (checkEsxRootPassword).",
+    "Installer sequence 9.0 [E5] = 9.1 [E4] (26 §4.1 [9.0]). DCUI 9.0 vs 9.1 not compared page by page (26 §8 OQ12).",
+    "VLAN ID: DCUI 'from 1 through 4094' [E22]; 'Required Information' [E10] says 0–4095 (26 §8 OQ6) – the console uses the DCUI range.",
+    "IPv4 item name: vSphere 9.1 [E23] 'IP Configuration' / 'Set static IP address and network configuration'; VCF 9.1 [E31] 'IPv4 Configuration' / 'Set static IPv4 address and network configuration'. The console follows the VCF page (26 §8 OQ11). IPv6 Configuration (dual-stack only, D-5d) is not offered – VCF infrastructure networks must be IPv4 (10 §3.2) and the order of the item in the menu is undocumented.",
+    "Not modelled as screens (no engine support / undocumented text): Confirm Disk Selection (I-6a, disk with data), choices for an existing ESX / VMFS (I-6b, option names undocumented, 26 §8 OQ2), BIOS/UEFI boot device (I-2, I-13), Troubleshooting Options (SSH / ESX Shell, 26 §4.4) and DCUI keys F4 / F12 / Alt+F1 / Alt+F2 / Alt+F12 / q."
+  ],
   "installer": [
     {
       "id": "welcome",
       "title": "Welcome",
       "body": ["press Enter to continue"],
       "keys": [{ "key": "Enter", "label": "Continue", "next": "eula" }],
-      "specRef": "26-esx-install §4.1 I-4 [E4][E30]"
+      "specRef": "26-esx-install §4.1 [E4][E30] (I-4)"
     },
     {
       "id": "eula",
       "title": "End User License Agreement",
       "keys": [{ "key": "Enter", "label": "Accept", "next": "select-disk" }],
-      "specRef": "26-esx-install §4.1 I-5 [E4][E30]",
+      "specRef": "26-esx-install §4.1 [E4][E30] (I-5)",
       "simplified": true
     },
     {
       "id": "select-disk",
       "title": "Select a Disk to Install or Upgrade",
-      "body": ["Press F1 for information about the selected disk.", "Do not rely on the disk order in the list to select a disk."],
+      "body": [
+        "Press F1 for information about the selected disk.",
+        "Caution: Do not rely on the disk order in the list to select a disk."
+      ],
       "input": "disk",
       "keys": [
         { "key": "Up", "label": "Up" },
@@ -27,19 +37,7 @@
         { "key": "F1", "label": "Details", "action": "disk-details" },
         { "key": "Enter", "label": "Continue", "action": "select-disk", "next": "keyboard" }
       ],
-      "specRef": "26-esx-install §4.1 I-6, §5.1 [E4]"
-    },
-    {
-      "id": "select-osdata",
-      "title": "Select a Disk to store ESX OSData",
-      "body": ["select a persistent storage device with minimum 32 GB of available space."],
-      "input": "disk",
-      "keys": [
-        { "key": "Up", "label": "Up" },
-        { "key": "Down", "label": "Down" },
-        { "key": "Enter", "label": "Continue", "action": "select-osdata", "next": "keyboard" }
-      ],
-      "specRef": "26-esx-install §4.1 I-6c [E4]"
+      "specRef": "26-esx-install §4.1, §5.1 [E4][E2] (I-6)"
     },
     {
       "id": "keyboard",
@@ -51,16 +49,21 @@
         { "key": "Down", "label": "Down" },
         { "key": "Enter", "label": "Continue", "action": "set-keyboard", "next": "root-password" }
       ],
-      "specRef": "26-esx-install §4.1 I-7, §3.3 [E4][E10]",
+      "specRef": "26-esx-install §4.1, §3.3 [E4][E10] (I-7)",
       "simplified": true
     },
     {
       "id": "root-password",
       "title": "Root password",
-      "body": ["You can change the password after installation in the direct console."],
+      "body": [
+        "Enter the root password",
+        "password length is at least 7 characters and at most 128",
+        "you must include a mix of at least one from each of the following four character classes",
+        "You can change the password after installation in the direct console."
+      ],
       "input": "password",
       "keys": [{ "key": "Enter", "label": "Continue", "action": "set-password", "next": "confirm-install" }],
-      "specRef": "26-esx-install §4.1 I-8, §3.4 [E4][E12]",
+      "specRef": "26-esx-install §4.1, §3.4 [E4][E12] (I-8)",
       "simplified": true
     },
     {
@@ -68,28 +71,54 @@
       "title": "Confirm Install",
       "body": ["Press F11 to confirm the start of the installation."],
       "keys": [{ "key": "F11", "label": "Install", "action": "install", "next": "installing" }],
-      "specRef": "26-esx-install §4.1 I-10 [E4][E30]"
+      "specRef": "26-esx-install §4.1 [E4][E30] (I-10)"
     },
     {
       "id": "installing",
       "title": "Installing ESX",
       "keys": [],
-      "specRef": "26-esx-install §4.1 I-11 [E4]",
+      "specRef": "26-esx-install §4.1 [E4] (I-11)",
       "simplified": true
     },
     {
       "id": "complete",
       "title": "Installation Complete",
-      "body": ["When the installation is complete, remove the installation CD, DVD, or USB flash drive.", "Press Enter to reboot the host."],
+      "body": [
+        "When the installation is complete, remove the installation CD, DVD, or USB flash drive.",
+        "Press Enter to reboot the host."
+      ],
       "keys": [{ "key": "Enter", "label": "Reboot", "action": "reboot", "next": "dcui-home" }],
-      "specRef": "26-esx-install §4.1 I-12a [E4][E30]"
+      "specRef": "26-esx-install §4.1 [E4][E30] (I-12a)"
+    },
+    {
+      "id": "select-osdata",
+      "title": "Select a Disk to store ESX OSData",
+      "body": ["select a persistent storage device with minimum 32 GB of available space."],
+      "input": "disk",
+      "keys": [
+        { "key": "Up", "label": "Up" },
+        { "key": "Down", "label": "Down" },
+        { "key": "Enter", "label": "Continue", "action": "select-osdata", "next": "keyboard" }
+      ],
+      "specRef": "26-esx-install §4.1, §5.1 [E4][E6] (I-6c)",
+      "conditional": true
+    },
+    {
+      "id": "cpu-support-warning",
+      "title": "CPU_SUPPORT_WARNING",
+      "body": ["CPU_SUPPORT_WARNING: The CPUs in this host may not be supported in future VCF releases. Plan accordingly."],
+      "keys": [{ "key": "Enter", "label": "Continue", "next": "confirm-install" }],
+      "specRef": "26-esx-install §4.1, §5.2 [E35][E36] (I-9)",
+      "simplified": true,
+      "conditional": true
     },
     {
       "id": "operation-failed",
       "title": "Operation Failed",
       "keys": [{ "key": "Enter", "label": "Back", "next": "confirm-install" }],
-      "specRef": "26-esx-install §4.1 I-12b [E4]",
-      "simplified": true
+      "specRef": "26-esx-install §4.1 [E4] (I-12b)",
+      "simplified": true,
+      "conditional": true
     }
   ],
   "dcui": [
@@ -97,8 +126,8 @@
       "id": "dcui-home",
       "title": "Direct Console",
       "body": ["The assigned IP address appears on the direct console."],
-      "keys": [{ "key": "F2", "label": "Customize System", "next": "dcui-login" }],
-      "specRef": "26-esx-install §4.2, §4.3 D-1 [E28][E31]",
+      "keys": [{ "key": "F2", "label": "View and change the configuration", "next": "dcui-login" }],
+      "specRef": "26-esx-install §4.2, §4.3 [E28][E18][E31] (D-1)",
       "simplified": true
     },
     {
@@ -107,9 +136,9 @@
       "input": "password",
       "keys": [
         { "key": "Enter", "label": "OK", "action": "login", "next": "dcui-menu" },
-        { "key": "Esc", "label": "Cancel", "next": "dcui-home" }
+        { "key": "Esc", "label": "Exit without saving", "next": "dcui-home" }
       ],
-      "specRef": "26-esx-install §4.3 D-2 [E31]",
+      "specRef": "26-esx-install §4.3 [E31] (D-2)",
       "simplified": true
     },
     {
@@ -125,20 +154,25 @@
       "keys": [
         { "key": "Up", "label": "Up" },
         { "key": "Down", "label": "Down" },
-        { "key": "Enter", "label": "Select", "action": "menu-enter" },
-        { "key": "Esc", "label": "Log Out", "action": "logout", "next": "dcui-home" }
+        { "key": "Enter", "label": "Select a menu item", "action": "menu-enter" },
+        { "key": "Esc", "label": "Exit", "action": "logout", "next": "dcui-home" }
       ],
-      "specRef": "26-esx-install §4.3 D-1 [E29][E31]"
+      "specRef": "26-esx-install §4.3 [E29][E31][E18] (D-1)"
     },
     {
       "id": "dcui-password",
       "title": "Configure Password",
+      "body": [
+        "password length is at least 7 characters and at most 128",
+        "you must include a mix of at least one from each of the following four character classes"
+      ],
       "input": "password",
       "keys": [
-        { "key": "Enter", "label": "OK", "action": "change-password", "next": "dcui-menu" },
-        { "key": "Esc", "label": "Cancel", "next": "dcui-menu" }
+        { "key": "Enter", "label": "Save and exit", "action": "change-password", "next": "dcui-menu" },
+        { "key": "Esc", "label": "Exit without saving", "next": "dcui-menu" }
       ],
-      "specRef": "26-esx-install §4.3 D-3, §3.4 [E20][E12]"
+      "specRef": "26-esx-install §4.3, §3.4 [E20][E12] (D-3)",
+      "simplified": true
     },
     {
       "id": "dcui-keyboard",
@@ -147,10 +181,11 @@
       "keys": [
         { "key": "Up", "label": "Up" },
         { "key": "Down", "label": "Down" },
-        { "key": "Enter", "label": "OK", "action": "set-keyboard", "next": "dcui-menu" },
-        { "key": "Esc", "label": "Cancel", "next": "dcui-menu" }
+        { "key": "Space", "label": "Toggle a value" },
+        { "key": "Enter", "label": "Save and exit", "action": "set-keyboard", "next": "dcui-menu" },
+        { "key": "Esc", "label": "Exit without saving", "next": "dcui-menu" }
       ],
-      "specRef": "26-esx-install §4.3 D-4 [E19]"
+      "specRef": "26-esx-install §4.3 [E19][E18] (D-4)"
     },
     {
       "id": "dcui-mgmt",
@@ -165,10 +200,10 @@
       "keys": [
         { "key": "Up", "label": "Up" },
         { "key": "Down", "label": "Down" },
-        { "key": "Enter", "label": "Select", "action": "menu-enter" },
+        { "key": "Enter", "label": "Select a menu item", "action": "menu-enter" },
         { "key": "Esc", "label": "Exit", "action": "mgmt-exit", "next": "dcui-confirm" }
       ],
-      "specRef": "26-esx-install §4.3 D-5 [E21][E31]"
+      "specRef": "26-esx-install §4.3 [E21][E31] (D-5)"
     },
     {
       "id": "dcui-adapters",
@@ -176,10 +211,12 @@
       "input": "form",
       "fields": [{ "id": "vmnics", "label": "vmnic (comma separated)" }],
       "keys": [
-        { "key": "Enter", "label": "OK", "action": "save-form", "next": "dcui-mgmt" },
-        { "key": "Esc", "label": "Cancel", "next": "dcui-mgmt" }
+        { "key": "Space", "label": "Toggle a value" },
+        { "key": "Enter", "label": "Save and exit", "action": "save-form", "next": "dcui-mgmt" },
+        { "key": "Esc", "label": "Exit without saving", "next": "dcui-mgmt" }
       ],
-      "specRef": "26-esx-install §4.3 D-5a [E21]"
+      "specRef": "26-esx-install §4.3 [E21][E18] (D-5a)",
+      "simplified": true
     },
     {
       "id": "dcui-vlan",
@@ -188,10 +225,10 @@
       "input": "form",
       "fields": [{ "id": "vlan", "label": "VLAN ID", "optional": true }],
       "keys": [
-        { "key": "Enter", "label": "OK", "action": "save-form", "next": "dcui-mgmt" },
-        { "key": "Esc", "label": "Cancel", "next": "dcui-mgmt" }
+        { "key": "Enter", "label": "Save and exit", "action": "save-form", "next": "dcui-mgmt" },
+        { "key": "Esc", "label": "Exit without saving", "next": "dcui-mgmt" }
       ],
-      "specRef": "26-esx-install §4.3 D-5b [E22][E31]"
+      "specRef": "26-esx-install §4.3 [E22][E31] (D-5b)"
     },
     {
       "id": "dcui-ipv4",
@@ -199,16 +236,16 @@
       "body": ["Set static IPv4 address and network configuration"],
       "input": "form",
       "fields": [
-        { "id": "ip", "label": "IPv4 Address" },
-        { "id": "mask", "label": "Subnet Mask" },
-        { "id": "gw", "label": "Default Gateway" }
+        { "id": "ip", "label": "IP address" },
+        { "id": "mask", "label": "Subnet mask" },
+        { "id": "gw", "label": "Default gateway" }
       ],
       "keys": [
         { "key": "Space", "label": "Select" },
-        { "key": "Enter", "label": "OK", "action": "save-form", "next": "dcui-mgmt" },
-        { "key": "Esc", "label": "Cancel", "next": "dcui-mgmt" }
+        { "key": "Enter", "label": "Save and exit", "action": "save-form", "next": "dcui-mgmt" },
+        { "key": "Esc", "label": "Exit without saving", "next": "dcui-mgmt" }
       ],
-      "specRef": "26-esx-install §4.3 D-5c [E23][E31]"
+      "specRef": "26-esx-install §4.3 [E23][E31] (D-5c)"
     },
     {
       "id": "dcui-dns",
@@ -216,16 +253,16 @@
       "body": ["Use the following DNS Server address and hostname"],
       "input": "form",
       "fields": [
-        { "id": "dns1", "label": "Primary DNS Server" },
-        { "id": "dns2", "label": "Alternate DNS Server", "optional": true },
+        { "id": "dns1", "label": "Primary DNS" },
+        { "id": "dns2", "label": "Alternate DNS", "optional": true },
         { "id": "hostname", "label": "Hostname (FQDN)" }
       ],
       "keys": [
         { "key": "Space", "label": "Select" },
-        { "key": "Enter", "label": "OK", "action": "save-form", "next": "dcui-mgmt" },
-        { "key": "Esc", "label": "Cancel", "next": "dcui-mgmt" }
+        { "key": "Enter", "label": "Save and exit", "action": "save-form", "next": "dcui-mgmt" },
+        { "key": "Esc", "label": "Exit without saving", "next": "dcui-mgmt" }
       ],
-      "specRef": "26-esx-install §4.3 D-5e [E24][E31]"
+      "specRef": "26-esx-install §4.3 [E24][E31] (D-5e)"
     },
     {
       "id": "dcui-suffixes",
@@ -234,10 +271,10 @@
       "input": "form",
       "fields": [{ "id": "suffixes", "label": "Suffixes", "optional": true }],
       "keys": [
-        { "key": "Enter", "label": "OK", "action": "save-form", "next": "dcui-mgmt" },
-        { "key": "Esc", "label": "Cancel", "next": "dcui-mgmt" }
+        { "key": "Enter", "label": "Save and exit", "action": "save-form", "next": "dcui-mgmt" },
+        { "key": "Esc", "label": "Exit without saving", "next": "dcui-mgmt" }
       ],
-      "specRef": "26-esx-install §4.3 D-5f [E25][E31]"
+      "specRef": "26-esx-install §4.3 [E25][E31] (D-5f)"
     },
     {
       "id": "dcui-confirm",
@@ -246,30 +283,39 @@
       "keys": [
         { "key": "Y", "label": "Yes", "action": "apply-mgmt", "next": "dcui-menu" },
         { "key": "N", "label": "No", "action": "discard-mgmt", "next": "dcui-menu" },
-        { "key": "Esc", "label": "Cancel", "next": "dcui-mgmt" }
+        { "key": "Esc", "label": "Exit without saving", "next": "dcui-mgmt" }
       ],
-      "specRef": "26-esx-install §4.3 D-6 [E31]",
+      "specRef": "26-esx-install §4.3 [E31] (D-6)",
       "simplified": true
     },
     {
       "id": "dcui-restart",
       "title": "Restart Management Network",
-      "body": ["Press F11 to confirm the restart."],
+      "body": [
+        "Restarting the management network will result in a brief network outage",
+        "Press F11 to confirm the restart."
+      ],
       "keys": [
         { "key": "F11", "label": "Restart", "action": "restart-network", "next": "dcui-menu" },
-        { "key": "Esc", "label": "Cancel", "next": "dcui-menu" }
+        { "key": "Esc", "label": "Exit without saving", "next": "dcui-menu" }
       ],
-      "specRef": "26-esx-install §4.3 D-7, §5.4 [E26]"
+      "specRef": "26-esx-install §4.3, §5.4 [E26] (D-7)"
     },
     {
       "id": "dcui-test",
       "title": "Test Management Network",
-      "body": ["Press Enter to start the test."],
+      "body": [
+        "Pings the default gateway",
+        "Pings the primary DNS name server",
+        "Pings the secondary DNS nameserver",
+        "Resolves the configured host name",
+        "Press Enter to start the test."
+      ],
       "keys": [
         { "key": "Enter", "label": "OK", "action": "test-network", "next": "dcui-menu" },
-        { "key": "Esc", "label": "Cancel", "next": "dcui-menu" }
+        { "key": "Esc", "label": "Exit without saving", "next": "dcui-menu" }
       ],
-      "specRef": "26-esx-install §4.3 D-8 [E27]"
+      "specRef": "26-esx-install §4.3, §5.4 [E27] (D-8)"
     }
   ],
   "keyboardLayouts": ["U.S. English"]

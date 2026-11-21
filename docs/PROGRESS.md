@@ -40,9 +40,9 @@
 - [x] `domain-modeler` – `model/deployedInventory.ts`: VM_SIZES (workbook 9.1.1), inventoryForFleet, totalsForFleet
   (documented vs per-VM vs planning), kapacita a vytížení clusteru (2:1 vCPU:pCPU), placeVms (game-scope),
   10 presetů scénářů s1–s5; 45 testů
-- [ ] `engine-dev` – hotové scénáře v session (preset → nasazený stav) až po UI v3
-- [ ] `scenario-designer` – 5 hotových scénářů (nejmenší Simple, HA, mgmt + WLD, více WLD, více instancí)
-- [ ] `ui-dev` – prohlížeč hotového prostředí (VM, zdroje)
+- [ ] `engine-dev` – `modes/scenarios`: ScenarioSession(preset) → plně nasazený stav, read-only, inventář/součty/vytížení *(běží)*
+- [x] 10 presetů scénářů s1–s5 v `model/deployedInventory.ts`
+- [ ] `ui-dev` – prohlížeč hotových scénářů (seznam, místnost read-only, záložky VM / Zdroje / Hosty / O scénáři) *(běží)*
 
 ### Sandbox v3 – zjednodušení + Kariéra level 1 (uživatel 2026-11-22)
 - [x] `ux-designer` – UX.md Část III (kap. 16–27) + GRAPHICS (bez červeného pruhu, šedý rošt místo jantarových žlabů,
@@ -62,7 +62,12 @@
   NIC slot picker, BMC šedý provoz, Zdroj popover s čitelnými názvy, konzole ESX (instalátor + DCUI, batch),
   Kariéra level 1 (briefing, rozpočet, body, výsledek)
   - zbývá: „Zapojit doporučeně“ (engine), části úklidu místnosti, checklist z `objectives.checklist` enginu
-- [ ] `scenario-designer` – obsah úkolů v3 + Kariéra level 1 (po engine)
+- [x] `scenario-designer` – konzole ESX podle `26` (doslovné texty, F1/F11/F2/Space, podmíněné obrazovky OSData /
+  CPU_SUPPORT_WARNING / Operation Failed, rozdíly 9.0/9.1), úkoly levelu 1 (bubliny, body, „Ukaž“ + řešení, pasti)
+- [ ] navazující (engine-dev): selektor pNIC ≥ uplinky VDS z průvodce (krok `l1.nics`), „krok n/N“ bez podmíněných
+  obrazovek, vykreslit `showMe.solution`, zpřísnit `parseSpecRef` (dvouciferná čísla), DCUI Configure Password 3 pole
+- [ ] navazující (model/spec): CPU deprecated/discontinued (KB 318697) → CPU_SUPPORT_WARNING; stav disku (data) →
+  Confirm Disk Selection
 
 ### Sandbox v2 – serverovna s panáčkem (rozhodnutí uživatele 2026-11-21, viz CLAUDE.md)
 Tok: fyzická stavba (koupit servery z BCG, switche, rack, kabely, MTU) → hosty (ESX 9, management provoz
