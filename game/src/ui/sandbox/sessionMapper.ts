@@ -4,6 +4,7 @@
  * Pure mapping, no rules.
  */
 import type { FlowsView, PhysicalView } from '../../modes/sandbox/roomView';
+import type { LinkVolumeView } from '../../modes/sandbox/trafficV3';
 import type { ObjectivesView, ObjectiveView as EngineObjective } from '../../modes/sandbox/objectives';
 import type { ValidationIssue } from '../../model';
 import {
@@ -216,6 +217,7 @@ export function roomStateFromSnapshot(raw: unknown): RoomState | null {
       .map((i) => ({ id: i.id, kind: i.kind, label: i.label, catalogItemId: i.itemId })),
     issues,
     traffic,
+    ...(Array.isArray((s.flows as { linkVolumes?: unknown } | undefined)?.linkVolumes) ? { linkVolumes: (s.flows as unknown as { linkVolumes: readonly LinkVolumeView[] }).linkVolumes } : {}),
     objectives: obj.items,
     ...(obj.nextId ? { nextObjectiveId: obj.nextId } : {}),
     objectivesHidden: obj.hidden,

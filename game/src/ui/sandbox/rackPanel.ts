@@ -18,7 +18,8 @@ import type { ValidationIssue } from '../../model';
 import { button, h } from '../dom';
 import { chip, message, type MessageType } from '../messages';
 import { icon, MESSAGE_ICON } from '../icons';
-import { bmcTransfersOf, elevationRacks, linkTrafficOf } from './roomSync';
+import type { TrafficSource } from '../../render/traffic/trafficModel';
+import { bmcIsoOf, bmcTransfersOf, elevationRacks, trafficSourceOf } from './roomSync';
 import { createNicSlotPopover } from './nicSlotPopover';
 import type { Rect } from './layoutZones';
 import { CABLE_COLORS, isCableColorId, portKeyId, type CableColorId, type PortKey, type RoomCable, type RoomDevice, type RoomPort, type RoomState } from './sessionPort';
@@ -66,6 +67,10 @@ export interface RackPanelOptions {
   readonly rightInset?: () => number;
   /** Zone obstacles for popovers. */
   readonly obstacles?: () => readonly Rect[];
+  /** The room's traffic source (same instance as the room – engine E-T6; also the demo). null = derive from state. */
+  readonly trafficSource?: () => TrafficSource | null;
+  /** BMC cables with game-scope traffic (demo); null = from the state. */
+  readonly bmcActive?: () => readonly string[] | null;
 }
 
 export interface RackPanel {
@@ -194,15 +199,15 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
       id: c.id,
       a: portKeyId(c.a),
       b: portKeyId(c.b),
-      color: CABLE_COLORS[c.color].color,
+      ...(c.color !== 'neutral' ? { color: CABLE_COLORS[c.color].color } : {}),
       linkUp: c.linkUp,
       bmc: c.bmc,
     }));
     const devState = new Map(state.devices.map((d) => [d.id, { esxInstalled: d.esxInstalled, ...(d.status === 'installing' ? { installing: true } : {}), ...(state.companyNetwork?.switchId === d.id ? { companyUplinkPort: state.companyNetwork.port } : {}) }]));
     const before = view.layout;
     view.setData(racks, showCables ? cables : [], devState, uPxFor(innerWidth, innerHeight));
-    view.setTraffic(linkTrafficOf(state), showTraffic);
-    view.setBmcTraffic(bmcTransfersOf(state));
+    view.setTrafficSource(o.trafficSource?.() ?? trafficSourceOf(state), showTraffic);
+    view.setBmcTraffic(o.bmcActive?.() ?? bmcTransfersOf(state), bmcIsoOf(port.ops?.snapshot()).keys());
     if (before !== view.layout && (before.width !== view.layout.width || before.height !== view.layout.height || !controls)) {
       const c = fit();
       if (controls) controls.set(c);
@@ -703,7 +708,7 @@ export function createRackPanel(o: RackPanelOptions): RackPanel {
 
   trafficToggle.addEventListener('change', () => {
     showTraffic = trafficToggle.checked;
-    view.setTraffic(linkTrafficOf(state), showTraffic);
+    view.setTrafficSource(o.trafficSource?.() ?? trafficSourceOf(state), showTraffic);
   });
   cablesToggle.addEventListener('change', () => {
     showCables = cablesToggle.checked;

@@ -43,7 +43,7 @@ import {
   hostCapacityFromConfig,
   validateManagementCapacity,
 } from '../../model';
-import { type FlowsView, type SandboxState, FLOWS_ILLUSTRATIVE_NOTE, derivedEndpoints, flowPairs } from '../sandbox';
+import { type FlowsView, type SandboxState, FLOWS_ILLUSTRATIVE_NOTE, derivedEndpoints, flowPairs, trafficV3View } from '../sandbox';
 import { type ScenarioRack, SCENARIO_GAME_NETWORK, starterServer } from './build';
 
 // ===========================================================================
@@ -541,6 +541,7 @@ export function scenarioFlows(
   return {
     flows,
     ...aggregateTraffic(full, flows),
+    ...trafficV3View(full, flows, s.room.companyNetwork),
     pairs: flowPairs(flows),
     activities: [],
     activeClasses: [...new Set(flows.map((f) => f.trafficClass))],

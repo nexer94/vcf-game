@@ -207,7 +207,7 @@ export const scenarioRoomScreen: ScreenDef = {
       room.syncContents(roomContentsOf({ ...st, racks: st.racks.filter((r) => r.tile && src!.roomOfRack(r.id) === roomId) }));
       const tr = src.traffic();
       room.setTrafficSource(tr.source);
-      room.setBmcTransfers(tr.bmc);
+      room.setBmcTraffic(tr.bmc);
       trafficNote.hidden = !tr.illustrative;
       room.setCompanyUplink(st.companyNetwork ? { deviceId: st.companyNetwork.switchId, port: st.companyNetwork.port } : null);
     };
@@ -307,7 +307,7 @@ export const scenarioRoomScreen: ScreenDef = {
         room.setHighlightedCabinet(null);
         room.setTrafficFilter(null);
         room.setTrafficSource(null);
-        room.setBmcTransfers([]);
+        room.setBmcTraffic([]);
         room.setCompanyUplink(null);
         room.clear();
         chip.dispose();

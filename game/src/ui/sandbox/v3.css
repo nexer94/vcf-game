@@ -270,3 +270,7 @@
 .shop-detail-pop .card-foot { margin-top: 8px; display: flex; gap: 6px; align-items: center; }
 .shop-detail-pop .card-foot .card-price { flex-direction: row; align-items: baseline; gap: 4px; margin-right: auto; }
 .shop-detail-pop .card-foot .btn-primary { margin-left: 0; }
+
+/* P17 (UX 28.16 / D12): in the rack / host view the collapsed checklist sits UNDER the view's toolbar, never over
+   "← Místnost" and the rack title. */
+.room-ui:has(.rack-bar) .checklist, .room-ui:has(.hd-bar) .checklist { top: calc(var(--top-h) + 52px); }

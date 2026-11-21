@@ -25,7 +25,8 @@ import { createHostDetail, type HostDetail } from '../sandbox/hostDetail';
 import { createObjectPanels } from '../sandbox/objectPanels';
 import { resolveShowMe } from '../sandbox/panelData';
 import { createRackPanel, type RackPanel } from '../sandbox/rackPanel';
-import { bmcTransfersOf, linkTrafficOf, roomContentsOf, StaticTrafficSource } from '../sandbox/roomSync';
+import { bmcIsoOf, bmcTransfersOf, roomContentsOf, trafficSourceOf } from '../sandbox/roomSync';
+import type { TrafficSource } from '../../render/traffic/trafficModel';
 import { parentView, ROOM_VIEW, sameView, viewLabel, type RoomView } from '../sandbox/roomViews';
 import { createDemoRoomPort, setCareerLevel, setPlayMode, sharedRoomPort, type InventoryEntry, type ObjectiveView, type RackTileHint, type RoomPlacement, type RoomPort, type RoomState } from '../sandbox/sessionPort';
 import { createChecklist, type Checklist } from '../sandbox/checklist';
@@ -335,6 +336,9 @@ export const sandboxRoomScreen: ScreenDef = {
       return s.devices.some((d) => d.kind === 'server' && d.esxInstalled) || Object.keys(sharedDesignState().selection()).length > 0;
     };
 
+    /** One traffic source for the room AND the rack view (engine E-T6 contract). */
+    let roomTraffic: TrafficSource | null = null;
+    let demoBmc: readonly string[] = [];
     // ------------------------------------------------------------ shop + traffic chip
     const shop = createShop({
       onBuy: (itemId, qty) => {
@@ -879,6 +883,8 @@ export const sandboxRoomScreen: ScreenDef = {
           dpr: stage.app.renderer.resolution,
           onOpenDevice: openDevice,
           onOpenHost: openHost,
+          trafficSource: () => roomTraffic,
+          bmcActive: () => (demoTraffic ? demoBmc : null),
           toolbarExtra: rackTools(next.rackId),
           rightInset: () => zones.rightW,
           obstacles: () => zones.obstacles,
@@ -968,8 +974,11 @@ export const sandboxRoomScreen: ScreenDef = {
       const full = state;
       room.syncContents(roomContentsOf({ ...full, racks: full.racks.filter((r) => inThisRoom(r.id, !!r.tile)) }));
       refreshPlacement();
-      if (!demoTraffic) room.setTrafficSource(new StaticTrafficSource(linkTrafficOf(state)));
-      if (!demoTraffic) room.setBmcTransfers(bmcTransfersOf(state));
+      if (!demoTraffic) {
+        roomTraffic = trafficSourceOf(state);
+        room.setTrafficSource(roomTraffic);
+      }
+      if (!demoTraffic) room.setBmcTraffic(bmcTransfersOf(state), bmcIsoOf(port.ops?.snapshot()));
       shop.update(state, picked?.id ?? null);
       renderHud(state);
       room.setCompanyUplink(state.companyNetwork ? { deviceId: state.companyNetwork.switchId, port: state.companyNetwork.port } : null);
@@ -1010,8 +1019,10 @@ export const sandboxRoomScreen: ScreenDef = {
       if (isDemo) {
         const built = buildDemoRoom(p);
         demoTraffic = true;
+        roomTraffic = built.traffic;
+        demoBmc = built.bmcCables;
         room.setTrafficSource(built.traffic);
-        room.setBmcTransfers(built.bmcCables);
+        room.setBmcTraffic(built.bmcCables);
       }
       objHooks.bindPort(p, isDemo); // Sprint 2B hook
       offPort = p.subscribe(applyState);
@@ -1264,7 +1275,7 @@ export const sandboxRoomScreen: ScreenDef = {
         room.setHoveredBundle(null);
         room.setHighlightedCabinet(null);
         room.setTrafficFilter(null);
-        room.setBmcTransfers([]);
+        room.setBmcTraffic([]);
         room.setCompanyUplink(null);
         room.world.alpha = 1;
         room.world.visible = true;

@@ -36,7 +36,12 @@
 - [x] `ux-designer` – Provoz v3 (UX.md kap. 28): diagnóza 12 bodů, koncept „Potrubí“ (stuha šířkou podle objemu,
   log kalibrace, ≈ Gb/s u top 3) + „Síťový pohled“ (N), přetížení, mikroanimace, jednotné BMC, kabely v racku jen
   podle významu; backlog P1–P18 (MVP P1–P8), data engine E-T1…E-T7
-- [ ] `ui-dev` + `engine-dev` – Provoz v3 MVP (čeká na souhlas uživatele)
+- [x] Provoz v3 MVP – engine E-T1…E-T7 (linkVolumes po směrech/třídách, rack/device volumes, flowEnds, linkUp/Down,
+  trafficActivities, společný sampler pro místnost i rack, dýchání ±10 %) + UI P1–P8, P9 (část), P17: log kalibrace,
+  stuhy podle objemu, ≈ Gb/s u top 3, legenda čip, uplink neutrální (žlutá zrušena), BMC jednotně šedé ▫ + ISO %,
+  kabely v racku podle významu, lanes podle U
+- [ ] Provoz v3 dál: P10 stuha/LED v racku, P11 ⇅ a LED v místnosti, P12 přetížení, P13 karta toku, P14 mikroanimace,
+  P15 síťový pohled N, proud uplinku do Sítě firmy, směr teček ab/ba
 
 ### Hlavní menu: Kariéra · Hotové scénáře · Sandbox (uživatel 2026-11-22)
 - Sandbox bez úkolů a bublin; checklist + bubliny jen v Kariéře

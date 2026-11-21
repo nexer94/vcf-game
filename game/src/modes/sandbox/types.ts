@@ -32,6 +32,7 @@ import type {
   InstallerOvfInput,
   InstallerState,
   PhysicalState,
+  PortRef,
   ServerConfig,
   SwitchPortConfig,
   ValidationIssue,
@@ -526,6 +527,13 @@ export type SandboxEvent =
   /** Objective satisfied for the first time (celebration, UX §3.3 / §8.4). */
   | { readonly type: 'sandbox/objectiveCompleted'; readonly atMs: number; readonly id: string; readonly groupCompleted?: string }
   /** A doc-required objective that was done is no longer satisfied (UX §8.3 "problém"). */
-  | { readonly type: 'sandbox/objectiveRegressed'; readonly atMs: number; readonly id: string };
+  | { readonly type: 'sandbox/objectiveRegressed'; readonly atMs: number; readonly id: string }
+  /**
+   * E-T5 (UX 28.13): a cable's link came up (cable connected and both ends negotiated a common speed, model
+   * linkStatus). Emitted after the command / tick that caused it. `a` / `b` = the cable ends (as in Cable).
+   */
+  | { readonly type: 'sandbox/linkUp'; readonly atMs: number; readonly cableId: string; readonly a: PortRef; readonly b: PortRef; readonly aDeviceId: string; readonly bDeviceId: string; readonly speedGbE?: number }
+  /** A link that was up is down or the cable is gone (`a` / `b` absent when the cable was removed). */
+  | { readonly type: 'sandbox/linkDown'; readonly atMs: number; readonly cableId: string; readonly a?: PortRef; readonly b?: PortRef };
 
 export type SandboxEventType = SandboxEvent['type'];

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { layoutElevation, rackRows, rowAt, rowRange, uRangeLabel, type ElevRack } from './rackLayout';
-import { isOrthogonal, laneX, routeAll, simplify } from './rackRoute';
+import { isOrthogonal, laneOrder, laneX, routeAll, simplify } from './rackRoute';
 
 const rackA: ElevRack = {
   id: 'R1',
@@ -100,7 +100,20 @@ describe('rack cable auto-route', () => {
     ]);
     const xs = (id: string): number => Math.max(...routes.get(id)!.map((p) => p.x));
     expect(xs('c1')).not.toBe(xs('c2'));
-    expect(laneX(0, 30, 1) - laneX(0, 30, 0)).toBe(3);
+    expect(laneX(0, 30, 1) - laneX(0, 30, 0)).toBe(2.5);
+  });
+
+  it('assigns lanes by position: data before BMC, the higher server nearer to the rack (no crossings, UX 28.8)', () => {
+    const L = layoutElevation([rackA]);
+    const cables = [
+      { id: 'a-low', a: 'srv-01:0', b: 'sw-a:0' },
+      { id: 'b-bmc', a: 'srv-02:bmc', b: 'sw-a:5', bmc: true },
+      { id: 'z-high', a: 'srv-02:0', b: 'sw-a:1' },
+    ];
+    expect(laneOrder(L, cables).map((c) => c.id)).toEqual(['z-high', 'a-low', 'b-bmc']);
+    const routes = routeAll(L, cables);
+    const laneOf = (id: string): number => Math.max(...routes.get(id)!.map((p) => p.x));
+    expect(laneOf('z-high')).toBeLessThan(laneOf('a-low'));
   });
 
   it('routes between racks over the overhead tray', () => {

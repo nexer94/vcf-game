@@ -29,6 +29,7 @@ import { type FlowsView, type HwDesignView, type PhysicalView, flowsView, hwDesi
 import { type SiteView, siteView } from './site';
 import { type ConsolesView, consolesView } from './console';
 import { type SandboxContext, defaultSandboxContext } from './tx';
+import { type TrafficActivityView, trafficActivitiesOf } from './trafficV3';
 import { type UseCaseView, useCaseView } from './useCases';
 import { type SandboxLogEntry, type SandboxPhase, type SandboxState, type SandboxTask, type SandboxTaskKind, SANDBOX_PHASES } from './types';
 import { type DesignLockedField, type WizardStepReport, DESIGN_LOCKED_FIELDS, WIZARD_SECTION_STEP, issueKey, wizardStepReports } from './wizard';
@@ -51,6 +52,8 @@ export interface TaskView {
   readonly elapsedMs: number;
   readonly remainingMs: number;
   readonly durationMs: number;
+  /** Game time the task started (E-T3). */
+  readonly startedAtMs: number;
   /** Always true in the Sandbox: durations are not documented. UI label "ilustrativní". */
   readonly illustrativeDuration: boolean;
   /** Server the task works on (ESX install, DCUI test). */
@@ -107,6 +110,13 @@ export interface SandboxSnapshot {
   readonly progressRevision: number;
   /** Game time of the last state change (the live clock is GameEngine.snapshot().clock). */
   readonly timeMs: number;
+  /**
+   * E-T2 (UX 28.17): bumps only when the traffic picture changes (flows, their cables / volumes, link up / speed).
+   * Render keeps its own ring buffers (sparklines) and detects flow start / end by comparing this number.
+   */
+  readonly trafficRevision: number;
+  /** E-T3: running activities that drive activity flows / the BMC ISO transfer, with start, duration, progress. */
+  readonly trafficActivities: readonly TrafficActivityView[];
   readonly phase: SandboxPhase;
   readonly phases: readonly PhaseView[];
   readonly design: DesignPhaseView;
@@ -144,26 +154,27 @@ export function taskView(t: SandboxTask): TaskView {
     elapsedMs: t.elapsedMs,
     remainingMs: taskRemainingMs(t),
     durationMs: t.durationMs,
+    startedAtMs: t.startedAtMs,
     illustrativeDuration: t.illustrativeDuration,
     ...(t.payload.kind === 'esx-install' || t.payload.kind === 'mgmt-network-test' ? { serverId: t.payload.serverId } : {}),
   };
 }
 
 /** Snapshot parts that do not depend on task progress (expensive: runs model validations). */
-export type SandboxSnapshotBase = Omit<SandboxSnapshot, 'progressRevision' | 'timeMs' | 'tasks'>;
+export type SandboxSnapshotBase = Omit<SandboxSnapshot, 'progressRevision' | 'timeMs' | 'tasks' | 'trafficRevision' | 'trafficActivities'>;
 
 /**
  * Full snapshot (deep-frozen). Equivalent to `withProgress(buildSnapshotBase(s, revision), s, progressRevision)`.
  */
-export function buildSandboxSnapshot(s: SandboxState, revision: number, progressRevision = 0, ctx: SandboxContext = defaultSandboxContext()): SandboxSnapshot {
-  return withProgress(buildSnapshotBase(s, revision, ctx), s, progressRevision);
+export function buildSandboxSnapshot(s: SandboxState, revision: number, progressRevision = 0, ctx: SandboxContext = defaultSandboxContext(), trafficRevision = revision): SandboxSnapshot {
+  return withProgress(buildSnapshotBase(s, revision, ctx), s, progressRevision, trafficRevision);
 }
 
 /**
  * Cheap overlay of the light, per-tick data (time, task views, binary progress) onto a cached base.
  * Returns a deep-frozen snapshot; base parts unaffected by running tasks keep their identity.
  */
-export function withProgress(base: SandboxSnapshotBase, s: SandboxState, progressRevision: number): SandboxSnapshot {
+export function withProgress(base: SandboxSnapshotBase, s: SandboxState, progressRevision: number, trafficRevision = base.revision): SandboxSnapshot {
   const tasks = s.tasks.map(taskView);
   const vTask = tasks.find((t) => t.kind === 'bringup-validation');
   const dTask = tasks.find((t) => t.kind === 'bringup-deployment');
@@ -172,6 +183,8 @@ export function withProgress(base: SandboxSnapshotBase, s: SandboxState, progres
     ...base,
     progressRevision,
     timeMs: s.timeMs,
+    trafficRevision,
+    trafficActivities: trafficActivitiesOf(s, base.flows.flows),
     planning: withBinaryProgress(base.planning, s.tasks),
     deploy,
     tasks,

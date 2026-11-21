@@ -183,10 +183,19 @@ function drawWallJack(g: Graphics, room: RoomSize): void {
   // Original art: a small cream patch panel with a coloured stripe and a row of RJ-45 style sockets.
   poly(g, wallRect(rw, j.u0 - 0.06, j.u1 + 0.06, j.h0 - 3, j.h1 + 3), OUTLINE);
   poly(g, wallRect(rw, j.u0, j.u1, j.h0, j.h1), 0xf4efe1);
-  poly(g, wallRect(rw, j.u0, j.u1, j.h1 - 7, j.h1), 0xffc94d, false);
+  // Traffic v3 (UX §28.5, D4): neutral navy stripe (yellow is reserved for the load warning) + building icon.
+  poly(g, wallRect(rw, j.u0, j.u1, j.h1 - 7, j.h1), 0x5b6b80, false);
   for (let i = 0; i < 4; i++) {
     const a = j.u0 + 0.14 + i * 0.2;
     poly(g, wallRect(rw, a, a + 0.13, j.h1 - 20, j.h1 - 12), 0x24324a);
+  }
+  // Small "company building" glyph above the panel (game abstraction "Síť firmy").
+  const bc = (j.u0 + j.u1) / 2;
+  poly(g, wallRect(rw, bc - 0.16, bc + 0.16, j.h1 + 6, j.h1 + 22), 0x5b6b80);
+  poly(g, wallRect(rw, bc - 0.05, bc + 0.16, j.h1 + 22, j.h1 + 28), 0x5b6b80);
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) {
+    const a = bc - 0.11 + c * 0.09;
+    poly(g, wallRect(rw, a, a + 0.04, j.h1 + 10 + r * 6, j.h1 + 13 + r * 6), 0xf4efe1, false);
   }
   // Conduit from the panel down into the floor ("the company network comes from outside").
   poly(g, wallRect(rw, (j.u0 + j.u1) / 2 - 0.05, (j.u0 + j.u1) / 2 + 0.05, 0, j.h0 - 3), DECOR.trayDark, true, 0.8);

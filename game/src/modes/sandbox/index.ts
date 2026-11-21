@@ -19,3 +19,4 @@ export * from './rackLayout';
 export * from './tor';
 export * from './nicSlots';
 export * from './console';
+export * from './trafficV3';

@@ -30,7 +30,7 @@ import type { TrafficSource } from '../../render/traffic/trafficModel';
 import type { TrafficType } from '../../render/traffic/trafficTypes';
 import { roomStateFromSnapshot } from '../sandbox/sessionMapper';
 import type { RoomState } from '../sandbox/sessionPort';
-import { linkTrafficOf, bmcTransfersOf, StaticTrafficSource } from '../sandbox/roomSync';
+import { linkTrafficOf, bmcTransfersOf, StaticTrafficSource, trafficSourceOf } from '../sandbox/roomSync';
 import { layoutFromSiteView, presetLayout, type SiteLayoutView } from '../sandbox/siteLayout';
 import { layoutForPreset, scenarioModel, type ScenarioModelView, type ScenarioOverrides } from './scenarioData';
 
@@ -247,7 +247,7 @@ function engineSource(preset: ScenarioPreset, session: EngineSessionLike, catalo
     traffic: () => {
       const st = sync().state;
       const real = linkTrafficOf(st);
-      if (real.size) return { source: new StaticTrafficSource(real), bmc: bmcTransfersOf(st), illustrative: false };
+      if (real.size) return { source: st.linkVolumes ? trafficSourceOf(st) : new StaticTrafficSource(real), bmc: bmcTransfersOf(st), illustrative: false };
       return { source: illustrativeTraffic(st, new Set(sync().map.values())), bmc: bmcTransfersOf(st), illustrative: true };
     },
     attach: (engine) => (session.attachTo ? session.attachTo(engine) : () => undefined),

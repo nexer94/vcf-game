@@ -3,12 +3,16 @@
  * (so the rack view, cabling and bundles work in the demo too) and returns an illustrative traffic source.
  * Loads / mixes are ILLUSTRATIVE (no VCF fact): they only show how traffic looks; real flows come from the model.
  */
-import { RoomDemoTraffic } from '../../render/room/roomDemo';
-import type { TrafficType } from '../../render/traffic/trafficTypes';
+import type { FlowTrafficClass } from '../../model';
+import { DemoVolumeSampler, type DemoLinkVolumeDef } from '../../modes/sandbox/trafficV3';
+import { VolumeTrafficSource } from './roomSync';
 import type { PortResult, RoomPort } from './sessionPort';
 
+type TrafficType = Exclude<FlowTrafficClass, 'oob'>;
+
 export interface DemoBuild {
-  readonly traffic: RoomDemoTraffic;
+  /** Illustrative demo volumes through the engine contract (E-T6) – one source for the room AND the rack view. */
+  readonly traffic: VolumeTrafficSource;
   /** BMC cable shown with the game-scope "ISO transfer" animation. */
   readonly bmcCables: readonly string[];
 }
@@ -46,5 +50,6 @@ export function buildDemoRoom(port: RoomPort): DemoBuild {
   cable(s3, 0, swA, 2, 'management', 1, 0.4, 10);
   cable(s3, 1, swB, 2, 'vsan', 4, 2, 15);
   const bmc = cable(s3, 'bmc', swA, 40, null);
-  return { traffic: new RoomDemoTraffic(links), bmcCables: [bmc] };
+  const defs: DemoLinkVolumeDef[] = links.map((l) => ({ cableId: l.id, trafficClass: l.type, mean: l.mean, amp: l.amp, periodS: l.periodS, ...(l.burst ? { burst: l.burst } : {}) }));
+  return { traffic: new VolumeTrafficSource(new DemoVolumeSampler(defs, port.state().linkVolumes ?? [])), bmcCables: [bmc] };
 }

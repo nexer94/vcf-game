@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUNDLE_Z, bundleWidth, devicePath, faceEdgePoint, pairKey, riserTop, trayRoute } from './roomBundles';
+import { BUNDLE_Z, bundleWidth, devicePath, faceEdgePoint, offsetPolyline, pairKey, riserTop, trayRoute } from './roomBundles';
 import { devicePortPoint, type CabinetSpec } from './furniture';
 
 const A: CabinetSpec = { id: 'R1', kind: 'rack', gx: 2, gy: 2 };
@@ -37,6 +37,15 @@ describe('room bundles', () => {
     const e = faceEdgePoint(A, pa);
     expect(e.x).toBeGreaterThan(pa.x);
     expect(bundleWidth(1)).toBeLessThan(bundleWidth(8));
-    expect(bundleWidth(1000)).toBe(6);
+    expect(bundleWidth(1000)).toBe(3);
+  });
+
+  it('offsets a polyline sideways with mitred joins (ribbon outline edges)', () => {
+    const o = offsetPolyline([{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }], 2);
+    expect(o[0]).toEqual({ x: 0, y: 2 });
+    expect(o[1]!.x).toBeCloseTo(8);
+    expect(o[1]!.y).toBeCloseTo(2);
+    expect(o[2]!.x).toBeCloseTo(8);
+    expect(o[2]!.y).toBeCloseTo(10);
   });
 });

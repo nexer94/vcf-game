@@ -10,13 +10,17 @@
  * re-tessellated only when their style changes; packets use one ParticleContainer.
  * No filters.
  */
-import { Container, Graphics, Particle, ParticleContainer, Rectangle, Sprite, Text, type Renderer, type Texture } from 'pixi.js';
+import { BitmapText, Container, Graphics, Particle, ParticleContainer, Rectangle, Sprite, Text, type Renderer, type Texture } from 'pixi.js';
 import type { GameSnapshot } from '../../engine';
 import { distanceToPolyline } from '../geom/bezier';
 import { isoToScreen } from '../iso';
-import { DEFAULT_PACKET_SIM, PacketSim, type PacketPath } from '../traffic/packetSim';
+import { DEFAULT_PACKET_SIM, PacketSim, polylinePoint, type PacketPath } from '../traffic/packetSim';
+import { dominantType, flowWidth, formatGbps, quantize } from '../traffic/flowScale';
+import { drawRibbon, ribbonKey, type RibbonStyle } from '../traffic/flowRibbon';
+import { FLOW_FONT, ensureFlowFont } from '../traffic/flowFont';
+import { loadBand, type LoadBand } from '../traffic/loadStyle';
 import type { LinkTraffic, TrafficSource } from '../traffic/trafficModel';
-import type { TrafficType } from '../traffic/trafficTypes';
+import { TRAFFIC_STYLE, type TrafficType } from '../traffic/trafficTypes';
 import { createAvatarTextures, type AvatarTextures } from './avatarArt';
 import { AvatarMotion } from './avatarMotion';
 import { diamond, up, type P } from './draw';
@@ -25,8 +29,8 @@ import { cabinetGeometry, canMount, drawCabinet, firstFreeU, devicePortPoint, ra
 import { drawAisles, drawGhostFootprint, drawOobSwitch, drawPlacementHints, drawRackFront, type AisleSet, type PlacementHintTile } from './placementFx';
 import { OOB_SWITCH_SPOT } from '../../model/roomFixtures';
 import { CABLE, DECOR, HOVER_TILE, OUTLINE, SHADOW, TARGET_TILE } from './palette';
-import { BUNDLE_Z, bundleWidth, devicePath, faceEdgePoint, flatten, pairKey, polyLength, riserTop, trayPoint, trayRoute } from './roomBundles';
-import type { RoomCableSpec } from './roomCables';
+import { BUNDLE_Z, bmcWallPath, bundleWidth, devicePath, faceEdgePoint, flatten, pairKey, polyLength, riserTop, trayPoint, trayRoute } from './roomBundles';
+import type { PortRef, RoomCableSpec } from './roomCables';
 import { depthOf, nearestReachable, Occupancy, worldToTile, type Footprint, type RoomSize, type Tile } from './roomGrid';
 import { drawRowTrays, drawStaticRoom, SLAB_H, WALL_H, WALL_T, wallJack } from './roomStatic';
 import { DESK, isFixtureId, RoomFixtures, type FixtureId } from './fixtures';
@@ -62,7 +66,32 @@ export interface PlacementHints {
 /** Snapshot of what is placed (for UI lists / persistence later). */
 export interface RoomContents {
   readonly cabinets: readonly { readonly spec: CabinetSpec; readonly devices: readonly RoomDeviceSpec[] }[];
+  /** Data cables (VCF traffic). BMC cables go to `bmcLinks`. */
   readonly cables: readonly RoomCableSpec[];
+  /** BMC cables (game scope, UX §28.7): drawn as a thin grey dashed wire, never as a flow ribbon. */
+  readonly bmcLinks?: readonly BmcLinkSpec[];
+}
+
+/**
+ * BMC cable of a server (out of VCF scope – game). `peer` = the other end when it is mounted in this room (e.g. a ToR
+ * port in the demo); without it the cable runs to the room's pre-installed wall OOB switch.
+ */
+export interface BmcLinkSpec {
+  readonly id: string;
+  /** Server BMC port (port -1). */
+  readonly server: PortRef;
+  readonly peer?: PortRef;
+}
+
+interface BmcEntry {
+  readonly spec: BmcLinkSpec;
+  readonly cab: string;
+  readonly points: readonly P[];
+  readonly flat: Float32Array;
+  readonly length: number;
+  /** Overhead part of the path (from the cabinet top on), drawn in the overhead layer. */
+  readonly overheadFrom: number;
+  phase: number;
 }
 
 interface CabinetEntry {
@@ -74,6 +103,11 @@ interface CabinetEntry {
   /** Thin cable risers on the front-right edge (port -> edge -> top). */
   risers: Graphics;
   key: string;
+  /** Flow ribbon on the riser ("stoupačka", Traffic v3) – width = volume of the cabinet's cables. */
+  flow: Graphics;
+  flowKey: string;
+  /** Riser span (bottom-most port edge point -> top / highest port), null = no data cables. */
+  riser: P[] | null;
 }
 
 /** Cable in the room: endpoints + packet path through the tray (UX §12.2). */
@@ -94,6 +128,9 @@ interface BundleEntry {
   readonly flat: Float32Array;
   readonly gfx: Graphics;
   badge: Text | null;
+  /** Flow ribbon along the tray (Traffic v3): width = summed volume, colour = dominant type. */
+  readonly flow: Graphics;
+  flowKey: string;
 }
 
 export interface BundleInfo {
@@ -102,7 +139,21 @@ export interface BundleInfo {
 }
 
 const MAX_REAL_DELTA_MS = 100;
-const ROOM_PACKETS = { ...DEFAULT_PACKET_SIM, maxPackets: 400, packetsPerGbps: 0.9, speedPxPerMs: 0.09 };
+/** Traffic v3 (UX §28.4): log emission, budget 250 live dots, 70 px/s (slowed only by congestion). */
+const ROOM_PACKETS = { ...DEFAULT_PACKET_SIM, maxPackets: 400, budget: 250, speedPxPerMs: 0.07 };
+/** Flow ribbons + numbers refresh (4 Hz) – ribbons are redrawn only when their quantised key changes. */
+const FLOW_REFRESH_MS = 250;
+/** Max flow numbers "≈ x Gb/s" in view (UX §28.6 room normal: top 3) and ISO labels; BitmapText pool ≤ 8. */
+const TOP_LABELS = 3;
+const LABEL_POOL = 8;
+/** BMC wire colour (UX §28.7) and square cadence: 1 per 3 s, ISO transfer 1 per 0.5 s (real time, game scope). */
+const BMC_GREY = 0x8592a3;
+const BMC_PERIOD_MS = 3000;
+const BMC_ISO_PERIOD_MS = 500;
+const BMC_TRAVEL_MS = 2200;
+const BMC_POOL = 96;
+/** Top of the wall OOB switch box (drawOobSwitch: z 84 + 14 px). */
+const OOB_TOP_Z = 98;
 const FURNITURE_RES = 3;
 
 /** Soft blob shadow: stacked translucent ellipses (no blur filter). */
@@ -130,14 +181,13 @@ function createMagnifierTexture(renderer: Renderer): Texture {
   return t;
 }
 
-const DOT_SCALE = 0.62;
+/** Base dot scale; × flowScale.dotScale (0.55–0.9) per packet. */
+const DOT_SCALE = 0.85;
 
 /** Rack number for the red plate: trailing digits of the label / id ("rack-3" -> "3"). */
 export function rackNumber(label: string): string {
   return /(\d+)\D*$/.exec(label)?.[1] ?? '';
 }
-/** Real-ms period of the dashed "ISO transfer" animation on BMC cables (game scope, UX §15.4). */
-const DASH_FRAME_MS = 90;
 
 export class RoomScene {
   readonly world = new Container();
@@ -175,15 +225,27 @@ export class RoomScene {
   readonly fixtures: RoomFixtures;
   private highlighted: string | null = null;
   private readonly overhead = new Container();
-  private readonly bmcFx = new Graphics();
+  /** Flow ribbons of the tray bundles (above the wires, below the dots). */
+  private readonly flowLayer = new Container();
+  /** BMC: overhead dashed wires (per cabinet a dashed run to the OOB switch) + grey squares (ParticleContainer). */
+  private readonly bmcWireFx = new Graphics();
+  private bmcView: ParticleContainer<Particle> | null = null;
+  private bmcPool: Particle[] = [];
+  private readonly bmcLinks = new Map<string, BmcEntry>();
+  private bmcSpecs: readonly BmcLinkSpec[] = [];
+  private bmcActive = new Set<string>();
+  private bmcIso = new Map<string, number | null>();
+  private bmcClockMs = 0;
+  /** Flow numbers + ISO labels (BitmapText pool, ≤ 8). */
+  private readonly labelLayer = new Container();
+  private labels: BitmapText[] = [];
+  private flowMs = FLOW_REFRESH_MS;
+  private flowTotals: { x: number; y: number; gbps: number; ax: number }[] = [];
   /** "Síť firmy" uplink cable (switch -> wall patch panel), GAME abstraction. */
   private readonly uplinkLayer = new Container();
   private readonly uplinkFx = new Graphics();
   private uplinkLabel: Text | null = null;
   private uplink: { deviceId: string; port: number } | null = null;
-  private bmcActive = new Set<string>();
-  private dashMs = 0;
-  private dashPhase = 0;
   private packetView: ParticleContainer<Particle> | null = null;
   private packetPool: Particle[] = [];
   private shownPackets = 0;
@@ -241,7 +303,8 @@ export class RoomScene {
     this.objects.addChild(this.avatarSprite, this.ghostSprite);
     this.shadows.addChild(this.avatarShadow, this.ghostShadow);
     this.objects.addChild(this.highlightFx, this.fixtures.desk);
-    this.world.addChild(this.fixtures.wall, this.oobLayer, this.shadows, this.aisleFx, this.placeFx, this.floorFx, this.markerFx, this.objects, this.overhead, this.uplinkLayer, this.bmcFx, this.magnifier);
+    this.world.addChild(this.fixtures.wall, this.oobLayer, this.shadows, this.aisleFx, this.placeFx, this.floorFx, this.markerFx, this.objects, this.overhead, this.bmcWireFx, this.flowLayer, this.uplinkLayer, this.labelLayer, this.magnifier);
+    ensureFlowFont();
     this.uplinkLayer.addChild(this.uplinkFx);
     this.drawUplink();
     this.drawOob();
@@ -354,9 +417,11 @@ export class RoomScene {
     shadow.position.set(c.x, c.y);
     const risers = new Graphics();
     risers.zIndex = sprite.zIndex + 0.005;
-    const entry: CabinetEntry = { spec, devices: [], sprite, shadow, texture: null, risers, key: '' };
+    const flow = new Graphics();
+    flow.zIndex = sprite.zIndex + 0.006;
+    const entry: CabinetEntry = { spec, devices: [], sprite, shadow, texture: null, risers, key: '', flow, flowKey: '', riser: null };
     this.cabinets.set(spec.id, entry);
-    this.objects.addChild(sprite, risers);
+    this.objects.addChild(sprite, risers, flow);
     this.shadows.addChild(shadow);
     for (const d of devices) this.mountDevice(spec.id, d);
     this.rebakeCabinet(entry);
@@ -386,6 +451,7 @@ export class RoomScene {
     e.sprite.destroy();
     e.shadow.destroy();
     e.risers.destroy();
+    e.flow.destroy();
     e.texture?.destroy(true);
     this.cabinets.delete(id);
     if (this.highlighted === id) this.setHighlightedCabinet(null);
@@ -431,6 +497,7 @@ export class RoomScene {
       if (!w || cableKey(w) !== cableKey(this.cables.get(id)!.spec)) this.disconnect(id);
     }
     for (const x of c.cables) if (!this.cables.has(x.id)) this.connect(x);
+    this.bmcSpecs = c.bmcLinks ?? [];
     this.cablesDirty = true;
     this.drawTrays();
   }
@@ -587,6 +654,8 @@ export class RoomScene {
       // Neutral core over the outline (redraw the same path cheaply by cloning commands is not available -> second pass).
     }
     this.drawRiserCores();
+    this.computeRiserSpans();
+    this.rebuildBmc();
     // Bundles per cabinet pair.
     const groups = new Map<string, { a: string; b: string; ids: string[] }>();
     for (const c of this.cables.values()) {
@@ -599,6 +668,7 @@ export class RoomScene {
     for (const [k, b] of this.bundles) {
       if (!groups.has(k)) {
         b.gfx.destroy();
+        b.flow.destroy();
         b.badge?.destroy();
         this.bundles.delete(k);
       }
@@ -609,16 +679,139 @@ export class RoomScene {
       const route = [riserTop(ca), ...trayRoute(ca, cb), riserTop(cb)];
       let b = this.bundles.get(k);
       if (!b) {
-        b = { key: k, cabA: g.a, cabB: g.b, cables: g.ids, route, flat: flatten(route), gfx: new Graphics(), badge: null };
+        b = { key: k, cabA: g.a, cabB: g.b, cables: g.ids, route, flat: flatten(route), gfx: new Graphics(), badge: null, flow: new Graphics(), flowKey: '' };
         this.bundles.set(k, b);
         this.overhead.addChild(b.gfx);
+        this.flowLayer.addChild(b.flow);
       } else {
-        b = { ...b, cables: g.ids, route, flat: flatten(route) };
+        b = { ...b, cables: g.ids, route, flat: flatten(route), flowKey: '' };
         this.bundles.set(k, b);
       }
       this.drawBundle(b);
     }
     this.simDirty = true;
+    this.flowMs = FLOW_REFRESH_MS; // refresh ribbons next frame
+  }
+
+  /** Riser ribbon span per cabinet: from the lowest port's edge point up to the top (or the highest port). */
+  private computeRiserSpans(): void {
+    const spans = new Map<string, { lo: P; hi: P; leaves: boolean }>();
+    const add = (cabId: string, port: P, leaves: boolean): void => {
+      const e = this.cabinets.get(cabId);
+      if (!e) return;
+      const p = faceEdgePoint(e.spec, port);
+      const cur = spans.get(cabId);
+      if (!cur) spans.set(cabId, { lo: p, hi: p, leaves });
+      else {
+        if (p.y > cur.lo.y) cur.lo = p;
+        if (p.y < cur.hi.y) cur.hi = p;
+        cur.leaves ||= leaves;
+      }
+    };
+    for (const c of this.cables.values()) {
+      const leaves = c.cabA !== c.cabB;
+      add(c.cabA, c.path.points[0]!, leaves);
+      add(c.cabB, c.path.points[c.path.points.length - 1]!, leaves);
+    }
+    for (const [id, e] of this.cabinets) {
+      const sp = spans.get(id);
+      e.riser = sp ? [sp.lo, sp.leaves ? riserTop(e.spec) : sp.hi] : null;
+      if (e.riser && Math.abs(e.riser[0]!.y - e.riser[1]!.y) < 2) e.riser = [e.riser[0]!, { x: e.riser[1]!.x, y: e.riser[1]!.y - 2 }];
+      e.flowKey = '';
+    }
+  }
+
+  // ---------------------------------------------------------------- BMC (game scope, UX §28.7)
+
+  /** BMC paths: server BMC port -> thin dashed riser -> overhead -> wall OOB switch (or the peer port in this room). */
+  private rebuildBmc(): void {
+    this.bmcLinks.clear();
+    const oobTop = up(isoToScreen(OOB_SWITCH_SPOT.gx + 0.36, OOB_SWITCH_SPOT.gy + 0.13), OOB_TOP_Z);
+    const oobGrid = { gx: OOB_SWITCH_SPOT.gx + 0.36, gy: OOB_SWITCH_SPOT.gy + 0.13 };
+    let i = 0;
+    for (const spec of this.bmcSpecs) {
+      const a = this.portWorld(spec.server.deviceId, spec.server.port);
+      if (!a) continue;
+      const b = spec.peer ? this.portWorld(spec.peer.deviceId, spec.peer.port) : null;
+      let points: P[];
+      let overheadFrom: number;
+      if (b) {
+        points = devicePath(a.cabinet.spec, a.p, b.cabinet.spec, b.p);
+        overheadFrom = a.cabinet.spec.id === b.cabinet.spec.id ? points.length : 2;
+      } else {
+        points = bmcWallPath(a.cabinet.spec, a.p, oobTop, oobGrid);
+        overheadFrom = 2;
+      }
+      this.bmcLinks.set(spec.id, { spec, cab: a.cabinet.spec.id, points, flat: flatten(points), length: polyLength(points), overheadFrom, phase: (i++ * 0.37) % 1 });
+    }
+    // In-cabinet parts (port -> riser -> top) go into the cabinet's riser Graphics (depth-sorted with the cabinet).
+    const perCab = new Map<string, P[][]>();
+    const overhead: P[][] = [];
+    const seenCabRun = new Set<string>();
+    for (const l of this.bmcLinks.values()) {
+      const inCab = l.points.slice(0, Math.min(l.points.length, l.overheadFrom + 1));
+      const list = perCab.get(l.cab) ?? [];
+      list.push(inCab);
+      perCab.set(l.cab, list);
+      if (l.overheadFrom < l.points.length - 1) {
+        // One overhead run per cabinet to the wall switch (they coincide), one per link for peers.
+        const k = l.spec.peer ? l.spec.id : l.cab;
+        if (!seenCabRun.has(k)) {
+          seenCabRun.add(k);
+          overhead.push(l.points.slice(l.overheadFrom));
+        }
+      }
+    }
+    for (const [cabId, runs] of perCab) {
+      const g = this.cabinets.get(cabId)?.risers;
+      if (!g) continue;
+      for (const r of runs) dashedPolyline(g, r, 3, 2.5);
+      g.stroke({ color: BMC_GREY, width: 1, cap: 'butt' });
+    }
+    const w = this.bmcWireFx;
+    w.clear();
+    for (const r of overhead) dashedPolyline(w, r, 4, 3);
+    w.stroke({ color: BMC_GREY, width: 1, cap: 'butt' });
+    // Squares: one ParticleContainer, pooled.
+    if (!this.bmcView) {
+      this.bmcView = new ParticleContainer<Particle>({ texture: this.dots.base, dynamicProperties: { position: true, color: true, vertex: false, rotation: false, uvs: false } });
+      const bb = this.bounds;
+      this.bmcView.boundsArea = new Rectangle(bb.x - 100, bb.y - 100, bb.width + 200, bb.height + 300);
+      this.bmcPool = Array.from({ length: BMC_POOL }, () => new Particle({ texture: this.dots.shapes.bmc, anchorX: 0.5, anchorY: 0.5, scaleX: 0.6, scaleY: 0.6, tint: BMC_GREY }));
+      this.world.addChildAt(this.bmcView, this.world.getChildIndex(this.flowLayer) + 1);
+    }
+  }
+
+  /** Advance the BMC squares (real time – game scope, not tied to the game clock; frozen while paused). */
+  private stepBmc(realMs: number, running: boolean): void {
+    const view = this.bmcView;
+    if (!view) return;
+    if (running) this.bmcClockMs += realMs;
+    const kids = view.particleChildren;
+    let n = 0;
+    const tmp = { x: 0, y: 0 };
+    for (const [id, l] of this.bmcLinks) {
+      if (!this.bmcActive.has(id) && !this.bmcIso.has(id)) continue;
+      const iso = this.bmcIso.has(id);
+      const period = iso ? BMC_ISO_PERIOD_MS : BMC_PERIOD_MS;
+      const offset = l.phase * period;
+      // Every square that left within the last travel time is on the wire: t = (clock - k·period) / travel.
+      const newest = Math.floor((this.bmcClockMs + offset) / period);
+      for (let k = newest; k >= 0 && n < BMC_POOL; k--) {
+        const t = (this.bmcClockMs + offset - k * period) / BMC_TRAVEL_MS;
+        if (t > 1) break;
+        if (t < 0) continue;
+        const p = polylineAt(l.flat, l.length, t, tmp);
+        const s = this.bmcPool[n++]!;
+        s.x = p.x;
+        s.y = p.y;
+      }
+    }
+    if (kids.length !== n) {
+      kids.length = n;
+      for (let i = 0; i < n; i++) kids[i] = this.bmcPool[i]!;
+      view.update();
+    }
   }
 
   private drawRiserCores(): void {
@@ -742,8 +935,9 @@ export class RoomScene {
       for (let i = 1; i < pts.length; i++) g.lineTo(pts[i]!.x, pts[i]!.y);
       return g;
     };
+    // Traffic v3 (UX §28.5, D4): neutral cable like the others – yellow is reserved for the load warning.
     path().stroke({ color: OUTLINE, width: 3.6, cap: 'round', join: 'round' });
-    path().stroke({ color: 0xffc94d, width: 1.8, cap: 'round', join: 'round' });
+    path().stroke({ color: CABLE.body, width: 1.8, cap: 'round', join: 'round' });
   }
 
   /** Remove everything except the avatar. */
@@ -772,17 +966,19 @@ export class RoomScene {
   }
 
   /**
-   * BMC cables currently carrying the game-scope "ISO transfer" (remote ESX install, UX §15.4): drawn as a grey
-   * dashed animation, never as VCF traffic dots.
+   * BMC traffic (game scope, UX §28.7): `active` = BMC cables with management traffic (grey squares, 1 per 3 s);
+   * `iso` = cables carrying the remote ESX install ISO (1 square per 0.5 s + label "✚ ISO n %", progress 0..1 or null).
+   * Never VCF dots, ribbons or Gb/s.
    */
-  setBmcTransfers(cableIds: Iterable<string>): void {
-    this.bmcActive = new Set(cableIds);
-    if (this.bmcActive.size === 0) this.bmcFx.clear();
+  setBmcTraffic(active: Iterable<string>, iso: ReadonlyMap<string, number | null> = new Map()): void {
+    this.bmcActive = new Set(active);
+    this.bmcIso = new Map(iso);
   }
 
   /** Show only one traffic type (others at 15 % alpha); null = all (UX §12.5 legend filter). */
   setTrafficFilter(type: TrafficType | null): void {
     this.filter = type;
+    this.flowMs = FLOW_REFRESH_MS;
   }
 
   /** Traffic types with packets on screen right now (legend chip). */
@@ -790,8 +986,11 @@ export class RoomScene {
     return this.active;
   }
 
+  /** BMC squares are running (legend chip shows ▫). */
   get bmcTransferActive(): boolean {
-    return this.bmcActive.size > 0;
+    for (const id of this.bmcActive) if (this.bmcLinks.has(id)) return true;
+    for (const id of this.bmcIso.keys()) if (this.bmcLinks.has(id)) return true;
+    return false;
   }
 
   trafficFor(id: string): LinkTraffic | undefined {
@@ -1101,8 +1300,117 @@ export class RoomScene {
     }
     this.active.clear();
     for (const [id, t] of this.traffic) if (this.cables.has(id)) for (const m of t.mix) if (m.gbps > 0) this.active.add(m.type);
-    this.drawBmcTransfers(real, gameDelta > 0);
+    this.flowMs += real;
+    if (this.flowMs >= FLOW_REFRESH_MS) {
+      this.flowMs = 0;
+      this.updateFlows();
+      this.updateLabels();
+    }
+    this.stepBmc(real, gameDelta > 0);
     this.drawFloorFx(real);
+  }
+
+  /** Sum + dominant type + worst band over a set of cable ids. */
+  private aggregate(ids: Iterable<string>): { gbps: number; dominant: TrafficType | null; band: LoadBand } {
+    let gbps = 0;
+    let worst = 0;
+    const mix: { type: TrafficType; gbps: number }[] = [];
+    for (const id of ids) {
+      const t = this.traffic.get(id);
+      if (!t) continue;
+      gbps += t.demandGbps;
+      worst = Math.max(worst, t.utilization + (t.dropFraction > 0 ? 1 : 0));
+      for (const m of t.mix) mix.push(m);
+    }
+    return { gbps, dominant: dominantType(mix), band: loadBand(Math.min(1, worst)) };
+  }
+
+  private ribbonStyle(a: { gbps: number; dominant: TrafficType | null; band: LoadBand }): RibbonStyle {
+    const color = a.dominant ? TRAFFIC_STYLE[a.dominant].color : CABLE.body;
+    const dim = this.filter !== null && a.dominant !== this.filter;
+    return { width: quantize(flowWidth(a.gbps)), color, alpha: 0.45, band: a.band, dim };
+  }
+
+  /** Traffic v3 flow ribbons on tray bundles and cabinet risers (redrawn only when the quantised key changes). */
+  private updateFlows(): void {
+    const totals: { x: number; y: number; gbps: number; ax: number }[] = [];
+    for (const b of this.bundles.values()) {
+      const a = this.aggregate(b.cables);
+      const st = this.ribbonStyle(a);
+      const key = ribbonKey(st);
+      if (key !== b.flowKey) {
+        b.flowKey = key;
+        drawRibbon(b.flow, b.route, st);
+      }
+      if (a.gbps > 0) {
+        const mid = b.route[Math.floor(b.route.length / 2)]!;
+        totals.push({ x: mid.x, y: mid.y - 12, gbps: a.gbps, ax: 0.5 });
+      }
+    }
+    const perCab = new Map<string, Set<string>>();
+    for (const c of this.cables.values()) {
+      for (const cab of [c.cabA, c.cabB]) {
+        const set = perCab.get(cab) ?? new Set<string>();
+        set.add(c.spec.id);
+        perCab.set(cab, set);
+      }
+    }
+    for (const [id, e] of this.cabinets) {
+      const ids = perCab.get(id);
+      const a = ids && e.riser ? this.aggregate(ids) : { gbps: 0, dominant: null, band: 'normal' as LoadBand };
+      const st = this.ribbonStyle(a);
+      const key = ribbonKey(st);
+      if (key !== e.flowKey) {
+        e.flowKey = key;
+        if (e.riser) drawRibbon(e.flow, e.riser, st);
+        else e.flow.clear();
+      }
+      if (a.gbps > 0 && e.riser) {
+        const top = e.riser[1]!;
+        totals.push({ x: top.x + 7, y: top.y + 10, gbps: a.gbps, ax: 0 });
+      }
+    }
+    this.flowTotals = totals;
+  }
+
+  /** Visible world rect (for "top 3 in view"). */
+  private viewRect(): { x0: number; y0: number; x1: number; y1: number } {
+    const scr = this.renderer.screen;
+    const a = this.world.toLocal({ x: 0, y: 0 });
+    const b = this.world.toLocal({ x: scr.width, y: scr.height });
+    return { x0: Math.min(a.x, b.x), y0: Math.min(a.y, b.y), x1: Math.max(a.x, b.x), y1: Math.max(a.y, b.y) };
+  }
+
+  /** "≈ x Gb/s" at the 3 busiest bundles / risers in view + "✚ ISO n %" at servers with an ISO transfer. */
+  private updateLabels(): void {
+    const r = this.viewRect();
+    const inView = this.flowTotals.filter((t) => t.x >= r.x0 && t.x <= r.x1 && t.y >= r.y0 && t.y <= r.y1);
+    inView.sort((a, b) => b.gbps - a.gbps);
+    const want: { x: number; y: number; text: string; anchorX: number }[] = inView.slice(0, TOP_LABELS).map((t) => ({ x: t.x, y: t.y, text: formatGbps(t.gbps), anchorX: t.ax }));
+    for (const [id, progress] of this.bmcIso) {
+      const l = this.bmcLinks.get(id);
+      if (!l || want.length >= LABEL_POOL) continue;
+      const p = l.points[0]!;
+      want.push({ x: p.x - 6, y: p.y - 2, text: progress === null ? '✚ ISO' : `✚ ISO ${Math.round(progress * 100)} %`, anchorX: 1 });
+    }
+    // Counter-scale so labels keep ~11 px on screen at any zoom (clamped).
+    const ws = Math.abs(this.world.worldTransform.a) || 1;
+    const k = Math.min(1.6, Math.max(0.5, 1 / ws));
+    while (this.labels.length < want.length) {
+      const t = new BitmapText({ text: '', style: { fontFamily: FLOW_FONT, fontSize: 11 } });
+      t.anchor.set(0.5, 1);
+      this.labels.push(t);
+      this.labelLayer.addChild(t);
+    }
+    this.labels.forEach((t, i) => {
+      const w = want[i];
+      t.visible = !!w;
+      if (!w) return;
+      if (t.text !== w.text) t.text = w.text;
+      t.anchor.set(w.anchorX, 1);
+      t.position.set(w.x, w.y);
+      t.scale.set(k);
+    });
   }
 
   private rebuildSim(): void {
@@ -1116,7 +1424,7 @@ export class RoomScene {
     this.sim = new PacketSim(paths, ROOM_PACKETS);
     const view = new ParticleContainer<Particle>({
       texture: this.dots.base,
-      dynamicProperties: { position: true, color: true, vertex: false, rotation: false, uvs: true },
+      dynamicProperties: { position: true, color: true, vertex: true, rotation: false, uvs: true },
     });
     const b = this.bounds;
     view.boundsArea = new Rectangle(b.x - 100, b.y - 100, b.width + 200, b.height + 300);
@@ -1125,8 +1433,8 @@ export class RoomScene {
     );
     this.packetView = view;
     this.world.addChild(view);
-    // Magnifier stays on top of the packets.
-    this.world.addChild(this.magnifier);
+    // Numbers + magnifier stay on top of the packets.
+    this.world.addChild(this.labelLayer, this.magnifier);
   }
 
   private syncPackets(): void {
@@ -1151,45 +1459,10 @@ export class RoomScene {
       const tex = this.dots.shapes[shape];
       if (s.texture !== tex) s.texture = tex;
       s.tint = p.color;
+      const sc = DOT_SCALE * p.scale;
+      s.scaleX = sc;
+      s.scaleY = sc;
       s.alpha = f && p.type !== f ? p.alpha * 0.15 : p.alpha;
-    }
-  }
-
-  /** Grey dashed "ISO transfer" along BMC cables (game scope) – ~11 Hz redraw, only while some is active. */
-  private drawBmcTransfers(realMs: number, running: boolean): void {
-    if (this.bmcActive.size === 0) return;
-    this.dashMs += realMs;
-    if (this.dashMs < DASH_FRAME_MS) return;
-    this.dashMs = 0;
-    if (running) this.dashPhase = (this.dashPhase + 2) % 12;
-    const segs: number[] = [];
-    for (const id of this.bmcActive) {
-      const c = this.cables.get(id);
-      if (!c) continue;
-      const pts = c.path.points;
-      // Dashes of 6 px with 6 px gaps along the whole path, shifted by the phase.
-      let s0 = -this.dashPhase;
-      let acc = 0;
-      for (let i = 1; i < pts.length; i++) {
-        const a = pts[i - 1]!;
-        const bb = pts[i]!;
-        const len = Math.hypot(bb.x - a.x, bb.y - a.y);
-        if (len === 0) continue;
-        while (s0 < acc + len) {
-          const t0 = Math.max(s0, acc) - acc;
-          const t1 = Math.min(s0 + 6, acc + len) - acc;
-          if (t1 > t0) segs.push(a.x + ((bb.x - a.x) * t0) / len, a.y + ((bb.y - a.y) * t0) / len, a.x + ((bb.x - a.x) * t1) / len, a.y + ((bb.y - a.y) * t1) / len);
-          if (s0 + 6 > acc + len) break;
-          s0 += 12;
-        }
-        acc += len;
-      }
-    }
-    const g = this.bmcFx;
-    g.clear();
-    for (const [color, width] of [[OUTLINE, 3.4], [0xb4bfcd, 1.8]] as const) {
-      for (let i = 0; i < segs.length; i += 4) g.moveTo(segs[i]!, segs[i + 1]!).lineTo(segs[i + 2]!, segs[i + 3]!);
-      g.stroke({ color, width, cap: 'round' });
     }
   }
 
@@ -1229,4 +1502,34 @@ export class RoomScene {
       m.alpha = 0.55 + 0.45 * Math.sin(this.markerMs / 160);
     }
   }
+}
+
+/** Dashed segments along a polyline (moveTo / lineTo only; stroke by the caller). No shader, no filter. */
+function dashedPolyline(g: Graphics, pts: readonly P[], dash: number, gap: number): void {
+  let on = true;
+  let left = dash;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]!;
+    const b = pts[i]!;
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    let d = 0;
+    while (d < len) {
+      const step = Math.min(left, len - d);
+      if (on) {
+        g.moveTo(a.x + ((b.x - a.x) * d) / len, a.y + ((b.y - a.y) * d) / len);
+        g.lineTo(a.x + ((b.x - a.x) * (d + step)) / len, a.y + ((b.y - a.y) * (d + step)) / len);
+      }
+      d += step;
+      left -= step;
+      if (left <= 1e-6) {
+        on = !on;
+        left = on ? dash : gap;
+      }
+    }
+  }
+}
+
+/** Point at fraction t of a flat polyline (BMC squares). */
+function polylineAt(pts: Float32Array, length: number, t: number, out: { x: number; y: number }): { x: number; y: number } {
+  return polylinePoint(pts, length, t, out);
 }

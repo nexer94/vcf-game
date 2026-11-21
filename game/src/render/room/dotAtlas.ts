@@ -1,6 +1,6 @@
 /**
  * Packet "dot" shapes per traffic type (UX.md §12.5, GRAPHICS.md "Provoz v2"): Management ◆, vMotion ▲,
- * vSAN ■, NFS ●, NSX overlay ⬟, VM ○ (hollow) + BMC ✚ (out of VCF scope – game, grey).
+ * vSAN ■, NFS ●, NSX overlay ⬟, VM ○ (hollow) + BMC ▫ small square (out of VCF scope – game, grey; UX §28.7).
  * One atlas texture (white shapes with a dark OUTLINE rim, tinted per type) -> one batched ParticleContainer.
  */
 import { Graphics, Rectangle, Texture, type Renderer } from 'pixi.js';
@@ -18,7 +18,7 @@ export const DOT_GLYPH: Readonly<Record<DotShape, string>> = {
   nfs: '●',
   overlay: '⬟',
   vm: '○',
-  bmc: '✚',
+  bmc: '▫',
 };
 
 const CELL = 16;
@@ -54,7 +54,8 @@ function drawShape(g: Graphics, shape: DotShape, cx: number, cy: number): void {
       g.circle(cx, cy, R).stroke({ color: 0xffffff, width: 1.8 });
       break;
     case 'bmc':
-      g.rect(cx - 1.6, cy - R, 3.2, 2 * R).rect(cx - R, cy - 1.6, 2 * R, 3.2).fill(0xffffff).stroke({ color: OUTLINE, width: 1.2 });
+      // Small square with a dark rim (tinted grey #8592a3) – reads as "a little packet", not as a cable joint.
+      g.rect(cx - R + 1, cy - R + 1, 2 * R - 2, 2 * R - 2).fill(0xffffff).stroke({ color: OUTLINE, width: 1.6 });
       break;
   }
 }

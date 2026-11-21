@@ -6,8 +6,10 @@
  *        -> same column: horizontal back to the other port's stub -> port
  *        -> other column: up to the overhead tray (own lane) -> across -> down the target channel -> port
  *
- * Every cable gets its own lane (3 px apart) in each channel it uses and in the tray, so parallel cables do
- * not overlap. Lanes are assigned deterministically (sorted by cable id). Recompute only when cabling changes.
+ * Every cable gets its own lane (2.5 px apart) in each channel it uses and in the tray, so parallel cables do
+ * not overlap. Traffic v3 cable management (UX §28.8, P9): lanes are assigned by POSITION, not by id – groups data →
+ * uplink → BMC, inside a group the highest source port gets the lane nearest to the rack, so a server's horizontal
+ * run never crosses the vertical lane of a server above it. Recompute only when cabling changes.
  */
 import type { ElevationLayout, PortGeom } from './rackLayout';
 
@@ -21,9 +23,11 @@ export interface RouteCable {
   /** Port ids (`deviceId:port`). */
   readonly a: string;
   readonly b: string;
+  /** BMC cable (lanes after the data cables, UX §28.8). */
+  readonly bmc?: boolean;
 }
 
-export const LANE_PX = 3;
+export const LANE_PX = 2.5;
 const STUB_LANES = 3;
 
 /** Lane x inside a column channel (wraps when the channel is full). */
@@ -113,7 +117,7 @@ export function routeAll(layout: ElevationLayout, cables: readonly RouteCable[])
     laneCount.set(col, n + 1);
     return n;
   };
-  for (const c of [...cables].sort((x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0))) {
+  for (const c of laneOrder(layout, cables)) {
     const a = layout.ports.get(c.a);
     const b = layout.ports.get(c.b);
     if (!a && !b) continue;
@@ -128,6 +132,24 @@ export function routeAll(layout: ElevationLayout, cables: readonly RouteCable[])
     out.set(c.id, routeCable(layout, a, b, la, lb, tl));
   }
   return out;
+}
+
+/**
+ * Lane order (UX §28.8): data before BMC, then by the y of the LOWER-in-the-view end (the server side; smaller y =
+ * higher in the rack = nearer lane), ties by id (deterministic).
+ */
+export function laneOrder<C extends RouteCable>(layout: ElevationLayout, cables: readonly C[]): C[] {
+  const key = (c: C): number => {
+    const ys = [layout.ports.get(c.a)?.y, layout.ports.get(c.b)?.y].filter((y): y is number => y !== undefined);
+    return ys.length ? Math.max(...ys) : Number.POSITIVE_INFINITY;
+  };
+  return [...cables].sort((x, y) => {
+    const g = (x.bmc ? 1 : 0) - (y.bmc ? 1 : 0);
+    if (g) return g;
+    const d = key(x) - key(y);
+    if (d) return d;
+    return x.id < y.id ? -1 : x.id > y.id ? 1 : 0;
+  });
 }
 
 /** Polyline length. */

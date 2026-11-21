@@ -1,15 +1,21 @@
 /**
- * Visual packet simulation (pure, no PixiJS): spawns glowing "packets" along cables
- * with density proportional to offered load, coloured by traffic type; on overloaded
- * links some packets are dropped and fall off the cable.
+ * Visual packet simulation (pure, no PixiJS): spawns "packets" along cables, coloured by traffic type; on
+ * overloaded links some packets are dropped and fall off the cable.
+ *
+ * Traffic v3 calibration (UX.md §28.4, flowScale.ts): every flow (cable × traffic type) emits
+ * `emitRate(g) = 0.4 + 2.6·t` dots per game second (logarithmic, min. 0.4 / s – every flow is visible), dot size
+ * `dotScale(g)`, constant speed slowed only by congestion (`1 − 0.6·q`). A global budget of expected live dots
+ * scales all rates down when exceeded, but never below 0.25 / s per flow.
  *
  * This is purely visual - it does not decide what traffic exists (that comes from
  * the TrafficSource / engine snapshot). Packet pool is preallocated (no GC churn).
  */
 import { bezierPoint, type CubicBezier, type Vec2 } from '../geom/bezier';
-import { createRng, weightedIndex } from '../util/rng';
+import { createRng } from '../util/rng';
+import { congestionSpeed, dotScale, emitRate, MIN_BUDGET_RATE } from './flowScale';
 import type { LinkTraffic } from './trafficModel';
-import { TRAFFIC_STYLE, type TrafficType } from './trafficTypes';
+import { ILLUSTRATIVE } from './trafficModel';
+import { TRAFFIC_STYLE, TRAFFIC_TYPES, type TrafficType } from './trafficTypes';
 
 export const DROP_COLOR = 0xe5484d;
 
@@ -75,12 +81,16 @@ export interface SimPacket {
   /** Traffic type of the packet (shape in the room, UX §12.5). */
   type: TrafficType;
   alpha: number;
+  /** Dot size factor (flowScale.dotScale of the flow's volume). */
+  scale: number;
 }
 
 export interface PacketSimOptions {
   readonly maxPackets: number;
-  /** Packets spawned per game second per Gb/s of offered load. */
-  readonly packetsPerGbps: number;
+  /** Multiplier on flowScale.emitRate (1 = UX §28.4 calibration). */
+  readonly rateScale: number;
+  /** Max expected live dots; above it all rates scale down (not below 0.25 / s per flow). */
+  readonly budget: number;
   /** Travel speed in world px per game ms. */
   readonly speedPxPerMs: number;
   /** Visual exaggeration of the drop fraction so drops are noticeable. */
@@ -92,8 +102,9 @@ export interface PacketSimOptions {
 
 export const DEFAULT_PACKET_SIM: PacketSimOptions = {
   maxPackets: 1500,
-  packetsPerGbps: 1.6,
-  speedPxPerMs: 0.09,
+  rateScale: 1,
+  budget: 1200,
+  speedPxPerMs: 0.07,
   dropVisualBoost: 4,
   fallMs: 900,
   seed: 1337,
@@ -110,14 +121,14 @@ export class PacketSim {
   private readonly spawnAcc: Float64Array;
   private readonly rng: () => number;
   private readonly tmp: Vec2 = { x: 0, y: 0 };
-  private readonly weights: number[] = [];
+  private readonly typeGbps = new Float64Array(TRAFFIC_TYPES.length);
 
   constructor(
     private readonly cables: readonly PacketPath[],
     private readonly opts: PacketSimOptions = DEFAULT_PACKET_SIM,
   ) {
     this.rng = createRng(opts.seed);
-    this.spawnAcc = new Float64Array(cables.length);
+    this.spawnAcc = new Float64Array(cables.length * TRAFFIC_TYPES.length);
     this.packets = Array.from({ length: opts.maxPackets }, () => ({
       cable: 0,
       progress: 0,
@@ -133,6 +144,7 @@ export class PacketSim {
       color: 0xffffff,
       type: 'management' as TrafficType,
       alpha: 1,
+      scale: 1,
     }));
   }
 
@@ -151,45 +163,72 @@ export class PacketSim {
     this.advance(gameDeltaMs, realDeltaMs);
   }
 
-  private spawn(gameDeltaMs: number, traffic: ReadonlyMap<string, LinkTraffic>, k: number): void {
-    const { maxPackets, dropVisualBoost } = this.opts;
-    const packetsPerGbps = this.opts.packetsPerGbps * k;
+  /** Expected live dots at full rate (sum of rate × travel time); used for the budget. */
+  private expectedLive(traffic: ReadonlyMap<string, LinkTraffic>, k: number): number {
     const speedPxPerMs = this.opts.speedPxPerMs * k;
+    let live = 0;
+    for (const cable of this.cables) {
+      const t = traffic.get(cable.spec.id);
+      if (!t || t.demandGbps <= 0) continue;
+      this.sumTypes(t);
+      const travelS = Math.max(1, cable.length) / (speedPxPerMs * congestionSpeed(t.queueDepth / ILLUSTRATIVE.maxQueueDepth)) / 1000;
+      for (let ti = 0; ti < TRAFFIC_TYPES.length; ti++) live += emitRate(this.typeGbps[ti]!) * this.opts.rateScale * k * travelS;
+    }
+    return live;
+  }
+
+  private sumTypes(t: LinkTraffic): void {
+    this.typeGbps.fill(0);
+    for (const c of t.mix) {
+      const ti = TRAFFIC_TYPES.indexOf(c.type);
+      if (ti >= 0 && c.gbps > 0) this.typeGbps[ti]! += c.gbps;
+    }
+  }
+
+  private spawn(gameDeltaMs: number, traffic: ReadonlyMap<string, LinkTraffic>, k: number): void {
+    const { maxPackets, dropVisualBoost, rateScale, budget } = this.opts;
+    const speedPxPerMs = this.opts.speedPxPerMs * k;
+    const expected = this.expectedLive(traffic, k);
+    const budgetScale = expected > budget ? budget / expected : 1;
+    const nt = TRAFFIC_TYPES.length;
     for (let ci = 0; ci < this.cables.length; ci++) {
       const cable = this.cables[ci]!;
       const t = traffic.get(cable.spec.id);
       if (!t || t.demandGbps <= 0) continue;
-      this.spawnAcc[ci]! += t.demandGbps * packetsPerGbps * (gameDeltaMs / 1000);
+      this.sumTypes(t);
+      const q = t.queueDepth / ILLUSTRATIVE.maxQueueDepth;
+      const speed = (speedPxPerMs * congestionSpeed(q)) / Math.max(1, cable.length);
       const dropP = Math.min(0.85, t.dropFraction * dropVisualBoost);
-      while (this.spawnAcc[ci]! >= 1) {
-        this.spawnAcc[ci]! -= 1;
-        if (this.count >= maxPackets) {
-          this.refused++;
-          continue;
+      for (let ti = 0; ti < nt; ti++) {
+        const g = this.typeGbps[ti]!;
+        const base = emitRate(g) * rateScale;
+        if (base <= 0) continue;
+        const rate = Math.max(base * budgetScale, Math.min(base, MIN_BUDGET_RATE)) * k;
+        const ai = ci * nt + ti;
+        this.spawnAcc[ai]! += rate * (gameDeltaMs / 1000);
+        while (this.spawnAcc[ai]! >= 1) {
+          this.spawnAcc[ai]! -= 1;
+          if (this.count >= maxPackets) {
+            this.refused++;
+            continue;
+          }
+          const p = this.packets[this.count++]!;
+          p.cable = ci;
+          p.speed = speed;
+          // Spread spawns across the frame so they don't clump at high speed.
+          p.progress = this.rng() * p.speed * gameDeltaMs;
+          p.dir = this.rng() < 0.5 ? 1 : -1;
+          p.dropAt = this.rng() < dropP ? 0.3 + this.rng() * 0.5 : 2;
+          p.falling = false;
+          p.type = TRAFFIC_TYPES[ti]!;
+          p.color = TRAFFIC_STYLE[p.type].color;
+          p.scale = dotScale(g);
+          p.alpha = 1;
+          p.life = 0;
+          this.place(p);
         }
-        const mixIdx = this.pickType(t);
-        if (mixIdx < 0) continue;
-        const p = this.packets[this.count++]!;
-        p.cable = ci;
-        p.speed = speedPxPerMs / Math.max(1, cable.length);
-        // Spread spawns across the frame so they don't clump at high speed.
-        p.progress = this.rng() * p.speed * gameDeltaMs;
-        p.dir = this.rng() < 0.5 ? 1 : -1;
-        p.dropAt = this.rng() < dropP ? 0.3 + this.rng() * 0.5 : 2;
-        p.falling = false;
-        p.type = t.mix[mixIdx]!.type;
-        p.color = TRAFFIC_STYLE[p.type].color;
-        p.alpha = 1;
-        p.life = 0;
-        this.place(p);
       }
     }
-  }
-
-  private pickType(t: LinkTraffic): number {
-    this.weights.length = 0;
-    for (const c of t.mix) this.weights.push(c.gbps);
-    return weightedIndex(this.weights, this.rng());
   }
 
   private place(p: SimPacket): void {

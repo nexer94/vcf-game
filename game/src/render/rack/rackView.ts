@@ -7,14 +7,16 @@
  *   cable / compatible-port marks, packet dots in a ParticleContainer (pooled, dot atlas shared with the room).
  * - No filters. Cosmetic cable colours never use traffic colours (UX §9.4).
  */
-import { Container, Graphics, Particle, ParticleContainer, Rectangle, Text, type Renderer } from 'pixi.js';
+import { BitmapText, Container, Graphics, Particle, ParticleContainer, Rectangle, Text, type Renderer } from 'pixi.js';
 import type { GameSnapshot } from '../../engine';
 import type { Camera } from '../camera';
 import { distanceToPolyline } from '../geom/bezier';
 import { createDotAtlas } from '../room/dotAtlas';
 import { CABINET, DEVICE, OUTLINE } from '../room/palette';
 import { DEFAULT_PACKET_SIM, PacketSim } from '../traffic/packetSim';
-import type { LinkTraffic } from '../traffic/trafficModel';
+import type { LinkTraffic, TrafficSource } from '../traffic/trafficModel';
+import { formatGbps } from '../traffic/flowScale';
+import { FLOW_FONT, ensureFlowFont } from '../traffic/flowFont';
 import { ELEV, layoutElevation, rowRange, type ElevationLayout, type ElevDevice, type ElevRack, type PortGeom } from './rackLayout';
 import { pathLength, pointAt, routeAll, toFloat32, type Pt } from './rackRoute';
 
@@ -23,8 +25,8 @@ export interface RackCableData {
   /** Port ids (`deviceId:port`). */
   readonly a: string;
   readonly b: string;
-  /** Cosmetic colour (player's marking). */
-  readonly color: number;
+  /** Cosmetic colour (player's marking); undefined = colour by meaning (Traffic v3, UX §28.8). */
+  readonly color?: number;
   readonly linkUp: boolean;
   readonly bmc: boolean;
 }
@@ -46,7 +48,15 @@ export interface PendingCable {
 }
 
 const FONT = 'system-ui, "Segoe UI", sans-serif';
-const RACK_PACKETS = { ...DEFAULT_PACKET_SIM, maxPackets: 300, packetsPerGbps: 1.2, speedPxPerMs: 0.16 };
+/** Traffic v3 (UX §28.4): log emission, budget 200 live dots, 110 px/s (slowed only by congestion). */
+const RACK_PACKETS = { ...DEFAULT_PACKET_SIM, maxPackets: 300, budget: 200, speedPxPerMs: 0.11 };
+/** Base dot scale × flowScale.dotScale. */
+const RACK_DOT = 0.75;
+/** Cable colours by meaning (UX §28.8): data light grey (6.9:1 on the rack face), BMC grey dashed, error red dashed. */
+export const RACK_CABLE = { data: 0xb4bfcd, bmc: 0x8592a3, error: 0xff5a6a, select: 0x1d63c8 } as const;
+const BMC_PERIOD_MS = 3000;
+const BMC_ISO_PERIOD_MS = 500;
+const BMC_TRAVEL_MS = 2000;
 const HOVER_SCALE = 1.6;
 const LED_UP = DEVICE.ledOk;
 const LED_DOWN = 0xf0a14a;
@@ -60,10 +70,18 @@ export class RackElevationView {
   private readonly staticLayer = new Container();
   private readonly cableLayer = new Container();
   private readonly fx = new Graphics();
+  /** Velcro ties over the cable bundle in the side channel every 6 U (decorative, UX §28.8 P9). */
+  private readonly tiesFx = new Graphics();
   /** Grey BMC squares (game scope, own shape outside the VCF dot atlas – UX 19.6). */
   private readonly bmcFx = new Graphics();
   private bmcCables: string[] = [];
-  private bmcPhase = 0;
+  private bmcIso = new Set<string>();
+  private bmcClock = 0;
+  private source: TrafficSource | null = null;
+  /** "≈ x Gb/s" sum above each ToR (BitmapText pool, ≤ 8). */
+  private readonly labelLayer = new Container();
+  private torLabels: BitmapText[] = [];
+  private labelMs = 0;
   private readonly dots: ReturnType<typeof createDotAtlas>;
   private packetView: ParticleContainer<Particle> | null = null;
   private pool: Particle[] = [];
@@ -83,11 +101,13 @@ export class RackElevationView {
   private showTraffic = true;
   private cacheRes = 0;
   private dataKey = '';
+  private switchIds = new Set<string>();
 
   constructor(renderer: Renderer) {
     this.dots = createDotAtlas(renderer);
     this.root.visible = false;
-    this.root.addChild(this.staticLayer, this.cableLayer, this.bmcFx, this.fx);
+    this.root.addChild(this.staticLayer, this.cableLayer, this.tiesFx, this.bmcFx, this.fx, this.labelLayer);
+    ensureFlowFont();
   }
 
   get layout(): ElevationLayout {
@@ -111,6 +131,7 @@ export class RackElevationView {
       linked.set(c.a, c.linkUp);
       linked.set(c.b, c.linkUp);
     }
+    this.switchIds = new Set(racks.flatMap((r) => r.devices.filter((d) => d.kind === 'switch').map((d) => d.id)));
     this.drawStatic(racks, linked, devices);
     for (const v of this.cableGfx.values()) v.g.destroy();
     this.cableGfx.clear();
@@ -121,8 +142,37 @@ export class RackElevationView {
       this.cableGfx.set(c.id, { g, key: '' });
     }
     this.drawCables();
+    this.drawTies();
     this.rebuildSim();
     this.drawFx();
+  }
+
+  /** Dark 3 px ties across the vertical cable runs of each channel, every 6 U (redrawn with the data only). */
+  private drawTies(): void {
+    const g = this.tiesFx;
+    g.clear();
+    const L = this.layoutCache;
+    const step = 6 * L.uPx;
+    for (const col of L.columns) {
+      const segs: { x: number; y0: number; y1: number }[] = [];
+      for (const pts of this.routes.values()) {
+        for (let i = 1; i < pts.length; i++) {
+          const a = pts[i - 1]!;
+          const b = pts[i]!;
+          if (Math.abs(a.x - b.x) > 0.01 || a.x < col.channelX || a.x > col.channelX + col.channelW) continue;
+          segs.push({ x: a.x, y0: Math.min(a.y, b.y), y1: Math.max(a.y, b.y) });
+        }
+      }
+      if (!segs.length) continue;
+      for (let y = col.y + col.h - step; y > col.y + 4; y -= step) {
+        const hit = segs.filter((sg) => sg.y0 <= y && sg.y1 >= y);
+        if (hit.length < 2) continue;
+        const x0 = Math.min(...hit.map((h) => h.x)) - 2;
+        const x1 = Math.max(...hit.map((h) => h.x)) + 2;
+        g.roundRect(x0, y - 1.5, x1 - x0, 3, 1);
+      }
+    }
+    g.fill({ color: 0x0f1b2d, alpha: 0.9 });
   }
 
   setCamera(cam: Camera, devicePixelRatio = 1): void {
@@ -161,10 +211,20 @@ export class RackElevationView {
     this.drawFx();
   }
 
-  /** BMC cables with game-scope traffic (grey squares, 1 per 3 s – UX 19.6). */
-  setBmcTraffic(ids: readonly string[]): void {
-    this.bmcCables = ids.filter((id) => this.routes.has(id));
+  /**
+   * BMC cables with game-scope traffic (grey squares ▫ 1 per 3 s – UX §28.7); `iso` = cables carrying the remote
+   * install ISO (1 square per 0.5 s). Never VCF dots or Gb/s.
+   */
+  setBmcTraffic(ids: readonly string[], iso: Iterable<string> = []): void {
+    this.bmcIso = new Set([...iso].filter((id) => this.routes.has(id)));
+    this.bmcCables = [...new Set([...ids, ...this.bmcIso])].filter((id) => this.routes.has(id));
     if (!this.bmcCables.length) this.bmcFx.clear();
+  }
+
+  /** Same traffic source as the room (engine E-T6 contract; the demo too). Sampled every frame at game time. */
+  setTrafficSource(source: TrafficSource | null, show: boolean): void {
+    this.source = source;
+    this.setTraffic(this.traffic, show);
   }
 
   setTraffic(map: ReadonlyMap<string, LinkTraffic>, show: boolean): void {
@@ -194,7 +254,13 @@ export class RackElevationView {
     const now = snapshot.clock.gameTimeMs;
     const dt = this.lastGameMs === null ? 0 : Math.max(0, now - this.lastGameMs);
     this.lastGameMs = now;
-    this.drawBmc(Math.min(realMs, 100));
+    if (this.source) this.traffic = this.source.sample(now);
+    this.drawBmc(Math.min(realMs, 100), dt > 0);
+    this.labelMs += realMs;
+    if (this.labelMs >= 500) {
+      this.labelMs = 0;
+      this.updateTorLabels();
+    }
     if (!this.sim || !this.packetView || !this.showTraffic) return;
     this.sim.step(Math.min(dt, 100 * Math.max(1, snapshot.clock.speed)), Math.min(realMs, 100), this.traffic, snapshot.clock.speed);
     const n = this.sim.count;
@@ -213,8 +279,43 @@ export class RackElevationView {
       const tex = this.dots.shapes[p.falling ? 'nfs' : p.type];
       if (s.texture !== tex) s.texture = tex;
       s.tint = p.color;
+      s.scaleX = s.scaleY = RACK_DOT * p.scale;
       s.alpha = p.alpha;
     }
+  }
+
+  /** Sum "≈ x Gb/s" above every switch with traffic (UX §28.6 rack: number at the ToR port group). */
+  private updateTorLabels(): void {
+    const L = this.layoutCache;
+    const sums = new Map<string, number>();
+    if (this.showTraffic) {
+      for (const c of this.cables) {
+        const t = this.traffic.get(c.id);
+        if (!t || c.bmc || t.demandGbps <= 0) continue;
+        for (const pid of [c.a, c.b]) {
+          const port = L.ports.get(pid);
+          const dev = port ? L.devices.get(port.deviceId) : undefined;
+          if (!port || !dev || !this.switchIds.has(port.deviceId)) continue;
+          sums.set(port.deviceId, (sums.get(port.deviceId) ?? 0) + t.demandGbps);
+        }
+      }
+    }
+    const want = [...sums].filter(([, g]) => g > 0).slice(0, 8);
+    while (this.torLabels.length < want.length) {
+      const t = new BitmapText({ text: '', style: { fontFamily: FLOW_FONT, fontSize: 12 } });
+      t.anchor.set(1, 1);
+      this.torLabels.push(t);
+      this.labelLayer.addChild(t);
+    }
+    this.torLabels.forEach((t, i) => {
+      const w = want[i];
+      t.visible = !!w;
+      if (!w) return;
+      const geo = L.devices.get(w[0])!;
+      const text = formatGbps(w[1]);
+      if (t.text !== text) t.text = text;
+      t.position.set(geo.x + geo.w - 4, geo.y - 2);
+    });
   }
 
   destroy(): void {
@@ -224,7 +325,7 @@ export class RackElevationView {
 
   // ------------------------------------------------------------------ drawing
 
-  private drawBmc(realMs: number): void {
+  private drawBmc(realMs: number, running: boolean): void {
     const g = this.bmcFx;
     if (!this.bmcCables.length || !this.showTraffic) {
       if (g.visible) g.clear();
@@ -232,18 +333,25 @@ export class RackElevationView {
       return;
     }
     g.visible = true;
-    // Real-time animation (game scope, not tied to game speed): one square per cable every 3 s, 2 s travel.
-    this.bmcPhase = (this.bmcPhase + realMs) % 3000;
+    // Real-time animation (game scope, frozen while paused): ▫ 1 per 3 s, ISO transfer 1 per 0.5 s, 2 s travel.
+    if (running) this.bmcClock += realMs;
     g.clear();
-    const t = this.bmcPhase / 2000;
-    if (t > 1) return;
+    let any = false;
     this.bmcCables.forEach((id, i) => {
       const pts = this.routes.get(id);
       if (!pts) return;
-      const p = pointAt(pts, (t + i * 0.13) % 1);
-      g.rect(p.x - 2.5, p.y - 2.5, 5, 5);
+      const period = this.bmcIso.has(id) ? BMC_ISO_PERIOD_MS : BMC_PERIOD_MS;
+      const off = ((i * 0.37) % 1) * period;
+      const newest = Math.floor((this.bmcClock + off) / period);
+      for (let k = newest; k >= 0; k--) {
+        const t = (this.bmcClock + off - k * period) / BMC_TRAVEL_MS;
+        if (t > 1) break;
+        const p = pointAt(pts, t);
+        g.rect(p.x - 3, p.y - 3, 6, 6);
+        any = true;
+      }
     });
-    g.fill(0xc3cddb).stroke({ color: OUTLINE, width: 1 });
+    if (any) g.fill(RACK_CABLE.bmc).stroke({ color: OUTLINE, width: 1.2 });
   }
 
   private drawStatic(racks: readonly ElevRack[], linked: ReadonlyMap<string, boolean>, devState: ReadonlyMap<string, RackDeviceState>): void {
@@ -368,15 +476,16 @@ export class RackElevationView {
       if (p.deviceId !== d.id) continue;
       const up = st?.companyUplinkPort;
       const isUplink = d.kind === 'switch' && up !== undefined && p.port === up;
-      this.drawPort(g, p, isUplink ? true : linked.get(p.id), isUplink);
+      this.drawPort(g, p, isUplink ? true : linked.get(p.id), isUplink, d.kind === 'switch');
       if (isUplink) {
         // Company uplink: short cable up to the ceiling bar + label (GAME abstraction "Síť firmy").
         const ty = this.layoutCache.trayY;
         const col = this.layoutCache.columns[p.column]!;
         const ex = col.channelX + col.channelW - 5;
         const path = [{ x: p.x, y: p.y }, { x: p.x, y: p.stubY - 1 }, { x: ex, y: p.stubY - 1 }, { x: ex, y: ty + 4 }];
-        roundedPath(g, path, 3).stroke({ color: OUTLINE, width: 3, join: 'round', cap: 'round' });
-        roundedPath(g, path, 3).stroke({ color: 0xffc94d, width: 1.5, join: 'round', cap: 'round' });
+        // Traffic v3 (UX §28.5 / 28.8): same neutral jacket as data cables – yellow is reserved for the load warning.
+        roundedPath(g, path, 3).stroke({ color: OUTLINE, width: 4, join: 'round', cap: 'round' });
+        roundedPath(g, path, 3).stroke({ color: RACK_CABLE.data, width: 2.2, join: 'round', cap: 'round' });
         const lab = txt('↑ síť firmy (herní)', 9, OUTLINE, '800');
         lab.anchor.set(1, 1);
         lab.position.set(ex + 4, ty - 6);
@@ -385,12 +494,16 @@ export class RackElevationView {
     }
   }
 
-  private drawPort(g: Graphics, p: PortGeom, link: boolean | undefined, uplink: boolean): void {
+  private drawPort(g: Graphics, p: PortGeom, link: boolean | undefined, uplink: boolean, onSwitch = false): void {
     const bmc = p.port === 'bmc';
     const w = p.w;
     const hh = p.h;
     if (bmc) g.rect(p.x - w / 2, p.y - hh / 2, w, hh).fill(0x8592a3).stroke({ color: OUTLINE, width: 1.2 });
-    else g.roundRect(p.x - w / 2, p.y - hh / 2, w, hh, 2).fill(link === undefined ? DEVICE.port : 0x24324a).stroke({ color: uplink ? 0xffc94d : OUTLINE, width: uplink ? 2 : 1.1 });
+    else if (link === undefined && onSwitch) {
+      // Free ToR port: dimmed outline only (UX §28.8, D9) – connected ports stand out.
+      g.roundRect(p.x - w / 2, p.y - hh / 2, w, hh, 2).stroke({ color: 0xc9d3ea, width: 1, alpha: 0.45 });
+      return;
+    } else g.roundRect(p.x - w / 2, p.y - hh / 2, w, hh, 2).fill(link === undefined ? DEVICE.port : 0x24324a).stroke({ color: uplink ? 0x9fb3cc : OUTLINE, width: uplink ? 2 : 1.1 });
     // Link LED (shape: filled = link, hollow = no link) at the port corner.
     const ly = p.y - hh / 2 - 1.5;
     if (link === undefined) g.circle(p.x + w / 2 - 1.5, ly, 1.1).stroke({ color: LED_OFF, width: 0.8 });
@@ -405,19 +518,34 @@ export class RackElevationView {
       if (!v || !pts) continue;
       const hovered = this.hoverCable === c.id;
       const dim = sel !== null && sel !== c.id;
-      const key = `${c.color}|${hovered ? 1 : 0}|${sel === c.id ? 1 : 0}|${dim ? 1 : 0}|${c.bmc ? 1 : 0}`;
+      const key = `${c.color}|${hovered ? 1 : 0}|${sel === c.id ? 1 : 0}|${dim ? 1 : 0}|${c.bmc ? 1 : 0}|${c.linkUp ? 1 : 0}`;
       if (key === v.key) continue;
       v.key = key;
       const g = v.g;
       g.clear();
-      const path = (): Graphics => roundedPath(g, pts, 5);
-      if (hovered || sel === c.id) path().stroke({ color: 0xffffff, width: 8, alpha: 0.85, join: 'round', cap: 'round' });
-      path().stroke({ color: OUTLINE, width: 4, join: 'round', cap: 'round' });
-      path().stroke({ color: c.color, width: 2.2, join: 'round', cap: 'round' });
+      const path = (): Graphics => roundedPath(g, pts, 4);
+      // Colour by meaning only (UX §28.8): data light grey, BMC grey dashed, link down red dashed, selection blue rim;
+      // the player's cosmetic colour only when set (never yellow – reserved for the load warning).
+      const error = !c.linkUp && !c.bmc;
+      const color = error ? RACK_CABLE.error : c.bmc ? RACK_CABLE.bmc : (c.color ?? RACK_CABLE.data);
+      if (hovered || sel === c.id) path().stroke({ color: sel === c.id ? RACK_CABLE.select : 0xffffff, width: 7, alpha: 0.9, join: 'round', cap: 'round' });
+      if (c.bmc || error) {
+        dashedPath(g, pts, 4, 3);
+        g.stroke({ color: OUTLINE, width: c.bmc ? 3 : 4, cap: 'butt' });
+        dashedPath(g, pts, 4, 3);
+        g.stroke({ color, width: c.bmc ? 1.5 : 2.2, cap: 'butt' });
+      } else {
+        path().stroke({ color: OUTLINE, width: 4, join: 'round', cap: 'round' });
+        path().stroke({ color, width: 2.2, join: 'round', cap: 'round' });
+      }
       // Connector plugs.
       const a = pts[0]!;
       const b = pts[pts.length - 1]!;
-      g.rect(a.x - 3, a.y - 3, 6, 6).rect(b.x - 3, b.y - 3, 6, 6).fill(c.color).stroke({ color: OUTLINE, width: 1.4 });
+      g.rect(a.x - 3, a.y - 3, 6, 6).rect(b.x - 3, b.y - 3, 6, 6).fill(color).stroke({ color: OUTLINE, width: 1.4 });
+      if (error) {
+        // ⛔ mark at both ends (shape + colour, not colour only).
+        for (const q of [a, b]) g.circle(q.x + 7, q.y - 7, 4).fill(RACK_CABLE.error).stroke({ color: OUTLINE, width: 1 }).moveTo(q.x + 4.6, q.y - 7).lineTo(q.x + 9.4, q.y - 7).stroke({ color: 0xffffff, width: 1.6 });
+      }
       g.alpha = dim ? 0.4 : 1;
     }
   }
@@ -473,12 +601,34 @@ export class RackElevationView {
       });
     if (!paths.length) return;
     this.sim = new PacketSim(paths, RACK_PACKETS);
-    const view = new ParticleContainer<Particle>({ texture: this.dots.base, dynamicProperties: { position: true, color: true, uvs: true, vertex: false, rotation: false } });
+    const view = new ParticleContainer<Particle>({ texture: this.dots.base, dynamicProperties: { position: true, color: true, uvs: true, vertex: true, rotation: false } });
     view.boundsArea = new Rectangle(0, 0, this.layoutCache.width, this.layoutCache.height);
     this.pool = this.sim.packets.map(() => new Particle({ texture: this.dots.shapes.management, anchorX: 0.5, anchorY: 0.5, scaleX: 0.55, scaleY: 0.55 }));
     view.visible = this.showTraffic;
     this.packetView = view;
     this.root.addChildAt(view, this.root.getChildIndex(this.fx));
+  }
+}
+
+/** Dashed segments along an orthogonal polyline (stroke by the caller). */
+function dashedPath(g: Graphics, pts: readonly Pt[], dash: number, gap: number): void {
+  let on = true;
+  let left = dash;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]!;
+    const b = pts[i]!;
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    let d = 0;
+    while (d < len) {
+      const step = Math.min(left, len - d);
+      if (on) g.moveTo(a.x + ((b.x - a.x) * d) / len, a.y + ((b.y - a.y) * d) / len).lineTo(a.x + ((b.x - a.x) * (d + step)) / len, a.y + ((b.y - a.y) * (d + step)) / len);
+      d += step;
+      left -= step;
+      if (left <= 1e-6) {
+        on = !on;
+        left = on ? dash : gap;
+      }
+    }
   }
 }
 

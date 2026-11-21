@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bmcTransfersOf, elevationRacks, linkTrafficOf, roomContentsOf } from './roomSync';
+import { bmcIsoOf, bmcTransfersOf, elevationRacks, linkTrafficOf, roomContentsOf } from './roomSync';
 import { LocalRoomPort } from './sessionFallback';
 import type { RoomState } from './sessionPort';
 
@@ -26,7 +26,8 @@ describe('room sync', () => {
     expect(c.cabinets.map((x) => x.spec.id)).toEqual([ids.r1, ids.r2]);
     expect(c.cabinets[0]!.devices[0]).toMatchObject({ id: ids.s1, kind: 'server', u: 1, heightU: 1 }); // Dell R670 = 1U (vendor spec sheet, docs/spec/data/server-rack-units.json)
     expect(c.cabinets[0]!.devices[0]!.tagColor).toBeDefined();
-    expect(c.cables.map((x) => x.from.port)).toEqual([0, -1]);
+    expect(c.cables.map((x) => x.from.port)).toEqual([0]);
+    expect(c.bmcLinks).toEqual([expect.objectContaining({ server: { deviceId: ids.s1, port: -1 }, peer: { deviceId: ids.sw, port: 1 } })]);
   });
 
   it('puts the selected rack first and linked racks next', () => {
@@ -48,5 +49,7 @@ describe('room sync', () => {
     expect([...m.keys()]).toEqual(['a']);
     expect(m.get('a')!.mix[0]!.type).toBe('management');
     expect(bmcTransfersOf(fake)).toEqual(['b']);
+    expect(bmcIsoOf({ trafficActivities: [{ kind: 'iso-transfer', cableIds: ['b'], progress: 0.42 }, { kind: 'vmotion', cableIds: ['a'] }] })).toEqual(new Map([['b', 0.42]]));
+    expect(bmcIsoOf(undefined).size).toBe(0);
   });
 });

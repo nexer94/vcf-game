@@ -257,13 +257,22 @@
 .compare-table thead th { font-size: 12px; }
 .small { font-size: 12px; }
 
-/* ---- traffic chip (UX 12.5) bottom-left */
-.tchip { position: absolute; left: 12px; bottom: calc(var(--bottom-h) + 12px); pointer-events: auto; max-width: 360px; font-size: 12px; }
+/* ---- traffic chip v3 (UX 28.12) bottom-left: one line, glyphs only */
+.tchip { position: absolute; left: 12px; bottom: calc(var(--bottom-h) + 12px); pointer-events: auto; max-width: 420px; font-size: 12px; }
 .tchip-head {
   font: inherit; font-size: 12px; display: inline-flex; gap: 4px; align-items: center; cursor: pointer; color: var(--ink);
   background: var(--panel); border: 1px solid var(--line-strong); border-radius: 999px; padding: 3px 10px; box-shadow: var(--shadow-sm);
 }
-.tchip-active { display: inline-flex; gap: 2px; align-items: center; flex-wrap: wrap; }
+.tchip-head { white-space: nowrap; }
+.tchip-active { display: inline-flex; gap: 3px; align-items: center; flex-wrap: nowrap; }
+.tchip-sep { color: var(--line-strong); margin: 0 2px; }
+.tchip-width { display: inline-block; width: 16px; height: 5px; border-radius: 2px; background: rgba(76, 195, 138, 0.45); outline: 1px solid var(--outline); }
+.tchip-body { max-width: 300px; max-height: 320px; overflow: auto; }
+.tchip-swatch { list-style: none; margin: 0; padding: 0; }
+.tchip-swatch li { display: flex; align-items: center; gap: 8px; min-height: 14px; }
+.tchip-swatch .swatch-bar { display: inline-block; width: 28px; background: rgba(246, 248, 250, 0.9); outline: 1px solid var(--outline); border-radius: 1px; }
+.tglyph-bmc { font-size: 13px; }
+.tchip-hint { max-width: 240px; background: var(--panel); border: 1px solid var(--accent); border-radius: var(--radius); padding: 6px 10px; margin-bottom: 6px; box-shadow: var(--shadow); cursor: pointer; }
 .tchip-empty { color: var(--muted); }
 .tchip-name { margin-right: 4px; }
 .tglyph { font-size: 14px; -webkit-text-stroke: 0.6px var(--outline); }

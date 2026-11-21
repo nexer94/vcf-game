@@ -70,6 +70,7 @@ import { isOobSwitch, oobRoomOf } from './oob';
 import { type NicSlotView, NIC_SLOTS_GAME_DEFAULT, certifiedNicParts, nicSlotViews } from './nicSlots';
 import { isPreinstalledTor, nicMatchesSwitch, reservedTorU } from './tor';
 import { facingOfTile } from './rackLayout';
+import { type TrafficV3View, trafficV3View } from './trafficV3';
 import { derivedEndpoints, flowContextOf, netContextOf, plannedHostNetworks, specServerIds } from './roomNet';
 import type { SandboxContext } from './tx';
 import type { CableEndInput, CableMeta, CompanyNetworkLink, LedgerEntry, MgmtTestResult, RoomTile, SandboxState } from './types';
@@ -379,7 +380,11 @@ export interface FlowPairView {
   readonly gameScope: boolean;
 }
 
-export interface FlowsView extends TrafficView {
+/**
+ * Flows of the room. v3 additions (UX 28.17, trafficV3.ts): `linkVolumes` (E-T1 per cable × direction × class),
+ * `attachmentVolumes` (Síť firmy / OOB admin port), `deviceRacks` + `flowEnds` (E-T4), `rackVolumes`, `deviceVolumes`.
+ */
+export interface FlowsView extends TrafficView, TrafficV3View {
   readonly pairs: readonly FlowPairView[];
   readonly activities: readonly NetworkActivity[];
   readonly activeClasses: readonly FlowTrafficClass[];
@@ -730,8 +735,9 @@ export const FLOWS_ILLUSTRATIVE_NOTE = 'Objemy a rychlosti provozu jsou ilustrat
 
 export function flowsView(s: SandboxState, catalog: HardwareCatalog): FlowsView {
   const fctx = flowContextOf(s);
-  const tv = computeTrafficFlows(netContextOf(s, catalog), fctx);
-  return { ...tv, pairs: flowPairs(tv.flows), activities: fctx.activities ?? [], activeClasses: [...new Set(tv.flows.map((f) => f.trafficClass))], illustrative: true, note: FLOWS_ILLUSTRATIVE_NOTE };
+  const ctx = netContextOf(s, catalog);
+  const tv = computeTrafficFlows(ctx, fctx);
+  return { ...tv, ...trafficV3View(ctx, tv.flows, s.room.companyNetwork), pairs: flowPairs(tv.flows), activities: fctx.activities ?? [], activeClasses: [...new Set(tv.flows.map((f) => f.trafficClass))], illustrative: true, note: FLOWS_ILLUSTRATIVE_NOTE };
 }
 
 const nodeKey = (n: FlowNodeRef): string => `${n.kind}:${n.id}`;

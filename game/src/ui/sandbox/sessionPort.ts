@@ -15,6 +15,7 @@
  *    session API lands. It holds no VCF rules of its own.
  */
 import type { FlowTrafficClass, HwVendor, EsaProfileId, ValidationIssue } from '../../model';
+import type { LinkVolumeView } from '../../modes/sandbox/trafficV3';
 import { validateRackPlacement, type Facing } from '../../model/roomLayout';
 import type { SandboxSnapshot } from '../../modes/sandbox/snapshot';
 import type { SandboxCommand } from '../../modes/sandbox/types';
@@ -272,6 +273,8 @@ export interface RoomState {
   /** Model issues for the physical layer (subject = device id). */
   readonly issues: readonly ValidationIssue[];
   readonly traffic: readonly CableTraffic[];
+  /** Traffic v3 (engine E-T1): per cable, per direction, per class volumes (illustrative). Absent = older backend. */
+  readonly linkVolumes?: readonly LinkVolumeView[];
   readonly objectives: readonly ObjectiveView[];
   /** "Další krok" chosen by the tracker (engine); undefined = first unfinished objective. */
   readonly nextObjectiveId?: string;
@@ -345,14 +348,14 @@ export interface SessionOps {
 }
 
 // ---------------------------------------------------------------------------
-// Cosmetic cable colours (player's own marking – never traffic colours, UX §9.4)
+// Cosmetic cable colours (player's own marking – never traffic colours, UX §9.4). Traffic v3 (UX §28.8): no yellow
+// (reserved for the load warning); neutral = colour by meaning (data light grey, BMC grey dashed).
 // ---------------------------------------------------------------------------
 
 export const CABLE_COLORS = {
   neutral: { label: 'neutrální', color: 0x6b6880 },
   black: { label: 'černá', color: 0x26232f },
   white: { label: 'bílá', color: 0xf4f2fa },
-  yellow: { label: 'žlutá', color: 0xe0b400 },
   pink: { label: 'růžová', color: 0xe86fb0 },
   brown: { label: 'hnědá', color: 0x8a5a3c },
 } as const;

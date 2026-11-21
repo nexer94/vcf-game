@@ -637,6 +637,12 @@ export interface PathResult {
 
 const NO_PATH: PathResult = { reachable: false, hops: [], cableIds: [] };
 
+/** The same path walked the other way (hops / cables reversed, end ports swapped). */
+export function reversedPath(p: PathResult): PathResult {
+  const { fromPort, toPort, ...rest } = p;
+  return { ...rest, hops: [...p.hops].reverse(), cableIds: [...p.cableIds].reverse(), ...(toPort ? { fromPort: toPort } : {}), ...(fromPort ? { toPort: fromPort } : {}) };
+}
+
 export interface NetContext {
   readonly state: PhysicalState;
   readonly catalog: HardwareCatalog;
@@ -861,8 +867,11 @@ export interface TrafficFlow {
   readonly trigger: 'steady' | 'activity';
   readonly vlan?: number;
   readonly pathMtu?: number;
+  /** Cables of the path, ordered from `from` to `to` (same order as `hops`). */
   readonly cableIds: readonly string[];
+  /** Path hops ordered from `from` to `to` (direction of the flow; per-direction volumes rely on it). */
   readonly hops: readonly PathHop[];
+  /** Device port at the `from` end / at the `to` end. */
   readonly fromPort?: PortRef;
   readonly toPort?: PortRef;
   /** Illustrative load in Gbit/s (game value, UX "ilustrativní model"). */
@@ -984,7 +993,7 @@ export function computeTrafficFlows(ctx: NetContext, fctx: FlowContext = {}): Tr
       for (const vc of eps('vcenter')) {
         const p = pathBetween(ctx, ep(vc.id), vmk0(srv.id));
         add({ id: `vc:${vc.id}:${srv.id}`, trafficClass: 'management', from: E(vc.id), to: S(srv.id), bidirectional: true, protocol: 'TCP 443, 902, ICMP', purpose: 'host management, vLCM', trigger: 'steady', illustrativeLoadGbps: L['vcenter'] ?? 0, specRef: '20 §7 #19 [S41]' }, p);
-        add({ id: `hb:${srv.id}:${vc.id}`, trafficClass: 'management', from: S(srv.id), to: E(vc.id), bidirectional: false, protocol: 'UDP 902', purpose: 'ESXi host heartbeats', trigger: 'steady', illustrativeLoadGbps: L['heartbeat'] ?? 0, specRef: '20 §7 #20 [S42]' }, p);
+        add({ id: `hb:${srv.id}:${vc.id}`, trafficClass: 'management', from: S(srv.id), to: E(vc.id), bidirectional: false, protocol: 'UDP 902', purpose: 'ESXi host heartbeats', trigger: 'steady', illustrativeLoadGbps: L['heartbeat'] ?? 0, specRef: '20 §7 #20 [S42]' }, reversedPath(p));
       }
   }
 
