@@ -49,9 +49,17 @@ import {
   setVmkMtu,
   validateMount,
   validateServerConfig,
+  assignRoomRole,
+  moveRackToRoom,
+  roomById,
+  roomOfRack,
+  sitesOf,
+  validateRoomCapacity,
 } from '../../model';
 import { CABLE_ITEM_ID, itemPrice, serverConfigPrice } from '../economy';
 import { netContextOf } from './roomNet';
+import { isOobSwitch, syncOob } from './oob';
+import { isAzRole, roomFloorSize } from './site';
 import { type SandboxContext, Tx, flow, invalid, no, ok } from './tx';
 import type { CableEndInput, CommandResult, SandboxCommand, SandboxRoomState, SandboxState, SwitchPortInput } from './types';
 
@@ -100,6 +108,8 @@ const ROOM_TYPES = [
   'setHostSwitchMtu',
   'setVmkMtu',
   'configureBmc',
+  'moveRackToRoom',
+  'assignRoomRole',
 ] as const;
 type RoomType = (typeof ROOM_TYPES)[number];
 export type RoomCommand = Extract<SandboxCommand, { type: RoomType }> | PhysicalInstallCommand;
@@ -123,6 +133,8 @@ const UNDOABLE: ReadonlySet<string> = new Set([
   'disconnectCompanyNetwork',
   'configureServer',
   'configureBmc',
+  'moveRackToRoom',
+  'assignRoomRole',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -242,6 +254,28 @@ function mergePort(cur: SwitchPortConfig, input: SwitchPortInput): SwitchPortCon
   };
 }
 
+/**
+ * Room a newly bought rack is assigned to: the first room of the layout with a free [GAME] rack slot (model
+ * validateRoomCapacity); when every room is full, the first room (the model then rejects the purchase).
+ */
+function roomForNewRack(p: PhysicalState): string | undefined {
+  const rooms = sitesOf(p).rooms;
+  return rooms.find((r) => validateRoomCapacity(p, r.id).length === 0)?.id ?? rooms[0]?.id;
+}
+
+/** [GAME] tile rules of a room: inside the room floor (illustrative size) and not taken by another rack of the room. */
+function tileProblem(room: SandboxRoomState, rackId: string, roomId: string, t: { readonly gx: number; readonly gy: number }) {
+  const def = roomById(sitesOf(room.physical), roomId);
+  if (def) {
+    const f = roomFloorSize(def.rackSlots);
+    if (t.gx >= f.cols || t.gy >= f.rows) return flow('invalid-input', `Dlaždice ${t.gx},${t.gy} je mimo místnost ${def.label} (${f.cols} × ${f.rows}, herní rozměr).`);
+  }
+  for (const [other, tile] of Object.entries(room.rackTiles))
+    if (other !== rackId && tile.gx === t.gx && tile.gy === t.gy && roomOfRack(room.physical, other) === roomId)
+      return flow('tile-occupied', `Na dlaždici ${t.gx},${t.gy} už stojí rack ${other}.`);
+  return undefined;
+}
+
 const notInstalled = (id: string): ValidationIssue => issue('ESX_NOT_INSTALLED', 'error', `Host ${id}: ESX is not installed.`, '20 §4.1.1 [S8]', id);
 
 /** Codes of `validateServerConfig` that mean ESX itself cannot be installed (15 §3.1 [H12]). */
@@ -252,9 +286,46 @@ const ESX_INSTALL_BLOCKERS: readonly string[] = ['HW_BELOW_ESX_MINIMUM', 'HW_NO_
 // ---------------------------------------------------------------------------
 
 export function applyRoom(tx: Tx, cmd: RoomCommand, ctx: SandboxContext): CommandResult {
+  const oob = oobGuard(tx.s, cmd);
+  if (oob) return no(oob);
   const r = applyRoomInner(tx, cmd, ctx);
+  // Pre-wired OOB network (oob.ts): BMC of newly mounted / moved servers. Undo / redo restore a consistent room.
+  if (r.ok && cmd.type !== 'undoRoom' && cmd.type !== 'redoRoom') tx.s = syncOob(tx.s, ctx.catalog);
   if (r.ok && cmd.type !== 'undoRoom' && cmd.type !== 'redoRoom' && cmd.type !== 'setCableMeta' && cmd.type !== 'testManagementNetwork') tx.invalidateValidation();
   return r;
+}
+
+/** [GAME] the pre-installed OOB switch and its cables are managed by the game (oob.ts), not by the player. */
+function oobGuard(s: SandboxState, cmd: RoomCommand) {
+  const room = s.room;
+  const msg = 'Předinstalovaný OOB switch je zapojený a nastavený automaticky (herní zjednodušení Sandboxu, mimo VCF scope).';
+  const ids: string[] = [];
+  switch (cmd.type) {
+    case 'mountDevice':
+      ids.push(cmd.inventoryId ?? cmd.deviceId ?? '');
+      break;
+    case 'unmountDevice':
+      ids.push(cmd.deviceId);
+      break;
+    case 'removeItem':
+      ids.push(cmd.id);
+      break;
+    case 'setSwitchPort':
+    case 'connectCompanyNetwork':
+      ids.push(cmd.switchId);
+      break;
+    case 'connectCable':
+      ids.push(cmd.from.deviceId, cmd.to.deviceId);
+      break;
+    case 'disconnectCable': {
+      const c = room.physical.cables.find((x) => x.id === cmd.cableId);
+      if (c) for (const e of [c.a, c.b]) if (e.kind === 'switch') ids.push(e.switchId);
+      break;
+    }
+    default:
+      return undefined;
+  }
+  return ids.some((id) => isOobSwitch(room, id)) ? flow('preinstalled-oob', msg) : undefined;
 }
 
 function applyRoomInner(tx: Tx, cmd: RoomCommand, ctx: SandboxContext): CommandResult {
@@ -301,7 +372,7 @@ function applyRoomInner(tx: Tx, cmd: RoomCommand, ctx: SandboxContext): CommandR
           created.push(id);
         } else if (item?.kind === 'rack') {
           const id = nextId(tx, 'rack', 'r', 2, (x) => byId(next.physical.racks, x) !== undefined);
-          const r = addRack(next.physical, catalog, id, item.id);
+          const r = addRack(next.physical, catalog, id, item.id, roomForNewRack(next.physical));
           if (!r.ok) return no(invalid([r.error]));
           next = charge(tx, withPhysical(next, r.state), 'buy', item.id, 1, itemPrice(catalog, item.id, prices) ?? 0);
           created.push(id);
@@ -326,15 +397,48 @@ function applyRoomInner(tx: Tx, cmd: RoomCommand, ctx: SandboxContext): CommandR
         const item = cmd.itemId !== undefined ? catalog.items.get(cmd.itemId) : undefined;
         if (!item || item.kind !== 'rack') return no(flow('unknown-item', `Rack ${cmd.itemId ?? '(nezadán)'} není v katalogu.`));
         const newId = nextId(tx, 'rack', 'r', 2, (x) => byId(next.physical.racks, x) !== undefined);
-        const r = addRack(next.physical, catalog, newId, item.id);
+        const r = addRack(next.physical, catalog, newId, item.id, cmd.roomId ?? roomForNewRack(next.physical));
         if (!r.ok) return no(invalid([r.error]));
         next = charge(tx, withPhysical(next, r.state), 'buy', item.id, 1, itemPrice(catalog, item.id, prices) ?? 0);
         id = newId;
         created.push(newId);
       } else if (!byId(p.racks, id)) return no(flow('unknown-rack', `Rack ${id} neexistuje.`));
+      else if (cmd.roomId !== undefined && roomOfRack(p, id) !== cmd.roomId) {
+        // Model: room exists + [GAME] room rack capacity.
+        const r = moveRackToRoom(p, id, cmd.roomId);
+        if (!r.ok) return no(invalid([r.error]));
+        next = withPhysical(next, r.state);
+      }
+      const target = roomOfRack(next.physical, id) ?? '';
+      const bad = tileProblem(next, id, target, t);
+      if (bad) return no(bad);
       const tile = { gx: t.gx, gy: t.gy, ...(t.rotation !== undefined ? { rotation: t.rotation } : {}) };
       setRoom(tx, { ...next, rackTiles: { ...next.rackTiles, [id]: tile } }, undoable);
       return { ok: true, warnings: [], created };
+    }
+    case 'moveRackToRoom': {
+      if (!byId(p.racks, cmd.rackId)) return no(flow('unknown-rack', `Rack ${cmd.rackId} neexistuje.`));
+      if (roomOfRack(p, cmd.rackId) === cmd.roomId) return no(flow('nothing-to-do', `Rack ${cmd.rackId} už je v této místnosti.`));
+      if (p.servers.some((x) => x.mount?.rackId === cmd.rackId && (serverTask(s, x.id) || serverInDeployedDomain(s, x))))
+        return no(flow('device-busy', `V racku ${cmd.rackId} je server s běžící úlohou nebo v nasazené management domain.`));
+      const r = moveRackToRoom(p, cmd.rackId, cmd.roomId);
+      if (!r.ok) return no(invalid([r.error]));
+      const moved = withPhysical(room, r.state);
+      const tile = room.rackTiles[cmd.rackId];
+      if (tile) {
+        const bad = tileProblem(moved, cmd.rackId, cmd.roomId, tile);
+        if (bad) return no(bad);
+      }
+      setRoom(tx, moved, undoable);
+      return ok();
+    }
+    case 'assignRoomRole': {
+      if (cmd.role !== null && !isAzRole(cmd.role)) return no(flow('invalid-input', `Neznámá role místnosti ${String(cmd.role)}.`));
+      const r = assignRoomRole(p, cmd.roomId, cmd.role);
+      if (!r.ok) return no(invalid([r.error]));
+      if ((sitesOf(p).azAssignment[cmd.roomId] ?? null) === cmd.role) return no(flow('nothing-to-do', 'Místnost už tuto roli má.'));
+      setRoom(tx, withPhysical(room, r.state), undoable);
+      return ok();
     }
     case 'mountDevice': {
       const id = cmd.inventoryId ?? cmd.deviceId;
@@ -652,7 +756,11 @@ export function describeRoom(cmd: RoomCommand): string {
     case 'buyItem':
       return `Nákup: ${cmd.itemId}${cmd.qty && cmd.qty > 1 ? ` × ${cmd.qty}` : ''}`;
     case 'placeRack':
-      return `Rack ${cmd.inventoryId ?? cmd.rackId ?? cmd.itemId ?? ''} na dlaždici ${cmd.tile.gx},${cmd.tile.gy}`;
+      return `Rack ${cmd.inventoryId ?? cmd.rackId ?? cmd.itemId ?? ''} na dlaždici ${cmd.tile.gx},${cmd.tile.gy}${cmd.roomId ? ` (${cmd.roomId})` : ''}`;
+    case 'moveRackToRoom':
+      return `Rack ${cmd.rackId} → místnost ${cmd.roomId}`;
+    case 'assignRoomRole':
+      return `Místnost ${cmd.roomId}: role ${cmd.role ?? 'žádná'}`;
     case 'mountDevice':
       return `${cmd.inventoryId ?? cmd.deviceId ?? ''} → rack ${cmd.rackId}${cmd.u ?? cmd.positionU ? ` U${cmd.u ?? cmd.positionU}` : ''}`;
     case 'unmountDevice':

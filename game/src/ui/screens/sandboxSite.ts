@@ -20,8 +20,13 @@ export const sandboxSiteScreen: ScreenDef = {
     const curPreset = site.layout().preset;
     const curBlueprint = site.blueprintId();
 
+    const status = h('p', { class: 'small site-status', role: 'alert' });
     const enter = (c: BlueprintCard, v: BlueprintVariant): void => {
-      site.choose(v.layout, c.blueprintId);
+      const r = site.choose(v.layout, c.blueprintId);
+      if (!r.ok) {
+        status.textContent = r.message;
+        return;
+      }
       const multi = presetLayout(v.layout).rooms.length > 1;
       ctx.navigate(multi ? { name: 'sandbox-room', demo: false, overview: true } : { name: 'sandbox-room', demo: false });
     };
@@ -78,6 +83,7 @@ export const sandboxSiteScreen: ScreenDef = {
         h('p', { class: 'lead' },
           'Design Blueprints jsou předpřipravené kombinace návrhových modelů z dokumentace. Každý hraješ v jiném herním rozvržení ',
           'serveroven – místnosti, budovy a vzdálené lokality.'),
+        status,
         h('ul', { class: 'site-cards' }, ...cards),
         h('details', { class: 'more intro-more' },
           h('summary', null, 'Připravujeme další blueprinty'),

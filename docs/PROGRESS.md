@@ -106,7 +106,19 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
   - [x] `ui-dev` C – obrazovka „Vyber design blueprint“ (5 fleet blueprintů z modelu, varianty rozvržení, SVG
     miniatury), parametrická velikost místnosti, areál (budova/kampus/DR mapa), přechody mezi místnostmi, role
     místností v HUD (zatím jen v UI adaptéru `ui/sandbox/siteLayout.ts`)
-  - [ ] `engine-dev` – napojení (volba blueprintu v session, místnosti, AZ)
+  - [x] `engine-dev` – `chooseBlueprint` (blueprint ↔ rozvržení), `assignRoomRole`, `moveRackToRoom`, `placeRack` s místností,
+    `snapshot.site` (blueprint, odchylky, místnosti, AZ, kontroly), předvyplnění návrhu z blueprintu, cíl hostů
+    podle blueprintu, skupina úkolů L (AZ link, witness, 2. instance, hosty na AZ); `autoBmc` (OOB switch v každé
+    místnosti, BMC se zapojí po montáži, IP 10.0.99.x – herní; skupina B skrytá)
+    - otevřené: kapacita místnosti počítá i racky v inventáři (model)
+- [ ] **Racky a rack awareness** (uživatel 2026-11-21):
+  - [x] `domain-modeler` – 3 racky (24U/42U/48U, herní ceny), `model/roomLayout.ts`: orientace, studená/teplá
+    ulička, zákaz racku před jiným, řady se stejnou orientací, dveře/vybavení, kapacita; `suggestRackTiles` pro náhled
+    - otevřené (herní): průchod od dveří ke každé uličce, širší uličky, 48U větší půdorys
+  - [ ] `engine-dev` + `ui-dev` – napojit `validateRackPlacement` do `placeRack` a ghost náhledu (po doběhnutí engine-dev)
+  - [ ] `doc-researcher` – `50-vsan`: vSAN fault domains / rack awareness, sítě Single-Rack vs Multi-Rack L2/L3 *(běží)*
+  - [ ] `domain-modeler` – odvodit cluster model z rozmístění hostů v rackách (po `50-vsan`)
+  - [ ] `ui-dev` – náhled umístění racku s důvody, 3 velikosti v obchodě a scéně
 - [ ] (odloženo do funkčního milníku) `code-reviewer` + `ux-designer` review → `fact-checker`
 
 ### Sandbox v1 (původní tok Návrh → Příprava → Deploy)

@@ -83,6 +83,13 @@ export function derivedEndpoints(s: SandboxState): ServiceEndpoint[] {
       { id: ENDPOINT_IDS.admin, kind: 'admin-workstation', label: 'Počítač admina (herní)', ipv4: d.admin, attachment: at([null]), mtu: 1500 },
     );
   }
+  // Pre-wired OOB network (oob.ts, GAME): each pre-installed OOB switch's last port is its uplink to the company
+  // network; the admin workstation reaches the BMCs over it.
+  for (const [roomId, switchId] of Object.entries(s.room.oobSwitches ?? {})) {
+    const sw = s.room.physical.switches.find((x) => x.id === switchId);
+    if (!sw) continue;
+    out.push({ id: `${ENDPOINT_IDS.admin}-oob-${roomId}`, kind: 'admin-workstation', label: 'Počítač admina – OOB síť (herní)', ipv4: d.admin, attachment: { kind: 'switch-port', switchId, port: sw.ports.length - 1, tags: [null] }, mtu: 1500 });
+  }
   const ovf = s.env.installer.ovf;
   if (ovf && s.env.installer.mode !== 'not-deployed') {
     const host = ovf.placement === 'management-host' && ovf.esxHostId !== undefined ? s.room.physical.servers.find((x) => x.id === ovf.esxHostId) : undefined;

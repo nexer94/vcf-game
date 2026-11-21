@@ -22,7 +22,8 @@ describe('session adapter (SandboxSession v2)', () => {
     const st = roomStateFromSnapshot(s.snapshot())!;
     expect(st.racks[0]!.tile).toEqual({ gx: 2, gy: 2 });
     expect(st.devices.find((d) => d.id === srv)?.mount?.rackId).toBe(rack);
-    expect(st.cables).toHaveLength(1);
+    expect(st.cables.filter((c) => !c.bmc)).toHaveLength(1);
+    expect(st.cables.filter((c) => c.bmc)).toHaveLength(1); // pre-wired OOB (autoBmc)
     expect(st.catalog.servers.length).toBeGreaterThan(10);
     expect(st.spent).toBeGreaterThan(0);
     expect(st.objectives.length).toBeGreaterThan(0);

@@ -81,6 +81,11 @@ Oba režimy sdílejí **stejný model a engine** (stejná pravidla VCF ze specu)
      sežerou management komponenty podle sizingu).
   5. **Postupný deploy** (VCF Installer, bring-up, pak workload domény…).
 - Každá volba, prerekvizita a důsledek musí mít oporu ve specu.
+- **Racky** (uživatel 2026-11-21): 3 velikosti; umístění musí být logické (uličky před a za rackem, nejde postavit
+  rack před jiný, řady se stejnou orientací, ne na dveře a vybavení) – herní/fyzická pravidla, ne VCF.
+- **BMC / OOB je v Sandboxu předem správně zapojené** (uživatel 2026-11-21): v každé místnosti je
+  předinstalovaný OOB switch a BMC každého serveru se po montáži automaticky zapojí a nastaví (mimo VCF scope –
+  herní). Ruční zapojení a chyby OOB patří až do Kariéry.
 - **Checkpointy / úkoly i v Sandboxu**: hráč vždy ví, co dělat dál (tracker „Další krok“ s průběhem a splněním).
   Jsou volitelné – dají se odkliknout / skrýt; nic nezamykají, jen vedou.
 - Ovládání v místnosti: rack (zoom → 2D kabeláž), tabule (auto High-Level Design + vlastní kresba), počítač

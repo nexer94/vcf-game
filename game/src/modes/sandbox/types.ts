@@ -35,6 +35,9 @@ import type {
   SwitchPortConfig,
   ValidationIssue,
   VcfBinary,
+  AzRole,
+  BlueprintId,
+  SiteLayoutId,
 } from '../../model';
 import type { UseCaseChoice, UseCaseId } from './useCases';
 
@@ -150,6 +153,8 @@ export interface SandboxRoomState {
   readonly companyNetwork?: CompanyNetworkLink;
   readonly mgmtTests: Readonly<Record<string, MgmtTestResult>>;
   readonly economy: SandboxEconomy;
+  /** Room id -> pre-installed OOB switch id (oob.ts, GAME scope; only with `SandboxState.autoBmc`). */
+  readonly oobSwitches?: Readonly<Record<string, string>>;
 }
 
 /** Undo / redo of room edits (UX §2.4: history of 50 actions while building / cabling). */
@@ -204,6 +209,16 @@ export interface SandboxState {
   readonly objectives: ObjectivesPrefs;
   /** Chosen use case / path (25 §2.1, §4.9): id + spec reference only, no VCF rule depends on it yet. */
   readonly useCase?: UseCaseChoice;
+  /**
+   * Chosen VCF 9.1 fleet Design Blueprint (06 §1, §2.1–2.5) – start choice of the Sandbox. The site layout it is
+   * played in lives in `room.physical.sites.layoutId` (06 §7a mapping, model LAYOUT_BLUEPRINTS).
+   */
+  readonly blueprintId?: BlueprintId;
+  /**
+   * Pre-wired OOB / BMC network (oob.ts, GAME scope): a pre-installed OOB switch per room and automatic BMC cabling +
+   * IP on mount. Sandbox default true; Career switches it off (manual OOB cabling as a task).
+   */
+  readonly autoBmc: boolean;
   readonly log: readonly SandboxLogEntry[];
   readonly seq: {
     readonly host: number;
@@ -297,8 +312,15 @@ export type SandboxCommand =
   // --- server room: shop, placement (any phase) ---
   /** Buy `qty` (default 1) of a catalog item (starter server, `bcg-*` model, drive, NIC, switch, rack). */
   | { readonly type: 'buyItem'; readonly itemId: string; readonly qty?: number }
-  /** Place a rack: an inventory rack (`inventoryId` / `rackId`) or buy one (`itemId`). */
-  | { readonly type: 'placeRack'; readonly inventoryId?: string; readonly rackId?: string; readonly itemId?: string; readonly tile: RoomTile }
+  /**
+   * Place a rack: an inventory rack (`inventoryId` / `rackId`) or buy one (`itemId`). `roomId` = room of the site
+   * layout (omitted: the rack's current room); tiles collide per room.
+   */
+  | { readonly type: 'placeRack'; readonly inventoryId?: string; readonly rackId?: string; readonly itemId?: string; readonly tile: RoomTile; readonly roomId?: string }
+  /** Move a rack (with its devices) into another room of the site (model moveRackToRoom); a placed rack keeps its tile. */
+  | { readonly type: 'moveRackToRoom'; readonly rackId: string; readonly roomId: string }
+  /** Assign a room to an AZ / fault-domain role (model assignRoomRole); null = unassign. */
+  | { readonly type: 'assignRoomRole'; readonly roomId: string; readonly role: AzRole | null }
   /** Mount an inventory server / switch (`inventoryId` = `deviceId`); `u` / `positionU` omitted = lowest free U. */
   | { readonly type: 'mountDevice'; readonly inventoryId?: string; readonly deviceId?: string; readonly rackId: string; readonly u?: number; readonly positionU?: number }
   /** Back to the inventory; its cables are disconnected (game rule). */
@@ -345,7 +367,14 @@ export type SandboxCommand =
   | { readonly type: 'setObjectivesHidden'; readonly hidden: boolean }
   // --- use case / path (25 §2.1, §4.9) ---
   /** Record the chosen use case (UC-1 … UC-10); null clears the choice. */
-  | { readonly type: 'chooseUseCase'; readonly useCaseId: UseCaseId | null };
+  | { readonly type: 'chooseUseCase'; readonly useCaseId: UseCaseId | null }
+  // --- site / Design Blueprint (06) ---
+  /**
+   * Choose a fleet Design Blueprint and the game site layout it is played in (the layout must map to the blueprint,
+   * model LAYOUT_BLUEPRINTS, 06 §7a). A different layout only before any rack exists (model chooseSiteLayout).
+   * In the design phase the blueprint's documented design choices are pre-selected.
+   */
+  | { readonly type: 'chooseBlueprint'; readonly blueprintId: BlueprintId; readonly layoutId: SiteLayoutId };
 
 export type SandboxCommandType = SandboxCommand['type'];
 
@@ -379,7 +408,11 @@ export type FlowReason =
   | 'device-busy'
   | 'bmc-not-ready'
   | 'bmc-remote-install-not-documented'
-  | 'unknown-objective';
+  | 'unknown-objective'
+  // sites (game rules, not VCF)
+  | 'tile-occupied'
+  | 'preinstalled-oob'
+  | 'blueprint-layout-mismatch';
 
 export type SandboxRejection =
   /** A model validation / transition rejected the action. Issues are the model's, unchanged. */

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { SITE_LAYOUTS } from '../../model/sites';
 import { blueprintCards, SITE_WHY_LINKS, UPCOMING_BLUEPRINTS } from './blueprints';
-import { createLocalSitePort, doorTarget, presetLayout, siteSceneInput, SITE_LAYOUT_IDS, SITE_STORAGE_KEY, type KeyValueStore } from './siteLayout';
+import { SandboxSession } from '../../modes/sandbox';
+import { createLocalSitePort, createSessionSitePort, doorTarget, switchingSitePort, presetLayout, siteSceneInput, SITE_LAYOUT_IDS, SITE_STORAGE_KEY, type KeyValueStore } from './siteLayout';
 
 const memStore = (): KeyValueStore & { data: Map<string, string> } => {
   const data = new Map<string, string>();
@@ -94,5 +95,63 @@ describe('blueprint cards', () => {
     const siteHa = cards.find((c) => c.blueprintId === 'vcf-fleet-multiple-sites-single-region')!;
     expect(siteHa.variants.map((v) => v.layout)).toEqual(expect.arrayContaining(['two-rooms-one-building', 'two-buildings']));
     for (const l of [...SITE_WHY_LINKS, ...UPCOMING_BLUEPRINTS]) expect(l.url.startsWith('https://techdocs.broadcom.com/')).toBe(true);
+  });
+});
+
+describe('session-backed site port', () => {
+  const setup = () => {
+    const session = new SandboxSession();
+    let loaded: SandboxSession | null = null;
+    let resolve!: () => void;
+    const gate = new Promise<void>((r) => (resolve = r));
+    const port = createSessionSitePort(
+      () => gate.then(() => (loaded = session)),
+      () => loaded,
+    );
+    return { session, port, open: async () => { resolve(); await gate; await Promise.resolve(); } };
+  };
+
+  it('queues choices made before the session is loaded and then reads everything from the session', async () => {
+    const { session, port, open } = setup();
+    expect(port.layout().preset).toBeNull();
+    expect(port.layout().rooms.map((r) => r.id)).toEqual(['room-a1']);
+    expect(port.choose('two-buildings', 'vcf-fleet-multiple-sites-single-region').ok).toBe(true);
+    expect(port.layout().preset).toBe('two-buildings'); // local stand-in
+    let n = 0;
+    port.subscribe(() => n++);
+    await open();
+    expect(session.snapshot().site.blueprint?.id).toBe('vcf-fleet-multiple-sites-single-region');
+    expect(port.blueprintId()).toBe('vcf-fleet-multiple-sites-single-region');
+    expect(port.layout().rooms.map((r) => [r.id, r.az])).toEqual([['room-a1', 'az1'], ['room-b1', null], ['room-c1', null]]);
+    expect(n).toBeGreaterThan(0);
+    expect(port.setAz('room-b1', 'az2').ok).toBe(true);
+    expect(session.snapshot().site.layout.rooms[1]!.role).toBe('az2');
+    expect(port.layout().rooms[1]!.az).toBe('az2');
+  });
+
+  it('rack rooms and model rejections come from the session', async () => {
+    const { session, port, open } = setup();
+    await open();
+    port.choose('two-buildings', null);
+    const r = session.dispatch({ type: 'placeRack', itemId: 'rack-generic-42u', tile: { gx: 1, gy: 1 }, roomId: 'room-b1' });
+    const rack = r.ok ? r.created![0]! : '';
+    expect(port.roomOfRack(rack)).toBe('room-b1');
+    expect(port.assignRack(rack, 'room-a1').ok).toBe(true);
+    expect(port.roomOfRack(rack)).toBe('room-a1');
+    const bad = port.choose('small-room', null); // racks exist -> model rule
+    expect(bad.ok).toBe(false);
+    expect(port.layout().preset).toBe('two-buildings');
+  });
+
+  it('switching port follows the demo flag', () => {
+    const live = createLocalSitePort(null);
+    const demo = createLocalSitePort(null);
+    let isDemo = false;
+    const p = switchingSitePort(live, demo, () => isDemo);
+    p.choose('two-buildings', null);
+    isDemo = true;
+    expect(p.layout().preset).toBeNull();
+    isDemo = false;
+    expect(p.layout().preset).toBe('two-buildings');
   });
 });

@@ -42,6 +42,9 @@ export interface PriceTable {
   /** Generic switch price by switch model id; unknown switch ids use `switchDefault`. */
   readonly switchById: Readonly<Record<string, number>>;
   readonly switchDefault: number;
+  /** Generic rack price by rack model id; unknown rack ids use `rack`. */
+  readonly rackById: Readonly<Record<string, number>>;
+  /** Fallback rack price (any rack id not in `rackById`). */
   readonly rack: number;
   readonly cable: number;
 }
@@ -60,6 +63,7 @@ export const DEFAULT_PRICE_TABLE: PriceTable = {
   fcHba: 900,
   switchById: { 'sw-generic-48x10g': 5000, 'sw-generic-48x25g': 8500, 'sw-generic-32x100g': 16000, 'sw-generic-48x1g-oob': 1200 },
   switchDefault: 6000,
+  rackById: { 'rack-generic-24u': 900, 'rack-generic-42u': 1500, 'rack-generic-48u': 1900 },
   rack: 1500,
   cable: 15,
 };
@@ -116,7 +120,7 @@ export function itemPrice(catalog: HardwareCatalog, itemId: string, table: Price
     case 'switch':
       return round(table.switchById[it.id] ?? table.switchDefault);
     case 'rack':
-      return round(table.rack);
+      return round(table.rackById[it.id] ?? table.rack);
   }
 }
 

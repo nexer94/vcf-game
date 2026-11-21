@@ -10,7 +10,8 @@ const codes = (issues: readonly { code: string }[]) => issues.map((i) => i.code)
 const created = (r: CommandResult): string[] => (r.ok ? [...(r.created ?? [])] : []);
 
 const FAST = { 'esx-install': 1000, 'mgmt-network-test': 1000 } as const;
-const session = (prices?: PriceTable) => new SandboxSession({ taskDurationsMs: FAST, ...(prices ? { context: { prices } } : {}) });
+// Manual OOB / BMC cabling (Career-like): the pre-wired OOB network (autoBmc) is tested separately in sites.test.ts.
+const session = (prices?: PriceTable) => new SandboxSession({ taskDurationsMs: FAST, autoBmc: false, ...(prices ? { context: { prices } } : {}) });
 
 function reject(s: SandboxSession, cmd: SandboxCommand) {
   const r = s.dispatch(cmd);
@@ -409,7 +410,9 @@ describe('Sandbox – objectives tracker', () => {
     const v = new SandboxSession().snapshot().objectives;
     expect(v.available).toBe(true);
     expect(v.loadErrors).toEqual([]);
-    expect(v.groups.map((g) => g.id)).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G']);
+    // Sandbox default: pre-wired OOB (group B hidden); no multi-site blueprint (group L hidden).
+    expect(v.groups.map((g) => g.id)).toEqual(['A', 'C', 'D', 'E', 'F', 'G']);
+    expect(session().snapshot().objectives.groups.map((g) => g.id)).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G']);
     expect(v.next?.id).toBe('room.rack');
   });
 

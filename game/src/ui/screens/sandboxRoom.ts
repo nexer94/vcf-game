@@ -31,7 +31,7 @@ import { createTimeControls } from '../timeControls';
 // Multi-room sites ("Výběr lokality"): layout adapter, overview, door.
 import { roomDoor } from '../../render/room/roomStatic';
 import { createSiteOverview } from '../sandbox/siteOverview';
-import { AZ_CYCLE, azText, doorTarget, roomOf, sharedSitePort, type SiteRoomView } from '../sandbox/siteLayout';
+import { AZ_CYCLE, azText, createLocalSitePort, doorTarget, roomOf, sharedSitePort, switchingSitePort, type SiteRoomView } from '../sandbox/siteLayout';
 import { VCF_VERSION } from '../version';
 import type { Route } from '../router';
 import type { ScreenDef } from './screen';
@@ -82,8 +82,9 @@ export const sandboxRoomScreen: ScreenDef = {
     const { stage, engine } = ctx;
     const room = stage.room;
     const canvas = stage.canvas;
-    // Site layout (adapter; engine integration later): which room of the site this screen shows.
-    const site = sharedSitePort();
+    let demo = route.name === 'sandbox-room' && route.demo;
+    // Site layout: the session (player's Sandbox) or a local one for the illustrative demo room.
+    const site = switchingSitePort(sharedSitePort(), createLocalSitePort(null), () => demo);
     let roomId = roomOf(site.layout(), route.name === 'sandbox-room' ? route.roomId : undefined).id;
     const multiRoom = (): boolean => site.layout().rooms.length > 1;
     const curRoom = (): SiteRoomView => roomOf(site.layout(), roomId);
@@ -93,7 +94,6 @@ export const sandboxRoomScreen: ScreenDef = {
     room.resetAvatar(startTile);
     room.world.alpha = 1;
     room.world.visible = true;
-    let demo = route.name === 'sandbox-room' && route.demo;
     let view: RoomView = viewOf(route);
     let reducedMotion = prefersReduced();
     let port: RoomPort | null = null;
@@ -136,7 +136,10 @@ export const sandboxRoomScreen: ScreenDef = {
     const dnsBtn = button('DNS', () => panels.openDns(), { class: 'btn btn-small', title: 'DNS server firmy (mimo VCF)' });
     // Site widget: room name, AZ badge (UI only, via the site adapter), room switcher + site overview.
     const roomTitle = h('strong', null, 'Serverovna');
-    const azBtn = button('AZ —', () => site.setAz(roomId, AZ_CYCLE[(AZ_CYCLE.indexOf(curRoom().az) + 1) % AZ_CYCLE.length]!), {
+    const azBtn = button('AZ —', () => {
+      const r = site.setAz(roomId, AZ_CYCLE[(AZ_CYCLE.indexOf(curRoom().az) + 1) % AZ_CYCLE.length]!);
+      if (!r.ok) say(r.message, true);
+    }, {
       class: 'az-badge',
       title: 'Role místnosti: AZ1 / AZ2 / witness / druhá VCF Instance (co znamená pro VCF, vyhodnocuje model podle dokumentace)',
     });
@@ -401,8 +404,8 @@ export const sandboxRoomScreen: ScreenDef = {
           if (!tile) return say('Mimo místnost.', true);
           const chk = room.checkPlace('rack', tile);
           if (!chk.ok) return say(chk.reason === 'occupied' ? 'Dlaždice je obsazená.' : chk.reason === 'avatar' ? 'Tady stojí panáček.' : 'Mimo místnost.', true);
-          site.assignRack(sel.id, roomId); // before placing: the rack belongs to this room of the site
-          const r = port.placeRack(sel.id, tile);
+          if (port.source !== 'session') site.assignRack(sel.id, roomId); // local fallback / demo: room kept by the UI
+          const r = port.placeRack(sel.id, tile, roomId);
           if (!r.ok) return say(r.message, true);
           pick(null);
           say(`${sel.label} postaven. Teď kup server a switch a klikni na rack.`);
@@ -735,6 +738,7 @@ export const sandboxRoomScreen: ScreenDef = {
     };
     const loadPort = (): void => {
       room.clear();
+      renderSiteHud(); // demo <-> player's room use different site ports
       (demo ? createDemoRoomPort() : sharedRoomPort(engine as never)).then((p) => usePort(p, demo), (err: unknown) => say(`Nepodařilo se načíst katalog: ${String(err)}`, true));
     };
     loadPort();

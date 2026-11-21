@@ -211,7 +211,8 @@ export interface RoomPort {
   state(): RoomState;
   subscribe(fn: () => void): () => void;
   buyItem(catalogItemId: string): PortResult;
-  placeRack(rackId: string, tile: Tile): PortResult;
+  /** `roomId` = room of the site layout (session backend; the local fallback has one room and ignores it). */
+  placeRack(rackId: string, tile: Tile, roomId?: string): PortResult;
   /** `positionU` omitted = lowest free position (model firstFreeU). */
   mountDevice(deviceId: string, rackId: string, positionU?: number): PortResult;
   unmountDevice(deviceId: string): PortResult;
@@ -259,7 +260,7 @@ export const isCableColorId = (s: string | undefined): s is CableColorId => !!s 
  * Engine contract assumed for the session backend (names announced by engine-dev for Sprint 1).
  * Kept structural so this file compiles before the session API exists.
  */
-interface SessionLike {
+export interface SessionLike {
   snapshot(): unknown;
   dispatch(cmd: { readonly type: string } & Record<string, unknown>): unknown;
   subscribe(fn: (e: unknown) => void): () => void;
@@ -279,21 +280,41 @@ export function sessionHasPhysical(session: unknown): session is SessionLike {
 }
 
 let shared: Promise<RoomPort> | null = null;
+let sessionPromise: Promise<SessionLike> | null = null;
+let sessionLoaded: SessionLike | null = null;
+let engineAttached = false;
 
 /**
- * One room port for the whole Sandbox run. Creates a SandboxSession (attached to the shared engine clock) and uses
- * it when it exposes the physical layer; otherwise the local fallback. Both load the hardware catalog lazily
+ * The ONE SandboxSession of the Sandbox run (lazy: the hardware catalog / BCG dataset is loaded with it). Shared by the
+ * room port and the site port (siteLayout.ts). `engine` attaches the session to the shared clock once.
+ */
+export function sharedSandboxSession(engine?: { attach(system: never): () => void }): Promise<SessionLike> {
+  sessionPromise ??= import('../../modes/sandbox').then((m) => {
+    const session = new m.SandboxSession();
+    if (!sessionHasPhysical(session)) throw new Error('session without physical layer');
+    sessionLoaded = session;
+    return session;
+  });
+  if (engine && !engineAttached) {
+    engineAttached = true;
+    sessionPromise.then((s) => (s as unknown as { attachTo(e: unknown): void }).attachTo(engine), () => undefined);
+  }
+  return sessionPromise;
+}
+
+/** The shared session once loaded (null before / when it failed). */
+export const loadedSandboxSession = (): SessionLike | null => sessionLoaded;
+
+/**
+ * One room port for the whole Sandbox run. Uses the shared SandboxSession (attached to the shared engine clock) when it
+ * exposes the physical layer; otherwise the local fallback. Both load the hardware catalog lazily
  * (BCG dataset ~360 kB, only needed in the room).
  */
 export function sharedRoomPort(engine?: { attach(system: never): () => void }): Promise<RoomPort> {
-  shared ??= import('../../modes/sandbox')
-    .then((m) => {
-      const session = new m.SandboxSession();
-      if (!sessionHasPhysical(session)) throw new Error('session without physical layer');
-      if (engine) session.attachTo(engine as never);
-      return sessionBackend(session);
-    })
+  shared ??= sharedSandboxSession(engine)
+    .then((session) => sessionBackend(session))
     .catch(() => import('./sessionFallback').then((m) => m.createLocalRoomPort()));
+  if (engine) sharedSandboxSession(engine);
   return shared;
 }
 
@@ -302,9 +323,12 @@ export function createDemoRoomPort(): Promise<RoomPort> {
   return import('./sessionFallback').then((m) => m.createLocalRoomPort());
 }
 
-/** Tests / "new sandbox": drop the shared port. */
+/** Tests / "new sandbox": drop the shared port and session. */
 export function resetSharedRoomPort(): void {
   shared = null;
+  sessionPromise = null;
+  sessionLoaded = null;
+  engineAttached = false;
 }
 
 /**
@@ -350,7 +374,7 @@ function sessionBackend(session: SessionLike): RoomPort {
     },
     subscribe: (fn) => session.subscribe(() => fn()),
     buyItem: (itemId) => run({ type: 'buyItem', itemId }),
-    placeRack: (rackId, tile) => run({ type: 'placeRack', inventoryId: rackId, tile: { gx: tile.gx, gy: tile.gy } }),
+    placeRack: (rackId, tile, roomId) => run({ type: 'placeRack', inventoryId: rackId, tile: { gx: tile.gx, gy: tile.gy }, ...(roomId !== undefined ? { roomId } : {}) }),
     mountDevice: (deviceId, rackId, positionU) => run({ type: 'mountDevice', inventoryId: deviceId, rackId, ...(positionU !== undefined ? { positionU } : {}) }),
     unmountDevice: (deviceId) => run({ type: 'unmountDevice', deviceId }),
     removeItem: (id) => run({ type: 'removeItem', id }),

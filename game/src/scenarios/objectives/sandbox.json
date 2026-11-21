@@ -2,6 +2,7 @@
   "version": 1,
   "groups": [
     { "id": "A", "title": "Stavba serverovny" },
+    { "id": "L", "title": "Lokality (AZ, witness, 2. instance)" },
     { "id": "B", "title": "BMC (mimo VCF scope – herní)" },
     { "id": "C", "title": "Hosty (ESX)" },
     { "id": "D", "title": "Síť pro VCF" },
@@ -27,9 +28,9 @@
       "id": "room.host-count", "group": "A", "title": "Kup tolik hostů, kolik chce návrh", "kind": "doc-required",
       "selector": "serversForDesign", "after": ["room.certified-server"], "showMe": { "inventory": "servers" },
       "why": {
-        "specRef": "10-planning §6.1 [P9]; §4 krok 5",
+        "specRef": "10-planning §6.1 [P9]; §4 krok 5; 06-blueprints §6.1",
         "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/cluster-models/single-instance-single-availability-zone.html",
-        "paraphrase": "Minimální počet hostů default clusteru management domain závisí na principal storage a deployment modelu (Simple / High Availability). Dokud nemáš návrh, stačí zatím jeden server; v realitě se nejdřív plánuje a pak nakupuje.",
+        "paraphrase": "Minimální počet hostů default clusteru management domain závisí na principal storage a deployment modelu (Simple / High Availability). Dokud nemáš návrh, stačí zatím jeden server; v realitě se nejdřív plánuje a pak nakupuje. S vybraným design blueprintem platí aspoň počet ESX hostů z jeho Minimum Requirements.",
         "quote": "You choose the number of ESX hosts per vSphere which supports your storage type and VCF domain considerations."
       }
     },
@@ -86,6 +87,12 @@
         "paraphrase": "Herní zjednodušení: uplink na stěně zastupuje firemní síť s default gateway a DNS servery. ESX management síť je potřebuje – DCUI test pinguje gateway a DNS a ověřuje hostname."
       }
     },
+
+    {"id": "site.az2", "group": "L", "title": "Přiřaď místnosti do AZ1 a AZ2", "kind": "doc-required", "selector": "siteInterAzLink", "showMe": {"view": "room"}, "why": {"specRef": "10-planning §3.3, §6.2 [P13][P20]; 06-blueprints §2.3 [B8][B11]", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-library/cluster-models/single-instance-multiple-availability-zones.html", "paraphrase": "Site HA je jedna VCF Instance přes dvě availability zones (stretched cluster). Spojení mezi AZ musí mít aspoň 10 Gbps a RTT pod 5 ms (VCF-VSAN-SC-REQD-CFG-002/004). Místnosti, budovy a parametry linek jsou herní."}},
+    {"id": "site.witness", "group": "L", "title": "Urči místnost pro vSAN witness", "kind": "doc-required", "selector": "siteWitness", "after": ["site.az2"], "showMe": {"view": "room"}, "why": {"specRef": "06-blueprints §2.3, §6.4 [B11]; 10-planning §3.3 [P13]", "ruleId": "VCF-VSAN-SC-REQD-CFG-009", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-with-multiple-sites-in-a-single-region-blueprint/shared-design-selection-between-management-and-workload-domain/virtual-infrastructure-layer(6)/stretched-vsan-storage-model(1).html", "paraphrase": "vSAN witness patří do třetí nezávislé fault domény – ne k hostům žádné z AZ a bez logické či fyzické závislosti na kterékoli AZ. RTT z datových lokalit k witness nejvýš 200 ms (VCF-VSAN-SC-REQD-CFG-003)."}},
+    {"id": "site.hosts-per-az", "group": "L", "title": "Rozmísti hosty do obou AZ (stejně)", "kind": "doc-required", "selector": "siteHostsPerAz", "after": ["site.az2", "room.mount-servers"], "showMe": {"view": "room"}, "why": {"specRef": "06-blueprints §2.3, §6.1 [B9][B11]", "ruleId": "VCF-VSAN-SC-REQD-CFG-001", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-with-multiple-sites-in-a-single-region-blueprint/minimal.html", "paraphrase": "Minimum Requirements blueprintu uvádějí počet ESX hostů v každé AZ; obě availability zones musí mít stejný počet ESX hostů. Bring-up proběhne v AZ1, management cluster se do AZ2 roztáhne jako Day 2."}},
+    {"id": "site.secondary-instance", "group": "L", "title": "Urči místnost pro druhou VCF Instance", "kind": "doc-required", "selector": "siteSecondaryInstance", "showMe": {"view": "room"}, "why": {"specRef": "06-blueprints §2.4 [B16][B21]; 00 §6 [S16]; 05 §4.1 [D11]", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-with-multiple-sites-across-multiple-regions-blueprint.html", "paraphrase": "Disaster Recovery model: druhá VCF Instance stojí v jiné availability zone / regionu (obnova přes VMware Live Recovery). Požadavky na linku mezi regiony dokumentace číselně neuvádí."}},
+    {"id": "site.secondary-hosts", "group": "L", "title": "Hosty pro druhou VCF Instance", "kind": "doc-required", "selector": "siteSecondaryHosts", "after": ["site.secondary-instance"], "showMe": {"view": "room"}, "why": {"specRef": "06-blueprints §2.4, §6.1 [B17]", "url": "https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vcf-9-0-and-later/9-1/design/design-blueprints-for/infrastructure-modernization/vcf-fleet-with-multiple-sites-across-multiple-regions-blueprint/minimal-requirements-for-blueprint(3).html", "paraphrase": "Minimum Requirements blueprintu uvádějí ESX hosty i pro Region 2 – druhá VCF Instance má vlastní management domain (vCenter, SDDC Manager, NSX Manager)."}},
 
     {
       "id": "cabling.bmc", "group": "B", "title": "Zapoj a nastav BMC (vzdálená správa serveru)", "kind": "game-optional",

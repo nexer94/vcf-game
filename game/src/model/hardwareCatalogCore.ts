@@ -137,15 +137,41 @@ export const SWITCH_MODELS: readonly SwitchModel[] = [
   { kind: 'switch', id: 'sw-generic-48x1g-oob', label: 'Generic OOB 48× 1G (10G uplink capable)', ports: 48, speedsGbE: [1, 10], maxMtu: 9216, defaultPortMtu: 1500, oobOnly: true, rackUnits: 1, gameGeneric: true },
 ];
 
-export interface RackModel {
-  readonly kind: 'rack';
-  readonly id: string;
-  readonly label: string;
-  readonly heightU: number;
-  readonly gameGeneric: true;
+/** [GAME] floor footprint of a rack in room tiles. All generic racks are 1×1 (room layout rules, roomLayout.ts). */
+export interface RackFootprint {
+  /** Tiles along the row (side by side). */
+  readonly widthTiles: 1;
+  /** Tiles from front to back. */
+  readonly depthTiles: 1;
 }
 
-export const RACK_MODELS: readonly RackModel[] = [{ kind: 'rack', id: 'rack-generic-42u', label: 'Rack 42U', heightU: 42, gameGeneric: true }];
+/** [GAME] rack size class – game classification, not a documentation term. */
+export type RackSize = 'half' | 'standard' | 'tall';
+
+export interface RackModel {
+  readonly kind: 'rack';
+  /** Stable item id (saves, economy prices). `rack-generic-42u` is the original id and must stay valid. */
+  readonly id: string;
+  readonly label: string;
+  readonly size: RackSize;
+  /** U capacity (mount positions 1..heightU). Game value. */
+  readonly heightU: number;
+  readonly footprint: RackFootprint;
+  readonly gameGeneric: true;
+  readonly gameDefault: true;
+}
+
+const RACK_FOOTPRINT_1X1: RackFootprint = { widthTiles: 1, depthTiles: 1 };
+
+/** Default rack model id (first and most common size; kept for backwards compatibility of saves/tests). */
+export const DEFAULT_RACK_MODEL_ID = 'rack-generic-42u';
+
+/** [GAME] three generic rack sizes – game values (CLAUDE.md: generic "no-name" hardware), not from documentation. */
+export const RACK_MODELS: readonly RackModel[] = [
+  { kind: 'rack', id: 'rack-generic-24u', label: 'Rack 24U (half-height)', size: 'half', heightU: 24, footprint: RACK_FOOTPRINT_1X1, gameGeneric: true, gameDefault: true },
+  { kind: 'rack', id: DEFAULT_RACK_MODEL_ID, label: 'Rack 42U', size: 'standard', heightU: 42, footprint: RACK_FOOTPRINT_1X1, gameGeneric: true, gameDefault: true },
+  { kind: 'rack', id: 'rack-generic-48u', label: 'Rack 48U (tall)', size: 'tall', heightU: 48, footprint: RACK_FOOTPRINT_1X1, gameGeneric: true, gameDefault: true },
+];
 
 export { BMC_PORT_SPEEDS_GBE } from './hardware';
 

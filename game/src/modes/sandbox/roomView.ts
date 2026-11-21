@@ -64,6 +64,7 @@ import { CABLE_ITEM_ID, GAME_CURRENCY, type PriceTable, itemPrice, serverConfigP
 import { type IssueGroups, groupIssues } from './design';
 import { physicalBringupIssues } from './reducer';
 import { BMC_REMOTE_INSTALL_REF, BMC_REMOTE_INSTALL_VENDORS, serverInDeployedDomain, serverTask } from './room';
+import { isOobSwitch, oobRoomOf } from './oob';
 import { derivedEndpoints, flowContextOf, netContextOf, plannedHostNetworks, specServerIds } from './roomNet';
 import type { SandboxContext } from './tx';
 import type { CableEndInput, CableMeta, CompanyNetworkLink, LedgerEntry, MgmtTestResult, RoomTile, SandboxState } from './types';
@@ -173,6 +174,11 @@ export interface SwitchView {
   readonly ports: readonly SwitchPortView[];
   readonly gameGeneric: true;
   readonly price: number;
+  /**
+   * Pre-installed, wall-mounted OOB switch of a room (oob.ts, GAME scope): not bought, not in a rack, managed by the
+   * game; never a ToR for VCF. Uplink port = `uplinkPort` (company network).
+   */
+  readonly preinstalledOob?: { readonly roomId: string; readonly uplinkPort: number };
 }
 
 export interface RackView {
@@ -300,6 +306,8 @@ export interface PhysicalView {
   /** Physical network + HW validation of the wizard's physical hosts (preview of Review validation). */
   readonly bringupNetwork?: IssueGroups;
   readonly plan?: PlannedHostNetworks;
+  /** Pre-wired OOB / BMC network is on (oob.ts, GAME scope): BMCs are cabled and addressed automatically. */
+  readonly autoBmc: boolean;
   readonly economy: EconomyView;
   readonly undo: { readonly canUndo: boolean; readonly canRedo: boolean };
   readonly bmcRemoteInstallVendors: readonly HwVendor[];
@@ -456,6 +464,7 @@ export function physicalView(s: SandboxState, ctx: SandboxContext): PhysicalView
 
   const servers = p.servers.map((srv) => serverView(s, ctx, srv, storage, net, plan));
 
+  const oobRoom = (id: string): string | undefined => oobRoomOf(room, id);
   const switches = p.switches.map((sw): SwitchView => {
     const m = catalog.switches.get(sw.modelId);
     const speeds = m?.speedsGbE ?? [];
@@ -477,6 +486,7 @@ export function physicalView(s: SandboxState, ctx: SandboxContext): PhysicalView
       })),
       gameGeneric: true,
       price: itemPrice(catalog, sw.modelId, prices) ?? 0,
+      ...(oobRoom !== undefined && oobRoom(sw.id) !== undefined ? { preinstalledOob: { roomId: oobRoom(sw.id)!, uplinkPort: sw.ports.length - 1 } } : {}),
     };
   });
 
@@ -500,7 +510,7 @@ export function physicalView(s: SandboxState, ctx: SandboxContext): PhysicalView
   const inventory: InventoryItemView[] = [
     ...p.racks.filter((r) => !room.rackTiles[r.id]).map((r): InventoryItemView => ({ id: r.id, kind: 'rack', itemId: r.modelId, label: catalog.racks.get(r.modelId)?.label ?? r.modelId, price: itemPrice(catalog, r.modelId, prices) ?? 0 })),
     ...p.servers.filter((x) => !x.mount).map((x): InventoryItemView => ({ id: x.id, kind: 'server', itemId: x.catalogItemId ?? x.config.modelId, label: `${x.id} · ${catalog.models.get(x.config.modelId)?.model ?? x.config.modelId}`, price: serverConfigPrice(catalog, x.config, prices) })),
-    ...p.switches.filter((x) => !x.mount).map((x): InventoryItemView => ({ id: x.id, kind: 'switch', itemId: x.modelId, label: `${x.id} · ${catalog.switches.get(x.modelId)?.label ?? x.modelId}`, price: itemPrice(catalog, x.modelId, prices) ?? 0 })),
+    ...p.switches.filter((x) => !x.mount && !isOobSwitch(room, x.id)).map((x): InventoryItemView => ({ id: x.id, kind: 'switch', itemId: x.modelId, label: `${x.id} · ${catalog.switches.get(x.modelId)?.label ?? x.modelId}`, price: itemPrice(catalog, x.modelId, prices) ?? 0 })),
     ...room.parts.map((q): InventoryItemView => {
       const it = catalog.items.get(q.itemId);
       const label = it?.kind === 'drive' ? `${it.family} ${it.capacityTB} TB` : it?.kind === 'nic' ? it.bomName : q.itemId;
@@ -527,6 +537,7 @@ export function physicalView(s: SandboxState, ctx: SandboxContext): PhysicalView
     clusterIssues: { findings: clusterFindings, groups: groupIssues(clusterFindings) },
     ...(bringup ? { bringupNetwork: groupIssues(bringup) } : {}),
     ...(plan ? { plan } : {}),
+    autoBmc: s.autoBmc,
     economy: { currency: GAME_CURRENCY, moneyUnlimited: true, spent: room.economy.spent, recent: room.economy.ledger.slice(-20) },
     undo: { canUndo: s.roomHistory.undo.length > 0, canRedo: s.roomHistory.redo.length > 0 },
     bmcRemoteInstallVendors: BMC_REMOTE_INSTALL_VENDORS,

@@ -26,6 +26,7 @@ import { type ObjectivesView, evaluateObjectives } from './objectives';
 import { type PlanningView, planningView, withBinaryProgress } from './planning';
 import { allHostsOf, bringupEnvOf, phaseGate } from './reducer';
 import { type FlowsView, type HwDesignView, type PhysicalView, flowsView, hwDesignView, physicalView } from './roomView';
+import { type SiteView, siteView } from './site';
 import { type SandboxContext, defaultSandboxContext } from './tx';
 import { type UseCaseView, useCaseView } from './useCases';
 import { type SandboxLogEntry, type SandboxPhase, type SandboxState, type SandboxTask, type SandboxTaskKind, SANDBOX_PHASES } from './types';
@@ -121,6 +122,11 @@ export interface SandboxSnapshot {
   readonly objectives: ObjectivesView;
   /** Chosen use case / path (25 §2.1); undefined = not chosen yet. Catalog: USE_CASES. */
   readonly useCase?: UseCaseView;
+  /**
+   * Site: chosen fleet Design Blueprint (06), game site layout (rooms, buildings, sites, links – [GAME] values),
+   * AZ summary with hosts per AZ and the model's site checks (inter-AZ link, witness, second instance, hosts per AZ).
+   */
+  readonly site: SiteView;
   readonly tasks: readonly TaskView[];
   readonly log: readonly SandboxLogEntry[];
   readonly illustrative: { readonly taskDurationsMs: Readonly<Record<SandboxTaskKind, number>>; readonly note: string };
@@ -224,6 +230,7 @@ export function buildSnapshotBase(s: SandboxState, revision: number, ctx: Sandbo
     ...(s.fleet ? { fleet: s.fleet } : {}),
     ...(s.useCase ? { useCase: useCaseView(s.useCase, s.spec) } : {}),
     physical: physicalView(s, ctx),
+    site: siteView(s),
     flows: flowsView(s, ctx.catalog),
     hw: hwDesignView(s, ctx.catalog, decisions),
     log: s.log,

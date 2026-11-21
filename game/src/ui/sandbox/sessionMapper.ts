@@ -133,7 +133,8 @@ export function roomStateFromSnapshot(raw: unknown): RoomState | null {
     ...p.switches.map((w): RoomDevice => ({
       id: w.id,
       kind: 'switch',
-      label: w.id,
+      // pre-installed wall-mounted OOB switch of the Sandbox (game scope, modes/sandbox/oob.ts)
+      label: w.preinstalledOob ? `${w.id} (OOB, předinstalovaný)` : w.id,
       catalogItemId: w.modelId,
       modelLabel: w.label,
       heightU: w.rackUnits,

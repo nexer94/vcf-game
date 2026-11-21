@@ -12,4 +12,5 @@ export * from './bcgDataset';
 export * from './hardwareCatalog';
 export * from './physical';
 export * from './sites';
+export * from './roomLayout';
 export * from './hardwareDesign';

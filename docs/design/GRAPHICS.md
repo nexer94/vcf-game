@@ -28,6 +28,8 @@
   s vytížením a pakety. Jako první dokumentovaná síť naběhne **ESX management (vmk0)**; OOB/BMC je podle dokumentace mimo scope VCF
   (`25` §10) – ve hře volitelný krok označený „mimo VCF scope – herní“, bez VCF provozu a bez vlivu na validace.
 - UI panely (obchod, konfigurace, wizardy) světlé a přátelské, ale přehledné; data a odkazy na dokumentaci vždy čitelné.
+- **Barvy a téma inspirované světem Broadcom/VCF** (uživatel 2026-11-21) – výrazná červená, tmavá navy,
+  střídmé šedé, čisté „enterprise“ panely; jen inspirace, ne oficiální brand (detail v sekci „Téma a paleta“).
 - Žádná loga ani přesné kopie UI Broadcomu ani vendorů – vlastní ikony a barvy (vendor jen jako text/barevný štítek).
 
 ## Úrovně zoomu
@@ -46,10 +48,10 @@ Přechody mezi úrovněmi plynulým zoomem (jako přelet nad mapou).
 - Barvy typů provozu:
   | Typ | Barva |
   |---|---|
-  | Management | šedomodrá `#8aa4c8` |
+  | Management | ocelově šedomodrá `#a9b6c9` (dříve `#8aa4c8`, změna kvůli barvosleposti – viz „Téma a paleta“ T6) |
   | vMotion | oranžová `#f0a14a` |
   | vSAN | zelená `#4cc38a` |
-  | NFS / storage | tyrkysová `#3fb8c9` |
+  | NFS / storage | tmavší tyrkysová `#1fa3b8` (dříve `#3fb8c9`) |
   | NSX overlay | fialová `#a37cf0` |
   | VM / north-south | bílá `#e8edf3` |
 - Tloušťka linky = vytížení, nad 80 % žlutá, nad 95 % červená; zahozené pakety „odpadnou“ a zmizí.
@@ -79,8 +81,10 @@ Přechody mezi úrovněmi plynulým zoomem (jako přelet nad mapou).
 - **Tabule**: téměř bílá plocha, hliníkový rám, polička s fixami jako nástrojová lišta. Auto diagram ručně
   kresleným stylem (deterministický jitter, dvojitý tah fixy, rukopisné OFL písmo s českou diakritikou)
   v **vyhrazené inkoustové barvě**, kterou hráč nemá v paletě; poznámky hráče barevnými fixami.
-- **Počítač**: stůl s monitorem u levé stěny; plocha počítače je vlastní jednoduchý světlý „OS“ (dock vlevo,
-  jedno maximalizované okno) – žádná napodobenina existujícího OS ani UI Broadcomu.
+- **Počítač**: stůl s monitorem u levé stěny; plocha počítače je vlastní jednoduchý „OS“ (navy horní lišta, světlý
+  dock vlevo, jedno maximalizované okno) – žádná napodobenina existujícího OS ani UI Broadcomu. „Konzolové“
+  aplikace (installer, provoz, DCUI) smí použít tmavé téma `console` (T3), výukové aplikace (Návrh VCF, Library)
+  zůstávají světlé.
 
 ## Technika
 - PixiJS (WebGL), sprity generované z vektorů, batching, cíl 60 FPS i na Chromebooku.

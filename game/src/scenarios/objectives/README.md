@@ -46,14 +46,14 @@ default clusteru z modelu pro aktuální návrh (10-planning §6.1), bez návrhu
 | `hasRack` | `min` | racky postavené v místnosti (s dlaždicí) ≥ min |
 | `serversBought` | `min` | koupené servery ≥ min |
 | `certifiedServerBought` | `min` | servery, jejichž model BCG uvádí pro „ESXi 9.1 (vSAN 9.1)“ ≥ min |
-| `serversForDesign` | – | koupené servery ≥ minimum z modelu pro návrh (bez návrhu 1) |
+| `serversForDesign` | – | koupené servery ≥ max(minimum z modelu pro návrh – bez návrhu 1; ESX hosty z Minimum Requirements vybraného design blueprintu, 06 §6.1) |
 | `serversMounted` | `min` | servery v racku ≥ min |
-| `switchesBought` / `switchesMounted` | `min` | switche koupené / v racku ≥ min |
+| `switchesBought` / `switchesMounted` | `min` | switche koupené / v racku ≥ min (předinstalované OOB switche Sandboxu se nepočítají) |
 | `companyNetworkConnected` | – | uplink switche připojen do sítě firmy (herní abstrakce) |
 | `hostsCabledToSwitch` | `min` | servery s ≥ 1 NIC zapojenou do switche (link up) ≥ min |
 | `hostsOnTwoSwitches` | `min` | servery s NIC linky do ≥ 2 různých switchů ≥ min |
-| `bmcCabled` | `min` | BMC port zapojen, link up ≥ min (herní) |
-| `bmcConfigured` | `min` | BMC zapojen, má IP a je dosažitelný z počítače admina ≥ min (herní) |
+| `bmcCabled` | `min` | BMC port zapojen, link up ≥ min (herní); skrytý, když Sandbox OOB síť předzapojuje (`autoBmc`) |
+| `bmcConfigured` | `min` | BMC zapojen, má IP a je dosažitelný z počítače admina ≥ min (herní); skrytý při `autoBmc` |
 | `esxInstalled` | `min` | servery s ESX ≥ min |
 | `mgmtNetworkConfigured` | `min` | DCUI management síť nastavená (statická IPv4) ≥ min |
 | `mgmtNetworkUp` | `min` | nastaveno + vmk0 dosáhne gateway po kabeláži ≥ min |
@@ -66,6 +66,11 @@ default clusteru z modelu pro aktuální návrh (10-planning §6.1), bez návrhu
 | `switchMtuForTraffic` | `min`, `recommended` (bool) | hosty, jejichž všechny zapojené porty mají MTU ≥ největší MTU provozu, který nesou; min. 1500, port s Host TEP VLAN min. 1700 (10 §3.3, model `MTU_LIMITS`); s `recommended: true` navíc ≥ 9000 (VCF-NET-RCMD-SWT-004) ≥ min |
 | `hostsWithUplinks` | `min`, `nics` | hosty s ≥ `nics` NIC zapojenými do switche (link up) ≥ min; `nics` = kladné celé číslo nebo `"design"` = počet pNIC zvoleného modelu Distributed Switch z modelu (`nicRequirementForVdsModel`: Single 2, Storage and Workload Separation 6), bez volby / u modelu bez dokumentovaného počtu 1 (VCF-NET-REQD-TOR-001) |
 | `serversHomogeneous` | – | aspoň jeden server a žádný nález homogenity počátečního management clusteru (jeden vendor, stejná konfigurace; model `validateClusterHardware`, 20 §3.2, 10 §3.4) |
+| `siteInterAzLink` | – | AZ1 i AZ2 mají místnost a linka mezi nimi splňuje požadavky stretched clusteru (model `checkInterAzLink`); jen blueprinty / návrhy se 2 AZ |
+| `siteWitness` | – | místnost pro vSAN witness bez chyb (model `checkWitnessFaultDomain`); jen blueprinty / návrhy s witness |
+| `siteSecondaryInstance` | – | místnost pro druhou VCF Instance přiřazena (model `checkSecondaryInstanceLocation`); jen DR |
+| `siteHostsPerAz` | – | hosty v každé AZ ≥ skupina AZ z Minimum Requirements blueprintu a stejný počet v obou AZ (VCF-VSAN-SC-REQD-CFG-001); počítadlo = menší AZ |
+| `siteSecondaryHosts` | – | hosty v místnostech druhé instance ≥ skupina Region 2 z Minimum Requirements blueprintu |
 | `useCaseChosen` | – | hráč vybral use case UC-1 … UC-10 (25 §2.1; příkaz `chooseUseCase`, snapshot `useCase`) |
 | `designDecided` | `decision?` | s `decision`: rozhodnutí zvoleno; bez: brána návrhu prochází |
 | `phaseReached` | `phase` | fáze `design` / `planning` / `deploy` dosažena |
@@ -73,6 +78,9 @@ default clusteru z modelu pro aktuální návrh (10-planning §6.1), bez návrhu
 | `binariesDownloaded` | – | všechny binárky stažené (n/N) |
 | `validationPassed` | – | Review validation bez chyb (ready-to-deploy / deploying / completed) |
 | `deploymentCompleted` | – | bring-up dokončen, fleet existuje |
+
+Selektor může vrátit `applicable: false` – úkol (a skupina bez jediného platného úkolu) se pak v trackeru nezobrazí
+(např. skupina L u jednolokalitního blueprintu, skupina B při předzapojené OOB síti).
 
 ## Stavy (`ObjectiveView.state`)
 `pending` · `in-progress` (počítadlo > 0) · `done` · `regressed` (jen `doc-required`, bylo hotovo a už není) ·

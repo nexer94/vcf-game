@@ -86,6 +86,8 @@ export interface ObjectiveSet {
 export type ObjectiveInput = Omit<SandboxSnapshotBase, 'objectives'>;
 
 export interface SelectorResult {
+  /** False = the objective does not apply to the current game (e.g. AZ objectives of a single-site blueprint) – hidden. */
+  readonly applicable?: boolean;
   readonly done: boolean;
   /** Counter for "n / N" (UX §8.3). */
   readonly current?: number;
@@ -116,11 +118,19 @@ function targetOf(snap: ObjectiveInput, min: ObjectiveParamValue | undefined, fa
   return typeof min === 'number' && Number.isInteger(min) && min > 0 ? min : fallback;
 }
 
+/** Site objectives apply when the chosen blueprint or the current design needs them. */
+const needsTwoAz = (snap: ObjectiveInput): boolean => (snap.site.blueprint?.topologyCounts.availabilityZones ?? 0) >= 2 || snap.site.checks.stretched;
+const needsWitness = (snap: ObjectiveInput): boolean => snap.site.blueprint?.topologyCounts.witnessSite === true || snap.site.checks.stretched;
+const needsSecondary = (snap: ObjectiveInput): boolean => (snap.site.blueprint?.topologyCounts.vcfInstances ?? 0) >= 2 || snap.site.checks.secondaryInstance;
+
 const counter = (current: number, target: number): SelectorResult => ({ done: current >= target, current: Math.min(current, target), target });
 
 function countServers(pred: (srv: ObjectiveInput['physical']['servers'][number]) => boolean) {
   return (snap: ObjectiveInput, params: ObjectiveParams): SelectorResult => counter(snap.physical.servers.filter(pred).length, targetOf(snap, params['min']));
 }
+
+/** Hidden objective (e.g. BMC cabling while the Sandbox pre-wires the OOB network, oob.ts). */
+const NOT_APPLICABLE: SelectorResult = { applicable: false, done: false };
 
 const flag = (done: boolean): SelectorResult => ({ done });
 
@@ -210,9 +220,10 @@ export const SELECTORS: Readonly<Record<string, SelectorDef>> = {
     evaluate: countServers((x) => x.certified91),
   },
   serversForDesign: {
-    description: 'Servers bought vs. the model minimum of the management domain default cluster for the design (10 §6.1); without a design 1.',
+    description:
+      'Servers bought vs. the model minimum of the management domain default cluster for the design (10 §6.1); without a design 1. With a chosen Design Blueprint at least the ESX hosts of its Minimum Requirements (sum of all host groups, 06 §6.1).',
     params: {},
-    evaluate: (snap) => counter(snap.physical.servers.length, targetOf(snap, 'design')),
+    evaluate: (snap) => counter(snap.physical.servers.length, Math.max(targetOf(snap, 'design'), snap.site.blueprint?.totalHosts ?? 0)),
   },
   serversMounted: {
     description: 'Servers mounted in a rack ≥ min.',
@@ -220,14 +231,14 @@ export const SELECTORS: Readonly<Record<string, SelectorDef>> = {
     evaluate: countServers((x) => x.mount !== undefined),
   },
   switchesBought: {
-    description: 'Switches bought ≥ min.',
+    description: 'Switches bought ≥ min (the pre-installed OOB switches of the Sandbox do not count).',
     params: { min: 'count' },
-    evaluate: (snap, p) => counter(snap.physical.switches.length, targetOf(snap, p['min'])),
+    evaluate: (snap, p) => counter(snap.physical.switches.filter((x) => !x.preinstalledOob).length, targetOf(snap, p['min'])),
   },
   switchesMounted: {
-    description: 'Switches mounted in a rack ≥ min.',
+    description: 'Switches mounted in a rack ≥ min (pre-installed OOB switches do not count).',
     params: { min: 'count' },
-    evaluate: (snap, p) => counter(snap.physical.switches.filter((x) => x.mount !== undefined).length, targetOf(snap, p['min'])),
+    evaluate: (snap, p) => counter(snap.physical.switches.filter((x) => x.mount !== undefined && !x.preinstalledOob).length, targetOf(snap, p['min'])),
   },
   companyNetworkConnected: {
     description: 'A switch uplink port is connected to the company network (game abstraction).',
@@ -245,14 +256,14 @@ export const SELECTORS: Readonly<Record<string, SelectorDef>> = {
     evaluate: countServers((x) => new Set(x.nicPorts.filter((n) => n.link?.up === true && n.peer?.kind === 'switch').map((n) => (n.peer?.kind === 'switch' ? n.peer.switchId : ''))).size >= 2),
   },
   bmcCabled: {
-    description: 'Servers with the BMC port cabled with link up ≥ min (out of VCF scope – game).',
+    description: 'Servers with the BMC port cabled with link up ≥ min (out of VCF scope – game). Hidden while the OOB network is pre-wired (autoBmc).',
     params: { min: 'count' },
-    evaluate: countServers((x) => x.bmcPort.link?.up === true),
+    evaluate: (snap, p) => (snap.physical.autoBmc ? NOT_APPLICABLE : countServers((x) => x.bmcPort.link?.up === true)(snap, p)),
   },
   bmcConfigured: {
-    description: 'Servers whose BMC is cabled, has an IP and is reachable from the admin workstation ≥ min (game).',
+    description: 'Servers whose BMC is cabled, has an IP and is reachable from the admin workstation ≥ min (game). Hidden while the OOB network is pre-wired (autoBmc).',
     params: { min: 'count' },
-    evaluate: countServers((x) => x.bmc.reachableFromAdmin),
+    evaluate: (snap, p) => (snap.physical.autoBmc ? NOT_APPLICABLE : countServers((x) => x.bmc.reachableFromAdmin)(snap, p)),
   },
   esxInstalled: {
     description: 'Servers with ESX installed ≥ min.',
@@ -322,6 +333,44 @@ export const SELECTORS: Readonly<Record<string, SelectorDef>> = {
     description: 'At least one server and no homogeneity finding of the initial management cluster (one vendor, same configuration – model validateClusterHardware).',
     params: {},
     evaluate: (snap) => flag(snap.physical.servers.length > 0 && !snap.physical.clusterIssues.findings.some((f) => HOMOGENEITY_CODES.includes(f.code))),
+  },
+  // --- sites (06 Design Blueprints; 10 §3.3; model/sites.ts checks via snapshot.site) ---
+  siteInterAzLink: {
+    description: 'AZ1 and AZ2 have rooms and the link between them meets the stretched requirements (model checkInterAzLink). Applies to blueprints / designs with two AZs.',
+    params: {},
+    evaluate: (snap) => ({ applicable: needsTwoAz(snap), done: snap.site.interAz.status === 'ok' }),
+  },
+  siteWitness: {
+    description: 'A witness room in a third independent fault domain without errors (model checkWitnessFaultDomain). Applies to blueprints / designs with a witness site.',
+    params: {},
+    evaluate: (snap) => ({ applicable: needsWitness(snap), done: !snap.site.checks.witness.some((i) => i.severity === 'error') }),
+  },
+  siteSecondaryInstance: {
+    description: 'A room is assigned as the location of the second VCF Instance (model checkSecondaryInstanceLocation). Applies to DR blueprints / designs.',
+    params: {},
+    evaluate: (snap) => ({ applicable: needsSecondary(snap), done: snap.site.checks.secondary.length === 0 }),
+  },
+  siteHostsPerAz: {
+    description:
+      'Hosts mounted in the rooms of each AZ ≥ the AZ host group of the blueprint\'s Minimum Requirements (06 §6.1) and an equal number in both AZs (VCF-VSAN-SC-REQD-CFG-001). Counter = the smaller AZ. Applies to blueprints with two AZs.',
+    params: {},
+    evaluate: (snap) => {
+      const bp = snap.site.blueprint;
+      const target = bp?.hostGroups.find((g) => g.location === 'az1')?.esxHosts ?? 0;
+      if (!bp || target === 0) return { applicable: false, done: false };
+      const n = (role: 'az1' | 'az2'): number => snap.site.azs.find((a) => a.role === role)?.hostIds.length ?? 0;
+      const lo = Math.min(n('az1'), n('az2'));
+      return { done: lo >= target && n('az1') === n('az2'), current: Math.min(lo, target), target };
+    },
+  },
+  siteSecondaryHosts: {
+    description: 'Hosts mounted in the rooms of the second VCF Instance ≥ the Region 2 host group of the blueprint\'s Minimum Requirements (06 §6.1). Applies to blueprints with a second region.',
+    params: {},
+    evaluate: (snap) => {
+      const target = snap.site.blueprint?.hostGroups.find((g) => g.location === 'region2')?.esxHosts ?? 0;
+      if (target === 0) return { applicable: false, done: false };
+      return counter(snap.site.azs.find((a) => a.role === 'secondary-instance')?.hostIds.length ?? 0, target);
+    },
   },
   useCaseChosen: {
     description: 'A use case / path (25 §2.1: UC-1 … UC-10) is chosen.',
@@ -541,10 +590,12 @@ export interface ObjectivesView {
   readonly regressedIds: readonly string[];
 }
 
-function evalOne(snap: ObjectiveInput, def: ObjectiveDef, prefs: ObjectivesPrefs): ObjectiveView {
+/** View of one objective; undefined when its selector says it does not apply (hidden from the tracker). */
+function evalOne(snap: ObjectiveInput, def: ObjectiveDef, prefs: ObjectivesPrefs): ObjectiveView | undefined {
   const sel = SELECTORS[def.selector];
   const r: SelectorResult = sel ? sel.evaluate(snap, def.params ?? {}) : { done: false };
-  const subSteps = def.subSteps?.map((d) => evalOne(snap, d, prefs));
+  if (r.applicable === false) return undefined;
+  const subSteps = def.subSteps?.map((d) => evalOne(snap, d, prefs)).filter((x): x is ObjectiveView => x !== undefined);
   const counted = def.kind !== 'game-optional' && def.featureFlag === undefined;
   let state: ObjectiveState;
   if (def.featureFlag !== undefined) state = 'blocked-spec';
@@ -574,7 +625,7 @@ const finished = (v: ObjectiveView): boolean => v.state === 'done' || v.state ==
 
 /** Pure evaluation of the tracker over the snapshot (UX §8.5 – §8.6). */
 export function evaluateObjectives(snap: ObjectiveInput, set: ObjectiveSet, prefs: ObjectivesPrefs): ObjectivesView {
-  const all = set.objectives.map((d) => evalOne(snap, d, prefs));
+  const all = set.objectives.map((d) => evalOne(snap, d, prefs)).filter((x): x is ObjectiveView => x !== undefined);
   const flat = all.flatMap((v) => [v, ...(v.subSteps ?? [])]);
   const byId = new Map(flat.map((v) => [v.id, v]));
   const candidates = all.filter((v) => v.counted && !finished(v));
@@ -589,12 +640,14 @@ export function evaluateObjectives(snap: ObjectiveInput, set: ObjectiveSet, pref
     return inGroup.find(afterOk) ?? inGroup[0];
   })();
   const nextGroupIdx = nextView ? set.groups.findIndex((g) => g.id === nextView.group) : set.groups.length;
-  const groups = set.groups.map((g, i): ObjectiveGroupView => {
+  // Groups without any applicable objective are hidden (e.g. the site group of a single-site blueprint).
+  const groups = set.groups.flatMap((g, i): ObjectiveGroupView[] => {
     const objectives = all.filter((v) => v.group === g.id);
     const counted = objectives.filter((v) => v.counted);
     const done = counted.filter((v) => v.state === 'done').length;
     const complete = counted.every(finished);
-    return { id: g.id, title: g.title, state: complete && i !== nextGroupIdx ? 'done' : i === nextGroupIdx ? 'current' : 'future', done, total: counted.length, objectives };
+    if (objectives.length === 0) return [];
+    return [{ id: g.id, title: g.title, state: complete && i !== nextGroupIdx ? 'done' : i === nextGroupIdx ? 'current' : 'future', done, total: counted.length, objectives }];
   });
   const aheadCount = all.filter((v) => v.counted && v.state === 'done' && set.groups.findIndex((g) => g.id === v.group) > nextGroupIdx).length;
   return {

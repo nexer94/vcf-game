@@ -74,7 +74,9 @@ import { ILLUSTRATIVE_TASK_DURATIONS_MS } from './durations';
 import { addDnsRecord, removeDnsRecord } from './planning';
 import { applyRoom, commitRoomChange, deployedHostFqdns, describeRoom, emptyRoom, isRoomCommand, serverInDeployedDomain, serverTask } from './room';
 import { netContextOf, plannedHostNetworks, specServerIds } from './roomNet';
-import { type SandboxContext, Tx, defaultSandboxContext, flow, invalid, no, ok } from './tx';
+import { applySite, describeSite, isSiteCommand } from './site';
+import { syncOob } from './oob';
+import { type SandboxContext, Tx, defaultCatalog, defaultSandboxContext, flow, invalid, no, ok } from './tx';
 import {
   type CommandResult,
   type SandboxCommand,
@@ -99,6 +101,8 @@ export interface SandboxOptions {
   readonly installerVersion?: string;
   /** Override the ILLUSTRATIVE task durations (tests, accessibility). */
   readonly taskDurationsMs?: Partial<Record<SandboxTaskKind, number>>;
+  /** Pre-wired OOB / BMC network (oob.ts, GAME scope). Default true (Sandbox); Career sets false. */
+  readonly autoBmc?: boolean;
   /** Session context overrides (hardware catalog, game price table, objectives). Not part of the state. */
   readonly context?: Partial<SandboxContext>;
 }
@@ -128,8 +132,10 @@ export function initialSandboxState(opts: SandboxOptions = {}): SandboxState {
     log: [],
     seq: { host: 0, task: 0, log: 0, switch: 0, rack: 0, cable: 0, part: 0, ledger: 0 },
     taskDurationsMs: { ...ILLUSTRATIVE_TASK_DURATIONS_MS, ...opts.taskDurationsMs },
+    autoBmc: opts.autoBmc ?? true,
   };
-  return opts.initialChoices ? withDesign(base, opts.initialChoices) : base;
+  const wired = syncOob(base, opts.context?.catalog ?? defaultCatalog());
+  return opts.initialChoices ? withDesign(wired, opts.initialChoices) : wired;
 }
 
 /** Abstract planning hosts + physical servers of the room (as EsxHost records, hardwareDesign.toBringupHosts). */
@@ -195,6 +201,16 @@ function withDesign(s: SandboxState, choices: DesignChoices): SandboxState {
   return { ...rest, derived, spec };
 }
 
+/** withDesign + back to wizard edit mode when design-locked wizard fields changed. */
+function applyDesignChoices(tx: Tx, next: DesignChoices): void {
+  const before = tx.s.spec;
+  tx.s = withDesign(tx.s, next);
+  if (RESETTABLE.includes(tx.s.deployment.status) && (changedLockedFields(before, tx.s.spec).length > 0 || before.nsx.nodeFqdns.length !== tx.s.spec.nsx.nodeFqdns.length)) {
+    tx.deployment({ type: 'edit' });
+    tx.log({ kind: 'system', ok: true, message: 'Změna návrhu se propsala do průvodce – průvodce je zpět v režimu úprav.' });
+  }
+}
+
 const PHASE_LABEL: Readonly<Record<SandboxPhase, string>> = { design: 'Návrh', planning: 'Příprava', deploy: 'Deploy' };
 
 export function reduceSandbox(state: SandboxState, cmd: SandboxCommand, ctx: SandboxContext = defaultSandboxContext()): ReduceOutcome {
@@ -225,6 +241,15 @@ function apply(tx: Tx, cmd: SandboxCommand, ctx: SandboxContext): CommandResult 
     phases.includes(s.phase) ? undefined : no(flow('wrong-phase', `Akce není dostupná ve fázi ${PHASE_LABEL[s.phase]}.`));
 
   if (isRoomCommand(cmd)) return applyRoom(tx, cmd, ctx);
+  if (isSiteCommand(cmd))
+    return applySite(tx, cmd, {
+      applyDesign: applyDesignChoices,
+      // a different layout = different rooms: re-sync the pre-wired OOB switches (oob.ts)
+      commitRoom: (t, room) => {
+        commitRoomChange(t, room);
+        t.s = syncOob(t.s, ctx.catalog);
+      },
+    });
 
   switch (cmd.type) {
     // ------------------------------------------------------------- objectives
@@ -274,12 +299,7 @@ function apply(tx: Tx, cmd: SandboxCommand, ctx: SandboxContext): CommandResult 
         const re = validateRedesign(s.deployedChoices, next, 'deployed');
         if (errorsOf(re).length) return no(invalid(re));
       }
-      const before = s.spec;
-      tx.s = withDesign(s, next);
-      if (RESETTABLE.includes(tx.s.deployment.status) && (changedLockedFields(before, tx.s.spec).length > 0 || before.nsx.nodeFqdns.length !== tx.s.spec.nsx.nodeFqdns.length)) {
-        tx.deployment({ type: 'edit' });
-        tx.log({ kind: 'system', ok: true, message: 'Změna návrhu se propsala do průvodce – průvodce je zpět v režimu úprav.' });
-      }
+      applyDesignChoices(tx, next);
       return ok(warningsOf(validateDesign(next, s.designContext)).filter((i) => i.subject === cmd.decision));
     }
     case 'acknowledgeDesignWarnings': {
@@ -530,6 +550,7 @@ function hostTransition(h: EsxHost, cmd: HostCommand): TransitionResult<EsxHost>
 
 function describe(cmd: SandboxCommand): string {
   if (isRoomCommand(cmd)) return describeRoom(cmd);
+  if (isSiteCommand(cmd)) return describeSite(cmd);
   switch (cmd.type) {
     case 'skipObjective':
       return `Úkol přeskočen: ${cmd.id}`;

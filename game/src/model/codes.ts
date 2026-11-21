@@ -239,6 +239,16 @@ export const VALIDATION_CODES = [
   'SITE_AZ_HOST_COUNT_UNEQUAL',
   'SITE_SECONDARY_LOCATION_MISSING',
   'SITE_AZ_TOO_FEW_HOSTS',
+
+  // --- roomLayout.ts: rack placement in a room (GAME rules, scope 'game-scope'; not VCF) ---
+  'ROOM_OUT_OF_BOUNDS',
+  'ROOM_TILE_BLOCKED',
+  'ROOM_TILE_OCCUPIED',
+  'ROOM_RACK_NO_CLEARANCE',
+  'ROOM_RACK_AISLE_BLOCKED',
+  'ROOM_RACK_BLOCKS_AISLE',
+  'ROOM_RACK_AISLE_HOT_COLD_MIX',
+  'ROOM_RACK_ROW_ORIENTATION_MISMATCH',
 ] as const;
 
 export type ValidationCode = (typeof VALIDATION_CODES)[number];

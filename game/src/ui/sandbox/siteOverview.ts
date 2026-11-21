@@ -71,7 +71,10 @@ export function createSiteOverview(d: SiteOverviewDeps): SiteOverview {
       h('h2', null, layout.label),
       h('p', { class: 'muted small' }, 'Klikni na místnost = vstoupit. Kolečko / tah = zoom / posun.'),
       h('ul', null, ...layout.rooms.map((r) => {
-        const az = button(azText(r.az), () => site.setAz(r.id, AZ_CYCLE[(AZ_CYCLE.indexOf(r.az) + 1) % AZ_CYCLE.length]!), {
+        const az = button(azText(r.az), () => {
+          const res = site.setAz(r.id, AZ_CYCLE[(AZ_CYCLE.indexOf(r.az) + 1) % AZ_CYCLE.length]!);
+          if (!res.ok) d.announce(res.message);
+        }, {
           class: 'az-badge',
           'data-az': r.az ?? 'none',
           title: 'Role místnosti: AZ1 / AZ2 / witness / druhá VCF Instance (co znamená pro VCF, vyhodnocuje model podle dokumentace)',
