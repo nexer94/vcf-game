@@ -92,6 +92,7 @@ export const VALIDATION_CODES = [
   'EXISTING_OPS_REQUIRES_EXISTING_VCENTER',
   'NSX_REGISTRATION_REQUIRES_EXISTING_VCENTER',
   'CONVERGENCE_NOT_MODELLED', // scope 'game-scope': game limitation, not a VCF error
+  'USE_CASE_NOT_MODELLED', // scope 'game-scope': use case / path (25 §2.1) the game does not simulate yet
   'SIZE_NOT_ALLOWED_FOR_MODEL',
   'DUAL_STACK_REQUIRES_DUAL_STACK_INSTALLER',
   'CUSTOM_NETWORK_ONLY_NEW_FLEET',

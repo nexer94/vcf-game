@@ -593,7 +593,8 @@ describe('Sandbox – objectives: DNS, switch ports, uplinks, homogeneity, use c
     expect(uc5.gameScopeNote).toMatch(/Herní omezení/);
     expect(uc5.limitations.map((i) => [i.code, i.scope])).toEqual([['CONVERGENCE_NOT_MODELLED', 'game-scope']]);
     must(s, { type: 'chooseUseCase', useCaseId: 'UC-4' });
-    expect(s.snapshot().useCase).toMatchObject({ id: 'UC-4', modelled: false, limitations: [] });
+    expect(s.snapshot().useCase).toMatchObject({ id: 'UC-4', modelled: false });
+    expect(s.snapshot().useCase!.limitations.map((i) => [i.code, i.scope, i.subject])).toEqual([['USE_CASE_NOT_MODELLED', 'game-scope', 'UC-4']]);
     expect(reject(s, { type: 'chooseUseCase', useCaseId: 'UC-99' as never })).toMatchObject({ kind: 'flow', reason: 'invalid-input' });
     must(s, { type: 'chooseUseCase', useCaseId: null });
     expect(s.state.useCase).toBeUndefined();

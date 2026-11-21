@@ -82,6 +82,14 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
   - [x] `scenario-designer` + `engine-dev` – obsah úkolů A–G (≈40 úkolů s „Proč?“ odkazy)
   - [ ] další: UI pro instalaci ESX/DCUI/síť firmy/use case (API hotové, UI chybí), karty vmnic (host view),
     tabule, počítač; profil `dell-r670-sm` hlásí „pod SM“ (ověřit); bundle 930 kB (dynamický import datasetu)
+- [ ] **Sprint 2** (2026-11-21):
+  - [ ] `ui-dev` A – panel serveru (HW, konfigurace, instalace ESX fyzicky/BMC), DCUI, panel switche (porty, síť firmy),
+    DNS, BMC krok, detail hosta s kartami vmnic, undo/redo *(běží)*
+  - [ ] `ui-dev` B – stůl + počítač s „OS“ (aplikace Use case, Návrh VCF v dlaždicích, Knihovna), tabule s auto HLD
+    (Fyzicky/Síť/Logicky) + kresba hráče *(běží)*
+  - [x] `domain-modeler` – `dell-r670-sm` v modelu správně HCI-SM (chyba v UI obchodu → ui-dev A); regresní test
+    všech 25 řádků B.3 přímo ze specu; `USE_CASE_NOT_MODELLED`; `hostPortRequirements`; `loadHardwareCatalog()`
+  - [ ] přepnout session/UI na líné načítání katalogu (bundle) – postup v reportu domain-modelera
   - [ ] (odloženo do funkčního milníku) `code-reviewer` + `ux-designer` review → `fact-checker`
 
 ### Sandbox v1 (původní tok Návrh → Příprava → Deploy)

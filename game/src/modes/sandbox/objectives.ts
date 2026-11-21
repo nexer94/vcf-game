@@ -10,7 +10,7 @@
  *
  * Pure TypeScript: no DOM, no PixiJS.
  */
-import { type DistributedSwitchModelId, type DnsRecords, type SwitchPortConfig, MTU_LIMITS, carriesVlan, nicRequirementForVdsModel, validateDnsRecords } from '../../model';
+import { type DistributedSwitchModelId, type DnsRecords, type HostPortTraffic, type SwitchPortConfig, hostPortRequirements, nicRequirementForVdsModel, plannedHostPortTraffic, validateDnsRecords } from '../../model';
 import sandboxObjectivesJson from '../../scenarios/objectives/sandbox.json';
 import type { SandboxSnapshotBase } from './snapshot';
 import type { ObjectivesPrefs, SandboxPhase } from './types';
@@ -140,58 +140,37 @@ function hostFacingConfigs(snap: ObjectiveInput, srv: ServerIn): SwitchPortConfi
   return out;
 }
 
-interface TrafficNet {
-  readonly vlanId: number;
-  readonly mtu: number;
-  readonly tep: boolean;
-}
-
 /**
- * Traffic types KNOWN so far for a host (snapshot data only):
- *  - ESX management: the host's DCUI VLAN (tagged; untagged = no VLAN to carry), else the wizard's ESX management VLAN,
- *    MTU 1500 (default, 25 §6.3 [U43]);
+ * Traffic types KNOWN so far for a host (snapshot data only), built by the model (plannedHostPortTraffic):
+ *  - ESX management: the host's DCUI VLAN (untagged = no VLAN to carry), else the wizard's ESX management VLAN;
  *  - vMotion, vSAN / NFS (not for VMFS on FC) and Host TEP: from the wizard plan (Network details, 20 §4.2 step 11)
  *    once entered.
  * Before the plan exists only management is known – the objective can be done early and regress (UX §8.3 "problém")
  * when the plan adds VLANs the switch does not carry yet.
  */
-function trafficNets(snap: ObjectiveInput, srv: ServerIn): TrafficNet[] {
-  const plan = snap.physical.plan;
-  const out: TrafficNet[] = [];
-  const mgmtVlan = srv.esx.network ? srv.esx.network.vlanId : plan?.esxManagement.vlanId;
-  if (mgmtVlan !== undefined) out.push({ vlanId: mgmtVlan, mtu: MTU_LIMITS.minHostPort, tep: false });
-  if (!plan) return out;
-  out.push({ ...plan.vmotion, tep: false });
-  if (plan.storage && snap.deploy.spec.storage.type !== 'vmfs-fc') out.push({ ...plan.storage, tep: false });
-  if (plan.nsxHostOverlay) out.push({ ...plan.nsxHostOverlay, tep: true });
-  return out;
+function trafficOf(snap: ObjectiveInput, srv: ServerIn): HostPortTraffic[] {
+  const mgmt = srv.esx.network ? (srv.esx.network.vlanId ?? null) : undefined;
+  return plannedHostPortTraffic(snap.physical.plan, snap.deploy.spec.storage.type, mgmt);
 }
 
-/** Host ports trunk (VCF-NET-RCMD-SWT-001) and carry every known traffic VLAN (model carriesVlan). */
+/** Host ports trunk (VCF-NET-RCMD-SWT-001) and carry every known traffic VLAN (model hostPortRequirements). */
 function trunksTrafficVlans(snap: ObjectiveInput, srv: ServerIn): boolean {
   const ports = hostFacingConfigs(snap, srv);
-  const nets = trafficNets(snap, srv);
-  return ports.length > 0 && ports.every((cfg) => cfg.mode === 'trunk' && nets.every((n) => carriesVlan(cfg, n.vlanId)));
+  const traffic = trafficOf(snap, srv);
+  return ports.length > 0 && ports.every((cfg) => cfg.mode === 'trunk' && hostPortRequirements(traffic, cfg).missingVlans.length === 0);
 }
 
-/**
- * Required MTU of a host-facing port (10 §3.3 [P19]): the largest MTU of the traffic types it carries, minimum 1500
- * (VCF-NET-REQD-SWT-003); a port carrying the Host TEP VLAN minimum 1700 (VCF-NET-REQD-SWT-002). With `recommended`
- * at least 9000 (VCF-NET-RCMD-SWT-004). Numbers: model MTU_LIMITS.
- */
-function requiredPortMtu(cfg: SwitchPortConfig, nets: readonly TrafficNet[], recommended: boolean): number {
-  let need: number = MTU_LIMITS.minHostPort;
-  for (const n of nets) {
-    if (!carriesVlan(cfg, n.vlanId)) continue;
-    need = Math.max(need, n.mtu, n.tep ? MTU_LIMITS.tepMinSwitchPort : 0);
-  }
-  return recommended ? Math.max(need, MTU_LIMITS.recommended) : need;
-}
-
+/** Port MTU ≥ the model's required (or, with `recommended`, recommended) MTU for the traffic it carries (10 §3.3 [P19]). */
 function portsMtuOk(snap: ObjectiveInput, srv: ServerIn, recommended: boolean): boolean {
   const ports = hostFacingConfigs(snap, srv);
-  const nets = trafficNets(snap, srv);
-  return ports.length > 0 && ports.every((cfg) => cfg.mtu >= requiredPortMtu(cfg, nets, recommended));
+  const traffic = trafficOf(snap, srv);
+  return (
+    ports.length > 0 &&
+    ports.every((cfg) => {
+      const req = hostPortRequirements(traffic, cfg);
+      return cfg.mtu >= (recommended ? req.recommendedMtu : req.requiredMtu);
+    })
+  );
 }
 
 /** pNIC uplinks a host needs: number, or 'design' = Distributed Switch model requirement (model), else 1. */

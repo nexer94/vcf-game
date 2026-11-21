@@ -1211,6 +1211,26 @@ export function validateExistingComponents(spec: BringupSpec): ValidationIssue[]
   return out;
 }
 
+/** A use case / path to a 9.1.x environment as listed in the catalog 25 §2.1 (UC-1 … UC-10). */
+export interface UseCaseRef {
+  readonly id: string;
+  readonly title: string;
+  readonly specRef: string;
+  /** GAME SCOPE: the game can play this path through (not a VCF fact). */
+  readonly modelled: boolean;
+}
+
+/**
+ * GAME-SCOPE LIMITATION, not a VCF validation error: the chosen use case (25 §2.1) is a documented VCF path that this
+ * version of the game does not simulate. scope 'game-scope' lets the UI disable / label the option instead of showing
+ * a VCF error; severity error keeps the game from proceeding along an unmodelled workflow (same convention as
+ * CONVERGENCE_NOT_MODELLED in validateExistingComponents). Modelled use case -> [].
+ */
+export function validateUseCaseModelled(uc: UseCaseRef): ValidationIssue[] {
+  if (uc.modelled) return [];
+  return [issue('USE_CASE_NOT_MODELLED', 'error', `Game limitation: use case ${uc.id} "${uc.title}" is not available in this version of the game (it is a documented VCF path, not a VCF error).`, `${uc.specRef} (game scope)`, uc.id, 'game-scope')];
+}
+
 /** Step 5 (20 §4.2 step 5 [S14]) – [9.1.1+] Simple: Small only; HA: Small/Medium/Large. */
 export function validateDeploymentModel(spec: BringupSpec): ValidationIssue[] {
   if (!ALLOWED_SIZES[spec.model].includes(spec.size))

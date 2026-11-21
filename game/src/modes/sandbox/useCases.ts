@@ -6,12 +6,12 @@
  *  - UC-1 "new VCF fleet" = the modelled bring-up (wizard "Deploy a new VCF fleet", workflowType VCF).
  *  - UC-5 / UC-6 convergence: the model reports its own game-scope limitation (CONVERGENCE_NOT_MODELLED via
  *    validateExistingComponents with an existing vCenter) – passed through unchanged.
- *  - the rest: not modelled; the model has no issue code for that yet (reported to the orchestrator), so the view
- *    only carries `modelled: false` + a Czech game note.
+ *  - the rest: not modelled; the model's game-scope limitation USE_CASE_NOT_MODELLED (validateUseCaseModelled) +
+ *    `modelled: false` + a Czech game note.
  *
  * Pure TypeScript: no DOM, no PixiJS.
  */
-import { type BringupSpec, type ValidationIssue, validateExistingComponents } from '../../model';
+import { type BringupSpec, type ValidationIssue, validateExistingComponents, validateUseCaseModelled } from '../../model';
 
 export const USE_CASE_IDS = ['UC-1', 'UC-2', 'UC-3', 'UC-4', 'UC-5', 'UC-6', 'UC-7', 'UC-8', 'UC-9', 'UC-10'] as const;
 export type UseCaseId = (typeof USE_CASE_IDS)[number];
@@ -113,6 +113,6 @@ export function useCaseView(choice: UseCaseChoice, spec: BringupSpec): UseCaseVi
   const limitations =
     choice.id === 'UC-5' || choice.id === 'UC-6'
       ? validateExistingComponents({ ...spec, target: 'new-fleet', existing: { ...spec.existing, existingVcenter: true } }).filter((i) => i.scope === 'game-scope')
-      : [];
+      : validateUseCaseModelled(def);
   return { ...def, specRef: choice.specRef, limitations, ...(def.modelled ? {} : { gameScopeNote: USE_CASE_NOT_MODELLED_NOTE }) };
 }

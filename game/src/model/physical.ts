@@ -1121,6 +1121,82 @@ export function hostFacingPorts(state: PhysicalState, serverId: string): { reado
   return out.sort((a, b) => a.vmnic - b.vmnic);
 }
 
+// ===========================================================================
+// Host-facing switch port requirements (10 §3.3 [P18][P19]) – shared by the bring-up validation and objectives
+// ===========================================================================
+
+/** Traffic types that use a host-facing switch port (VMkernel services, 10 §3.3 [P18]). */
+export type HostPortTrafficType = 'management' | 'vmotion' | 'vsan' | 'nfs' | 'host-tep';
+
+export interface HostPortTraffic {
+  readonly type: HostPortTrafficType;
+  /** 802.1Q VLAN of the traffic; null = untagged (no VLAN the trunk has to allow). */
+  readonly vlanId: number | null;
+  /** VMkernel MTU of the traffic. */
+  readonly mtu: number;
+}
+
+export interface HostPortRequirements {
+  /** Tagged VLANs of all given traffic types (sorted, unique) – what a trunk to the host has to carry (VCF-NET-RCMD-SWT-001). */
+  readonly vlans: readonly number[];
+  /** With a port config: tagged VLANs the port does NOT carry (model `carriesVlan`); without: []. */
+  readonly missingVlans: readonly number[];
+  /** Traffic types the MTU requirement is computed from (with a port config: only those the port carries). */
+  readonly carried: readonly HostPortTrafficType[];
+  /** The port carries Host TEP traffic (VCF-NET-REQD-SWT-002 applies). */
+  readonly tepCarried: boolean;
+  /** Largest MTU of the carried traffic types (0 = none). */
+  readonly maxTrafficMtu: number;
+  /**
+   * Required port MTU: largest MTU of all carried traffic types, minimum 1500 (VCF-NET-REQD-SWT-003); a port carrying
+   * Host TEP minimum 1700 (VCF-NET-REQD-SWT-002; footnote: "1600 is the minimum required MTU, however 1700 is
+   * recommended") – 10 §3.3 [P19].
+   */
+  readonly requiredMtu: number;
+  /** Recommended port MTU: ≥ 9000 (VCF-NET-RCMD-SWT-004, 10 §3.3 [P19]) and never below `requiredMtu`. */
+  readonly recommendedMtu: number;
+}
+
+/**
+ * Required MTU and VLAN set of a host-facing switch port for the traffic types it carries (10 §3.3 [P19]).
+ * With `port`, traffic whose VLAN the port does not carry is left out of the MTU requirement (untagged traffic counts
+ * as carried) and reported in `missingVlans`. Single source for validatePhysicalNetworkForBringup and the Sandbox
+ * objectives (switchMtuForTraffic / switchPortsTrunkVlans).
+ */
+export function hostPortRequirements(traffic: readonly HostPortTraffic[], port?: SwitchPortConfig): HostPortRequirements {
+  const vlans = [...new Set(traffic.flatMap((t) => (t.vlanId === null ? [] : [t.vlanId])))].sort((a, b) => a - b);
+  const carriedTraffic = port ? traffic.filter((t) => t.vlanId === null || carriesVlan(port, t.vlanId)) : traffic;
+  const tepCarried = carriedTraffic.some((t) => t.type === 'host-tep');
+  const maxTrafficMtu = Math.max(0, ...carriedTraffic.map((t) => t.mtu));
+  const requiredMtu = Math.max(MTU_LIMITS.minHostPort, maxTrafficMtu, tepCarried ? MTU_LIMITS.tepMinSwitchPort : 0);
+  return {
+    vlans,
+    missingVlans: port ? vlans.filter((v) => !carriesVlan(port, v)) : [],
+    carried: [...new Set(carriedTraffic.map((t) => t.type))],
+    tepCarried,
+    maxTrafficMtu,
+    requiredMtu,
+    recommendedMtu: Math.max(requiredMtu, MTU_LIMITS.recommended),
+  };
+}
+
+/**
+ * Traffic on the host-facing ports of a host, from the wizard's planned host networks (20 §4.2 step 11):
+ * ESX management (MTU 1500 default, 10 §3.3 [P18]), vMotion, vSAN or NFS (none for VMFS on FC) and Host TEP.
+ * `mgmtVlanId`: the host's own management VLAN (DCUI) – a number, null = untagged; undefined = the plan's
+ * ESX management VLAN (or no management traffic without a plan).
+ */
+export function plannedHostPortTraffic(plan: PlannedHostNetworks | undefined, storage: StorageType, mgmtVlanId?: number | null): HostPortTraffic[] {
+  const out: HostPortTraffic[] = [];
+  const mgmt = mgmtVlanId !== undefined ? mgmtVlanId : plan?.esxManagement.vlanId;
+  if (mgmt !== undefined) out.push({ type: 'management', vlanId: mgmt, mtu: MTU_LIMITS.minHostPort });
+  if (!plan) return out;
+  out.push({ type: 'vmotion', vlanId: plan.vmotion.vlanId, mtu: plan.vmotion.mtu });
+  if (plan.storage && storage !== 'vmfs-fc') out.push({ type: storage === 'nfs-v3' ? 'nfs' : 'vsan', vlanId: plan.storage.vlanId, mtu: plan.storage.mtu });
+  if (plan.nsxHostOverlay) out.push({ type: 'host-tep', vlanId: plan.nsxHostOverlay.vlanId, mtu: plan.nsxHostOverlay.mtu });
+  return out;
+}
+
 /**
  * Validations of the physical network for the hosts of a bring-up. Messages quote the documentation where the
  * spec has the text (25 §5.3 / §5.4); otherwise they are descriptive.
@@ -1132,6 +1208,7 @@ export function validatePhysicalNetworkForBringup(ctx: NetContext, input: Physic
   const servers = input.serverIds.map((id) => byId(state.servers, id)).filter((s): s is PhysicalServer => s !== undefined);
   const plan = input.plan;
   const tepVlan = plan.nsxHostOverlay?.vlanId;
+  const traffic = plannedHostPortTraffic(plan, input.storage);
 
   for (const srv of servers) {
     const fqdn = fqdnOf(srv);
@@ -1154,9 +1231,10 @@ export function validatePhysicalNetworkForBringup(ctx: NetContext, input: Physic
         out.push(issue('PHYS_HOST_PORT_IN_LAG', 'error', `${p.switchId}/p${p.port + 1} (host ${fqdn}) is in LAG ${cfg.lagGroup}: each host–fabric connection must be a separate uplink, not a LAG (VCF-NET-REQD-LAG-001).`, '10 §3.3 [P19]', srv.id));
       if (cfg.mode !== 'trunk')
         out.push(issue('PHYS_PORT_NOT_TRUNK', 'recommendation', `${p.switchId}/p${p.port + 1} (host ${fqdn}) is an access port; switch ports to hosts in trunk mode with 802.1Q are recommended (VCF-NET-RCMD-SWT-001).`, '10 §3.3 [P19]; 25 §3.5 [U55]', srv.id));
+      const req = hostPortRequirements(traffic, cfg);
       if (cfg.mtu < MTU_LIMITS.minHostPort)
         out.push(issue('PHYS_PORT_MTU_BELOW_1500', 'error', `${p.switchId}/p${p.port + 1} MTU ${cfg.mtu} < 1500 (host ports: largest MTU of all traffic types, minimum 1500, VCF-NET-REQD-SWT-003).`, '10 §3.3 [P19]', srv.id));
-      if (tepVlan !== undefined && carriesVlan(cfg, tepVlan) && cfg.mtu < MTU_LIMITS.tepMinSwitchPort)
+      if (req.tepCarried && cfg.mtu < MTU_LIMITS.tepMinSwitchPort)
         out.push(
           cfg.mtu < MTU_LIMITS.tepMinRequired
             ? issue('PHYS_TEP_PORT_MTU_BELOW_MIN', 'error', `${p.switchId}/p${p.port + 1} carries the Host TEP VLAN ${tepVlan} with MTU ${cfg.mtu}: ports for NSX TEP need minimum 1700 (VCF-NET-REQD-SWT-002; "1600 is the minimum required MTU").`, '10 §3.3 [P19]', srv.id)
