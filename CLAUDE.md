@@ -86,6 +86,14 @@ Oba režimy sdílejí **stejný model a engine** (stejná pravidla VCF ze specu)
 - **BMC / OOB je v Sandboxu předem správně zapojené** (uživatel 2026-11-21): v každé místnosti je
   předinstalovaný OOB switch a BMC každého serveru se po montáži automaticky zapojí a nastaví (mimo VCF scope –
   herní). Ruční zapojení a chyby OOB patří až do Kariéry.
+- **Zjednodušení Sandboxu v3** (uživatel 2026-11-22): méně možností, důraz na design. Obchod: servery nejdřív podle
+  vendora → modely; bez záložek NIC/Disky (NIC se přidává klikem na volný slot serveru v racku). Velikost serveru
+  (U) vidět vizuálně. V každém racku nahoře předinstalovaný velký ToR switch. Místnost víc jako skutečná serverovna
+  (bez hnědých pásků, žlaby/kolejnice nenápadné, poloprůhledné). Kabeláž vidět vizuálně. BMC/OOB se zapojí hned
+  po zaracování a hned je vidět provoz (šedý, mimo VCF scope). Vždy bublina „co teď udělat“; tracker vlevo jako
+  odškrtávací checklist po jednom kroku. Odkazy do dokumentace čitelnými názvy, ne čísly typu [P13]; menu se musí
+  vejít na obrazovku. Instalace ESX jako ve skutečnosti (obrazovky instalátoru podle dokumentace).
+- **Kariéra – level 1**: nasadit Single Site fleet (VCF Fleet in a Single Site), vSAN, 4 hosty – řízený level.
 - **Checkpointy / úkoly i v Sandboxu**: hráč vždy ví, co dělat dál (tracker „Další krok“ s průběhem a splněním).
   Jsou volitelné – dají se odkliknout / skrýt; nic nezamykají, jen vedou.
 - Ovládání v místnosti: rack (zoom → 2D kabeláž), tabule (auto High-Level Design + vlastní kresba), počítač

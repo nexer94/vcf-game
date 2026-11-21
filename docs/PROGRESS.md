@@ -29,6 +29,13 @@
   HA admission control, vCPU:pCPU ≤ 2:1, resource check installeru = warning [9.0.x]; 13 otevřených otázek
 
 ## Další kroky
+### Sandbox v3 – zjednodušení + Kariéra level 1 (uživatel 2026-11-22)
+- [ ] `ux-designer` – UX.md Část III: checklist vlevo, bubliny, obchod podle vendora, ToR v každém racku, NIC klikem
+  na slot, viditelná kabeláž, BMC provoz hned po zaracování, čitelné odkazy, menu do obrazovky, shell instalátoru ESX,
+  Kariéra level 1 (Single Site, vSAN, 4 hosty) *(běží)*
+- [ ] `doc-researcher` – skutečná interaktivní instalace ESX 9.1 + DCUI krok za krokem *(běží)*
+- [ ] `ui-dev` + `engine-dev` + `scenario-designer` – implementace podle Části III
+
 ### Sandbox v2 – serverovna s panáčkem (rozhodnutí uživatele 2026-11-21, viz CLAUDE.md)
 Tok: fyzická stavba (koupit servery z BCG, switche, rack, kabely, MTU) → hosty (ESX 9, management provoz
 se rozběhne) → volba use case podle VCF Installeru → návrh omezený aktuálním HW → postupný deploy.
