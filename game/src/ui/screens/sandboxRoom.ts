@@ -744,7 +744,7 @@ export const sandboxRoomScreen: ScreenDef = {
       camera = null;
     }
     if (route.name === 'sandbox-room' && route.overview) showOverview();
-    say('Kup rack v obchodě dole a postav ho. Klik na rack = otevřít kabeláž.');
+    if (!overview.active) say('Kup rack v obchodě dole a postav ho. Klik na rack = otevřít kabeláž.');
 
     demoToggle.addEventListener('change', () => {
       settings.open = false;

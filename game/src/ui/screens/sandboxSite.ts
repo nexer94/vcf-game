@@ -60,7 +60,7 @@ export const sandboxSiteScreen: ScreenDef = {
             h('dt', null, 'Hosty (minimum)'), h('dd', null, c.hosts),
           ),
           h('p', { class: 'small' },
-            h('a', { href: c.url, target: '_blank', rel: 'noopener noreferrer', class: 'doc-link', title: c.url }, 'Proč? ↗'),
+            h('a', { href: c.url, target: '_blank', rel: 'noopener noreferrer', class: 'doc-link', title: c.url }, 'Proč?'),
             h('span', { class: 'muted' }, ` ${c.specRef}`)),
         ),
         c.variants.length

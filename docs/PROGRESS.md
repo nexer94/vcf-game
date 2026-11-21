@@ -103,7 +103,9 @@ Grafika: útulná kreslená izometrie (GRAPHICS.md). Ceny = fiktivní měna, v S
     s odemykacími akcemi; tabulka blueprint → lokalita čeká na `06`
     - doplněno: 5 fleet blueprintů z `06`, předvolba `two-buildings-plus-dr` (Fault Domains+DR), witness RTT ≤ 200 ms,
       stejný počet hostů v AZ, minima stretched (mgmt HA 8 Day 2, WLD 6); DR mezi regiony bez čísel (spec)
-  - [ ] `ui-dev` C – startovní obrazovka s kartami blueprintů, místnosti malá/velká, budova, kampus, DR *(běží)*
+  - [x] `ui-dev` C – obrazovka „Vyber design blueprint“ (5 fleet blueprintů z modelu, varianty rozvržení, SVG
+    miniatury), parametrická velikost místnosti, areál (budova/kampus/DR mapa), přechody mezi místnostmi, role
+    místností v HUD (zatím jen v UI adaptéru `ui/sandbox/siteLayout.ts`)
   - [ ] `engine-dev` – napojení (volba blueprintu v session, místnosti, AZ)
 - [ ] (odloženo do funkčního milníku) `code-reviewer` + `ux-designer` review → `fact-checker`
 

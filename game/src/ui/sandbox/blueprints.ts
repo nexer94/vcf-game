@@ -46,7 +46,8 @@ const plural = (n: number, one: string, few: string, many: string): string => `$
 export function hostsText(bp: BlueprintDef): string {
   const g = bp.hostGroups;
   const total = g.reduce((a, x) => a + x.esxHosts, 0);
-  const parts = g.map((x) => `${HOST_LOC[x.location]}${x.esxHosts}`).join(' + ');
+  const multiRegion = g.some((x) => x.location === 'region2');
+  const parts = g.map((x) => `${x.location === 'site' && multiRegion ? 'Region 1 ' : HOST_LOC[x.location]}${x.esxHosts}`).join(' + ');
   return g.length > 1 ? `${parts} (celkem ${plural(total, 'ESX host', 'ESX hosty', 'ESX hostů')})` : plural(total, 'ESX host', 'ESX hosty', 'ESX hostů');
 }
 

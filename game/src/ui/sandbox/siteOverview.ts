@@ -83,7 +83,7 @@ export function createSiteOverview(d: SiteOverviewDeps): SiteOverview {
         );
       })),
       ...layout.links.map((l) => h('p', { class: 'small' },
-        h('strong', null, l.kind === 'corridor' ? 'Chodba' : l.kind === 'campus' ? 'Optika mezi budovami' : 'Linka mezi lokalitami'), ': ',
+        h('strong', null, `${layout.rooms.find((r) => r.id === l.from)?.label ?? l.from} ↔ ${layout.rooms.find((r) => r.id === l.to)?.label ?? l.to}`), h('span', { class: 'muted' }, ` (${l.kind === 'corridor' ? 'chodba' : l.kind === 'campus' ? 'kampus' : 'WAN'})`), ': ',
         formatLinkGame(l.game), ' ', badge('illustrative', 'herní hodnoty linky'))),
       ...(layout.links.length ? [h('p', { class: 'muted small' }, h('span', { 'aria-hidden': 'true' }, '▬ '), 'bílé „kapsle“ na lince = ilustrativní provoz mezi místnostmi (typ provozu se tu nemodeluje).')] : []),
     );
